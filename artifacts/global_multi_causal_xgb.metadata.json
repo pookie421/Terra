@@ -1,16 +1,17 @@
 {
-  "training_rows": 556,
+  "training_rows": 534,
   "positive_rows": 304,
-  "negative_rows": 252,
+  "negative_rows": 230,
   "synthetic_training_only_rows": 40,
-  "physics_model_version": "boundary_conformal_v5",
+  "physics_model_version": "mechanical_fs_v6",
   "conformal": {
-    "q": 0.9999999999982343,
+    "q": 8.34276966674247,
     "alpha": 0.1,
     "blocks": 13,
     "rows": 66,
     "target": "binary_event_label_not_true_probability",
-    "assumption": "exchangeable calibration/test blocks; not established for global spatial/scenario shift"
+    "scale": "ensemble_std",
+    "assumption": "exchangeable calibration/test cells; spatial dependence and global shift invalidate nominal coverage guarantees"
   },
   "probability_policy": "mechanical gate times regime-weighted calibrated XGBoost and physical union; deployed score is not separately calibrated",
   "label_quality": "NASA COOLR polygon/point inventory and report-location proxies; temporal inventory-absence pseudo-negatives plus explicitly simulated training-only mechanical negatives",

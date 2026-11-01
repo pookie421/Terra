@@ -207,7 +207,7 @@ class GlobalScanService:
         ]
 
         if self.model is not None:
-            intervals, widths, bivariate = self.model.conformal_intervals(probability)
+            intervals, widths, bivariate = self.model.conformal_intervals(probability,feature_rows)
         else:
             intervals=np.tile([0.,1.],(count,1)); widths=np.ones(count)
             bivariate=np.where(probability>=.5,'HIGH_SUSCEPTIBILITY_HIGH_UNCERTAINTY','LOW_SUSCEPTIBILITY_HIGH_UNCERTAINTY')
@@ -244,7 +244,7 @@ class GlobalScanService:
                 "uncertainty_width": float(widths[index]),
                 "bivariate_class": str(bivariate[index]),
                 "conformal_target": "binary event label; not a confidence interval for true failure probability",
-                "uncertainty_status": "calibrated_under_exchangeable_blocks_assumption" if self.model is not None and getattr(self.model,'conformal_',None) else "uncalibrated_vacuous_interval",
+                "uncertainty_status": "ensemble_scaled_cell_residual_interval_no_spatial_coverage_guarantee" if self.model is not None and getattr(self.model,'conformal_',None) else "uncalibrated_vacuous_interval",
                 "fs_mohr_coulomb": float(state.fs_mohr_coulomb[index]),
                 "fs_postfire_yield_index": float(state.fs_postfire_yield_index[index]),
                 "debris_volume_proxy_m3": float(state.debris_volume_m3[index]),
@@ -292,6 +292,7 @@ class GlobalScanService:
         summary = {
             "wmo_alert_level": self._alert_level(max_p_failure, rain),
             "max_p_failure": max_p_failure,
+            "critical_fs_static": float(np.percentile(state.fs_static[steep] if np.any(steep) else state.fs_static,5)),
             "critical_fs": min_fs_dynamic, "critical_p_failure": max_p_failure,
             "summary_population": "effective_slope_ge_24_deg" if np.any(steep) else "all_cells",
             "summary_population_count": int(np.count_nonzero(steep)) if np.any(steep) else count,
@@ -307,7 +308,10 @@ class GlobalScanService:
             "kinematics_top_hotspot": top_hotspot,
             "numbers_that_matter": numbers_top,
             "meteorological_metrics": {
+                "forecast_rain_48h_mm": (weather.forecast_rain_next_24h_mm + weather.forecast_rain_24_48h_mm) if weather and weather.forecast_rain_next_24h_mm is not None and weather.forecast_rain_24_48h_mm is not None else None,
                 "rain_24h_mm_observed": weather.rain_24h_mm if weather else None,
+                "soil_temperature_c_observed": weather.soil_temperature_0_7cm_c if weather else None,
+                "assimilated_soil_saturation_fraction": float(np.mean(inputs.soil_saturation_fraction)),
                 "rain_24h_mm_scenario": rain,
                 "storm_duration_hr": storm_duration_hr,
                 "peak_rain_3h_mm": weather.peak_rain_3h_mm if weather else None,
@@ -333,6 +337,7 @@ class GlobalScanService:
                 "latitude": live_scan.location.latitude,
                 "longitude": live_scan.location.longitude,
                 "agency_mode": agency_mode,
+                "bedrock_lithology": live_scan.bedrock, "river_discharge": live_scan.river,
                 "nasa_telemetry": self._nasa_telemetry(live_scan),
                 "reliability_report": reliability_report(live_scan),
             },
@@ -445,6 +450,7 @@ class GlobalScanService:
                 cell_id, scan.terrain.cells,
                 float(kinematics.peak_velocity_m_s[index]), RUNOUT_MU_B, RUNOUT_XI,
                 infrastructure_by_cell=infra, max_steps=50,
+                flow_depth_m=float(state.regolith_depth_m[index]*np.clip(state.pore_pressure_head_m[index]/max(state.regolith_depth_m[index],1e-9),.25,1.)),
             )
             if len(route.path) < 2:
                 continue
@@ -532,8 +538,9 @@ class GlobalScanService:
         }
 
     def _empty_response(self, scan: GlobalScan, agency_mode: str) -> Dict[str, Any]:
+        weather=scan.weather
         return {
-            "location": {"query": scan.location.query, "display_name": scan.location.display_name, "latitude": scan.location.latitude, "longitude": scan.location.longitude, "agency_mode": agency_mode, "nasa_telemetry": self._nasa_telemetry(scan), "reliability_report": reliability_report(scan)},
+            "location": {"query": scan.location.query, "display_name": scan.location.display_name, "latitude": scan.location.latitude, "longitude": scan.location.longitude, "agency_mode": agency_mode, "bedrock_lithology": scan.bedrock, "river_discharge": scan.river, "nasa_telemetry": self._nasa_telemetry(scan), "reliability_report": reliability_report(scan)},
             "summary": {
                 "wmo_alert_level": "UNAVAILABLE", "max_p_failure": None, "min_fs_dynamic": None,
                 "dominant_cause": None, "critical_hotspots_count": 0, "total_households_exposed": None,
@@ -541,7 +548,15 @@ class GlobalScanService:
                 "causal_attribution_valid": False, "causal_attribution_quality": "neutral_prior_no_terrain",
                 "numbers_that_matter": [{"metric": key, "value": 0.0, "unit": unit, "threshold": "unavailable", "status": "NORMAL", "causal_group": "unavailable", "weight_percent": 0.0, "available": False}
                     for key,unit in [("dynamic_factor_of_safety","ratio"),("blended_failure_probability","%"),("peak_velocity","m/s"),("pore_pressure_head","m"),("slope_angle","degrees"),("newmark_displacement","cm")]],
-                "meteorological_metrics": {}, "physics_status": "no sampled land cells",
+                "meteorological_metrics": {
+                    "forecast_rain_48h_mm": (weather.forecast_rain_next_24h_mm + weather.forecast_rain_24_48h_mm) if weather and weather.forecast_rain_next_24h_mm is not None and weather.forecast_rain_24_48h_mm is not None else None,
+                    "rain_24h_mm_observed": weather.rain_24h_mm if weather else None,
+                    "ari_7d_mm": weather.ari_7d_mm if weather else None,
+                    "snow_depth_m": weather.snow_depth_m if weather else None,
+                    "air_temperature_c_scenario": weather.air_temperature_c if weather else None,
+                    "soil_temperature_c_observed": weather.soil_temperature_0_7cm_c if weather else None,
+                    "pga_g_observed": scan.seismic.max_pga_g if scan.seismic else None,
+                }, "physics_status": "no sampled land cells",
             },
             "h3_geojson": {"type": "FeatureCollection", "features": []},
             "runout_geojson": {"type": "FeatureCollection", "features": []},

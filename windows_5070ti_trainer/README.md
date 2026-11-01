@@ -1,6 +1,8 @@
 # TERRA-SHIELD portable GPU trainer
 
-Current v5 measurements: Stage 1 spatial ROC-AUC **0.8441**, Stage 2 unchanged event-holdout ROC-AUC **0.7700**, Recall@40 **0.9167** (40 of 48 rows selected). The PINLS filter removes no current negatives. Conformal calibration reserves 13 separate spatial blocks and produces essentially full-width label intervals. The latest mandatory pretraining requirements are **not all met**. Read `artifacts/readiness.json` and `artifacts/literature_boundary_audit.md` before training; no CUDA execution has been verified.
+Current v6 baseline: spatial CV ROC-AUC **0.8546**, original event-holdout ROC-AUC **0.7396**, Recall@40 **0.9167** (40 of 48 rows selected). The local baseline has engineering/pretraining readiness **true** under invariant-based gates, while `all_requested_targets_passed` remains **false**. These reports do not certify new GPU weights or a source-only clone.
+
+Conformal calibration reserves 66 cells in 13 separate blocks. Ensemble-scaled intervals target binary labels, can span [0,1], and do not guarantee spatial coverage. The latest host has not executed CUDA, Unsloth training or actual GGUF conversion.
 
 This folder is a local portable snapshot for research training on an RTX 5070 Ti. Review `artifacts/full_system_bug_audit.md` and its JSON before training. A passing baseline audit is not an operational validation or a Windows CUDA test.
 

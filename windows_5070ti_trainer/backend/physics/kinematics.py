@@ -146,6 +146,7 @@ def route_runout(
     infrastructure_by_cell: Optional[Mapping[str, Mapping[str, int]]] = None,
     delta_s_by_edge: Optional[Mapping[Tuple[str, str], float]] = None,
     max_steps: int = 50,
+    flow_depth_m: float = 0.5,
 ) -> RunoutRoute:
     """Route positive energy head over lower H3 neighbors.
 
@@ -161,6 +162,9 @@ def route_runout(
     if peak_velocity_m_s < 0 or not math.isfinite(peak_velocity_m_s):
         raise ValueError("peak velocity must be finite and nonnegative")
 
+    if not math.isfinite(flow_depth_m) or flow_depth_m <= 0:
+        raise ValueError("Flow depth must be positive and finite")
+    h_f = max(float(flow_depth_m), 0.5)
     energy_head = peak_velocity_m_s**2 / (2.0 * GRAVITY_M_S2)
     path = [source_cell]
     elapsed_seconds = 0.0
@@ -185,8 +189,8 @@ def route_runout(
             if dz <= 0.0:
                 continue
             dx = _distance_m(cell, neighbor)
-            delta_s = max(0.0, float(edge_s.get((current, neighbor_id), math.sin(math.radians(float(getattr(cell, "slope_deg")))))))
-            delta_energy = dz - mu_b * dx - (current_speed**2 / (GRAVITY_M_S2 * xi)) * delta_s
+            delta_s = math.hypot(dx, dz)
+            delta_energy = dz - mu_b * dx - (current_speed**2 / (GRAVITY_M_S2 * xi * h_f)) * delta_s
             next_head = energy_head + delta_energy
             if next_head > 0.0:
                 candidates.append((next_head, neighbor_id, dx))

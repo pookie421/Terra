@@ -218,8 +218,14 @@ def select_numbers_that_matter(
         _item("toe_undercut_multiplier", state.toe_undercut_multiplier[index], "ratio", "1.0 baseline; >1 adds undercut demand", "active" if state.toe_undercut_multiplier[index] > 1.0 else "inactive", "anthropogenic_fluvial", cause_weights["anthropogenic_fluvial"]),
         _item("slope_angle", slope, "degrees", "16° road-cut; 28° coseismic branch thresholds", "critical" if slope >= 28 else ("watch" if slope > 16 else "below threshold"), "anthropogenic_fluvial", cause_weights["anthropogenic_fluvial"]),
     ]
-    candidates.sort(key=lambda item: (item.weight_percent, item.status in ("CRITICAL", "WATCH")), reverse=True)
-    return candidates[:6]
+    core=[replace(item,causal_group='core_stability') for item in candidates[:2]]
+    ranked=sorted(candidates[2:],key=lambda item:(item.weight_percent,item.status in ('CRITICAL','WATCH')),reverse=True)
+    chosen=[];seen=set()
+    for item in ranked:
+        if item.causal_group not in seen:
+            chosen.append(item);seen.add(item.causal_group)
+        if len(chosen)==4:break
+    return core+chosen
 
 
 def _normalize(values: Mapping[str, np.ndarray]) -> Dict[str, np.ndarray]:

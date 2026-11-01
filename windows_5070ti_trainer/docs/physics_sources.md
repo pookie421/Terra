@@ -1,3 +1,5 @@
+> Current implementation: v6. The final v6 section supersedes earlier v5 descriptions of lateral resistance, probability-derived FS, lapse reference and uncertainty calibration. See [current status](current_status.md) and [roadmap](../ROADMAP.md) for validation limits and independent review priorities.
+
 # Equation provenance and scope (physics v5)
 
 The engine mixes published equation forms with requested scenario approximations. It is not a validated reproduction of a USGS operational model. Source availability, model applicability and predictive validation are distinct questions.
@@ -56,3 +58,11 @@ Split conformal follows the finite-sample order-statistic construction in [Angel
 For source-cell failure **scenarios**, [Larsen et al. 2010 Fig.2a](https://gis.ess.washington.edu/grg/publications/pdfs/Larsen_et_al_2010.pdf) gives V=10^(-.836)*A^1.332 for all materials (A m2, V m3). An H3 cell area is not an observed scar. The [Ermini-Casagli DBI as reproduced in a primary 2020 study](https://nhess.copernicus.org/articles/20/3179/2020/) is log10(Ac*H/V), using consistent SI units here. Equivalently Ac km2 and V millions of m3 can be used together; mixing km2 with m3 produces a six-order error. Empirical domains below 2.75 and above 3.08 are labeled, not site-certified. A TWI>=14.5 intersection exposes the source-area volume scenario and viewport-only contributing area. **Live DBI remains null** because dam height, deposited volume and full upstream catchment are unobserved. Supply these inputs to `cascading_screen(...,dam_geometry=...)` to calculate DBI; no dam height or deposition fraction is invented.
 
 Optional SoilGrids and Overpass calls have separate two-second deadlines; COOLR participates in the concurrent acquisition barrier. Other providers, terrain decoding, imagery and response construction still consume time. Cold end-to-end timing is measured separately and cannot be inferred from the optional deadline tests.
+
+## v6 directive changes
+
+The lateral adaptation and probability-derived FS override are removed. Mechanical FS is Mohr-Coulomb; M1 enters the physical probability union separately. Mamot retention uses the requested mapped joint-temperature proxy and reference stress, not measured joint temperature or verified joint ice. Median-elevation lapse correction is a viewport assumption. Voellmy routing now uses inclined step length and explicit positive flow depth.
+
+GloFAS supplies modeled regional discharge, not local gauges (https://open-meteo.com/en/docs/flood-api). Macrostrat supplies mapped lithology, not measured material strength. The requested +/-1.5 strength adjustments and discharge-driven toe scaling are scenario assumptions and are disclosed in the API. Missing feeds apply neutral adjustments. Historical training lacks these feeds and uses neutral defaults; this train/live context difference needs validation.
+
+Ensemble-scaled calibration now uses per-cell residuals on the separately reserved calibration set. Cell dependence prevents a formal spatial 90% coverage claim. Wide intervals remain possible; widths are never capped to make the display look informative. Numeric prose validation permits the requested percentages, standard labels and rounding tolerance. It is not a semantic proof of factual road names or evacuation advice.

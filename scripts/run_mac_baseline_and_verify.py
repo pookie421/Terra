@@ -53,7 +53,7 @@ def _fit_real_model(path: Path) -> Optional[GlobalMonotonicXGB]:
             "positive_rows": int((y == 1).sum()),
             "negative_rows": int((y == 0).sum()),
             "synthetic_training_only_rows": sum(bool(row.get("is_synthetic")) for row in rows),
-            "physics_model_version": "boundary_conformal_v5", "conformal":conformal,
+            "physics_model_version": "mechanical_fs_v6", "conformal":conformal,
             "probability_policy": "mechanical gate times regime-weighted calibrated XGBoost and physical union; deployed score is not separately calibrated",
             "label_quality": "NASA COOLR polygon/point inventory and report-location proxies; temporal inventory-absence pseudo-negatives plus explicitly simulated training-only mechanical negatives",
             "calibration": "isotonic with {} grouped spatial folds".format(n_splits),

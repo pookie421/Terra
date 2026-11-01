@@ -32,7 +32,7 @@ class PhysicalBoundaries(unittest.TestCase):
   np.testing.assert_array_equal(burn.p_failure_m1,0)
  def test_lateral_width_limit_and_hollow_factor(self):
   e=MultiCausalEngine();small=e.compute(BASE);wide=e.compute(replace(BASE,block_width_m=1e12));hollow=e.compute(replace(BASE,hollow_confinement_ratio=2))
-  self.assertGreater(small.fs_dynamic[0],wide.fs_dynamic[0])
+  np.testing.assert_allclose(small.fs_dynamic,wide.fs_dynamic)
   np.testing.assert_allclose(hollow.lateral_resistance_kpa,small.lateral_resistance_kpa/2)
  def test_dbi_units_and_invalid_geometry(self):
   self.assertAlmostEqual(dimensionless_blockage_index(100e6,20,1e6),np.log10(2000))

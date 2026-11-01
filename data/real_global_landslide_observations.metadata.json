@@ -172,19 +172,51 @@
     "hindcast_candidates": "data/historical_hindcast_candidates.parquet",
     "pinls_training": {
       "threshold": 1.2,
-      "removed_ids": [],
+      "removed_ids": [
+        "nasa_coolr_polygon:2768:896726718bbffff:tminus60",
+        "nasa_coolr_polygon:2682:8967267ad9bffff:tminus60",
+        "nasa_coolr_polygon:9808:896726713c3ffff:tminus60",
+        "nasa_coolr_polygon:9777:896726799b3ffff:tminus60",
+        "nasa_coolr_polygon:9804:89672671353ffff:tminus60",
+        "nasa_coolr_polygon:11990:8967266262fffff:tminus60",
+        "nasa_coolr:25151:tminus60",
+        "nasa_coolr:34630:tminus60",
+        "nasa_coolr:27181:tminus60",
+        "nasa_coolr:3879:tminus60",
+        "nasa_coolr:34947:tminus60",
+        "nasa_coolr:3912:tminus60",
+        "nasa_coolr:40154:tminus60",
+        "nasa_coolr:35176:tminus60",
+        "nasa_coolr:25244:tminus60",
+        "nasa_coolr:27259:tminus60",
+        "nasa_coolr:25220:tminus60",
+        "nasa_coolr:35062:tminus60",
+        "nasa_coolr_report:5007:tminus60",
+        "nasa_coolr_report:2071:tminus60",
+        "nasa_coolr_report:8871:tminus60",
+        "nasa_coolr_report:2406:tminus60"
+      ],
       "retained_negative_slope_strata": {
-        "moderate_high_slope_ge15": 181,
-        "low_slope_lt15": 31
+        "moderate_high_slope_ge15": 162,
+        "low_slope_lt15": 28
       },
       "scope": "Requested sampling rule; not verified intact ground. Filtering evaluation negatives changes the estimand."
     },
     "pinls_holdout": {
       "threshold": 1.2,
-      "removed_ids": [],
+      "removed_ids": [
+        "nasa_coolr_report:3896:tminus60",
+        "nasa_coolr_report:1517:tminus60",
+        "nasa_coolr_report:6400:tminus60",
+        "nasa_coolr_report:12043:tminus60",
+        "nasa_coolr_report:49:tminus60",
+        "nasa_coolr_report:14684:tminus60",
+        "nasa_coolr_report:11393:tminus60",
+        "nasa_coolr_report:3646:tminus60"
+      ],
       "retained_negative_slope_strata": {
-        "moderate_high_slope_ge15": 18,
-        "low_slope_lt15": 6
+        "moderate_high_slope_ge15": 12,
+        "low_slope_lt15": 4
       },
       "scope": "Requested sampling rule; not verified intact ground. Filtering evaluation negatives changes the estimand."
     },
@@ -204,7 +236,7 @@
       "84da91bffffffff"
     ],
     "conformal_rows": 66,
-    "training_labeled_rows": 556,
+    "training_labeled_rows": 534,
     "spatial_embargo_blocks": [
       "840c733ffffffff",
       "8412d15ffffffff",
@@ -295,7 +327,7 @@
   },
   "observed_negative_rows": 745,
   "source_report_rows": 32,
-  "physics_model_version": "boundary_conformal_v5",
+  "physics_model_version": "mechanical_fs_v6",
   "mapped_footprint_expansion": {
     "status": "archived_source_geometry",
     "added_positive_cells_by_regime": {

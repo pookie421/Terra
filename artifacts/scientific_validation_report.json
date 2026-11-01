@@ -3,10 +3,10 @@
     "name": "Stage 1: spatial block CV",
     "status": "scored",
     "metrics": {
-      "roc_auc": 0.8441379096325718,
-      "pr_auc": 0.9023847100507287,
-      "brier_score": 0.16403481453286572,
-      "brier_skill_score": 0.3337935954012655
+      "roc_auc": 0.854648545706371,
+      "pr_auc": 0.9162265610437177,
+      "brier_score": 0.15263824633772002,
+      "brier_skill_score": 0.36541221969458626
     },
     "details": [
       "Pooled out-of-fold predictions from 5 spatial holdout folds; simulated mechanical negatives enter training only and are excluded from evaluation and calibration holdouts. Metrics here describe the raw constrained XGBoost score; Stage 2 describes the ungated isotonic event-buffer score, a different estimand from live gated scores.",
@@ -20,24 +20,24 @@
       "seed": 20261031,
       "intervals": {
         "roc_auc": [
-          0.7159296957897108,
-          0.9293436657361471
+          0.725086545252037,
+          0.9385996389125429
         ],
         "pr_auc": [
-          0.7884048656413175,
-          0.9666274317477672
+          0.7995462100343276,
+          0.9760122705077893
         ],
         "brier_score": [
-          0.09574827458318862,
-          0.2616632661058602
+          0.08566816049264385,
+          0.24642401335521966
         ],
         "recall_at_40": [
-          0.08905797101449275,
-          0.20054123711340205
+          0.08957162921348315,
+          0.20052763819095476
         ],
         "recall_at_k": [
-          0.1445162553858206,
-          0.18961635888217027
+          0.13920555080617905,
+          0.18478891870800737
         ]
       }
     }
@@ -46,11 +46,11 @@
     "name": "Stage 2: historical catastrophe hindcast",
     "status": "scored",
     "metrics": {
-      "roc_auc": 0.7699652777777778,
-      "pr_auc": 0.8005488776245061,
-      "brier_score": 0.20624399384963266,
-      "threshold_0_5_accuracy": 0.6666666666666666,
-      "recall_at_k": 0.20833333333333334,
+      "roc_auc": 0.7395833333333335,
+      "pr_auc": 0.773165918761894,
+      "brier_score": 0.2179379057249258,
+      "threshold_0_5_accuracy": 0.6458333333333334,
+      "recall_at_k": 0.16666666666666666,
       "recall_at_40": 0.9166666666666666,
       "recall_at_40_k": 40.0,
       "rows": 48.0,
@@ -69,23 +69,23 @@
       "seed": 20261031,
       "intervals": {
         "roc_auc": [
-          0.6744357638888888,
-          0.8711154513888888
+          0.6258246527777779,
+          0.8702473958333334
         ],
         "pr_auc": [
-          0.7237875279846787,
-          0.898271919752898
+          0.6750792766429463,
+          0.9097030850249029
         ],
         "brier_score": [
-          0.1523637399778825,
-          0.2584076965157973
+          0.16054585648511935,
+          0.2696044529451531
         ],
         "recall_at_40": [
-          0.875,
+          0.7916666666666666,
           1.0
         ],
         "recall_at_k": [
-          0.16666666666666666,
+          0.125,
           0.20833333333333334
         ]
       }
@@ -111,30 +111,12 @@
       },
       "numbers_that_matter": [
         {
-          "metric": "toe_undercut_multiplier",
-          "value": 1.0000002981322538,
-          "unit": "ratio",
-          "threshold": "1.0 baseline; >1 adds undercut demand",
-          "status": "WATCH",
-          "causal_group": "anthropogenic_fluvial",
-          "weight_percent": 100.0
-        },
-        {
-          "metric": "slope_angle",
-          "value": 1.5,
-          "unit": "degrees",
-          "threshold": "16\u00b0 road-cut; 28\u00b0 coseismic branch thresholds",
-          "status": "NORMAL",
-          "causal_group": "anthropogenic_fluvial",
-          "weight_percent": 100.0
-        },
-        {
           "metric": "dynamic_factor_of_safety",
           "value": 5.0,
           "unit": "ratio",
           "threshold": "failure threshold 1.00; rapid-deformation watch 1.25",
           "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
+          "causal_group": "core_stability",
           "weight_percent": 0.0
         },
         {
@@ -143,8 +125,17 @@
           "unit": "%",
           "threshold": "hotspot threshold 65%",
           "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
+          "causal_group": "core_stability",
           "weight_percent": 0.0
+        },
+        {
+          "metric": "toe_undercut_multiplier",
+          "value": 1.0000002981322538,
+          "unit": "ratio",
+          "threshold": "1.0 baseline; >1 adds undercut demand",
+          "status": "WATCH",
+          "causal_group": "anthropogenic_fluvial",
+          "weight_percent": 100.0
         },
         {
           "metric": "pore_pressure_head",
@@ -156,21 +147,30 @@
           "weight_percent": 0.0
         },
         {
-          "metric": "24_hour_rainfall",
-          "value": 350.0,
-          "unit": "mm",
-          "threshold": "25 mm when burn severity \u22650.35 activates rapid-flow branch",
+          "metric": "pga",
+          "value": 0.0,
+          "unit": "g",
+          "threshold": "critical acceleration 0.1047 g",
           "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
+          "causal_group": "seismic_tectonic",
+          "weight_percent": 0.0
+        },
+        {
+          "metric": "snowmelt_flux",
+          "value": 0.0,
+          "unit": "mm/day",
+          "threshold": "positive melt requires snow depth >0.01 m and air temperature >0\u00b0C",
+          "status": "NORMAL",
+          "causal_group": "cryospheric",
           "weight_percent": 0.0
         }
       ]
     },
     {
       "name": "Dry Cliff Control",
-      "fs_static": 2.9916865581178493,
-      "fs_dynamic": 2.9916865581178493,
-      "p_failure_physical": 4.174024189951275e-06,
+      "fs_static": 2.8070421568066592,
+      "fs_dynamic": 2.8070421568066592,
+      "p_failure_physical": 7.1893219395491315e-06,
       "passed": true,
       "assertion": "FS_dynamic > 1.25 and FOSM P(failure) < 0.05",
       "peak_velocity_m_s": 0.0,
@@ -185,6 +185,24 @@
       },
       "numbers_that_matter": [
         {
+          "metric": "dynamic_factor_of_safety",
+          "value": 2.8070421568066592,
+          "unit": "ratio",
+          "threshold": "failure threshold 1.00; rapid-deformation watch 1.25",
+          "status": "NORMAL",
+          "causal_group": "core_stability",
+          "weight_percent": 0.0
+        },
+        {
+          "metric": "physical_failure_probability",
+          "value": 0.0007189321939549131,
+          "unit": "%",
+          "threshold": "hotspot threshold 65%",
+          "status": "NORMAL",
+          "causal_group": "core_stability",
+          "weight_percent": 0.0
+        },
+        {
           "metric": "toe_undercut_multiplier",
           "value": 1.000000281087842,
           "unit": "ratio",
@@ -192,33 +210,6 @@
           "status": "WATCH",
           "causal_group": "anthropogenic_fluvial",
           "weight_percent": 100.0
-        },
-        {
-          "metric": "slope_angle",
-          "value": 40.0,
-          "unit": "degrees",
-          "threshold": "16\u00b0 road-cut; 28\u00b0 coseismic branch thresholds",
-          "status": "CRITICAL",
-          "causal_group": "anthropogenic_fluvial",
-          "weight_percent": 100.0
-        },
-        {
-          "metric": "dynamic_factor_of_safety",
-          "value": 2.9916865581178493,
-          "unit": "ratio",
-          "threshold": "failure threshold 1.00; rapid-deformation watch 1.25",
-          "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 0.0
-        },
-        {
-          "metric": "physical_failure_probability",
-          "value": 0.00041740241899512753,
-          "unit": "%",
-          "threshold": "hotspot threshold 65%",
-          "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 0.0
         },
         {
           "metric": "pore_pressure_head",
@@ -230,12 +221,21 @@
           "weight_percent": 0.0
         },
         {
-          "metric": "24_hour_rainfall",
+          "metric": "pga",
           "value": 0.0,
-          "unit": "mm",
-          "threshold": "25 mm when burn severity \u22650.35 activates rapid-flow branch",
+          "unit": "g",
+          "threshold": "critical acceleration 0.6000 g",
           "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
+          "causal_group": "seismic_tectonic",
+          "weight_percent": 0.0
+        },
+        {
+          "metric": "snowmelt_flux",
+          "value": 0.0,
+          "unit": "mm/day",
+          "threshold": "positive melt requires snow depth >0.01 m and air temperature >0\u00b0C",
+          "status": "NORMAL",
+          "causal_group": "cryospheric",
           "weight_percent": 0.0
         }
       ]
@@ -263,9 +263,9 @@
       "cause_percentages": {
         "hydro_meteorological": 0.0,
         "seismic_tectonic": 0.0,
-        "cryospheric": 99.99997121483021,
+        "cryospheric": 99.99997990755811,
         "post_wildfire_biotic": 0.0,
-        "anthropogenic_fluvial": 2.8785169786440217e-05
+        "anthropogenic_fluvial": 2.0092441892480005e-05
       },
       "passed": true,
       "scenario_assumption": "Explicit 0.50 m snow cover and +8 \u00b0C warming; this is a synthetic snow-present scenario."
@@ -305,21 +305,21 @@
     "name": "Stage 2: historical catastrophe hindcast",
     "status": "scored",
     "metrics": {
-      "roc_auc": 0.7699652777777778,
-      "pr_auc": 0.8005488776245061,
-      "brier_score": 0.20624399384963266,
-      "threshold_0_5_accuracy": 0.6666666666666666,
-      "recall_at_k": 0.20833333333333334,
-      "recall_at_40": 0.9166666666666666,
+      "roc_auc": 0.7968750000000001,
+      "pr_auc": 0.8480786182244912,
+      "brier_score": 0.18418336448733452,
+      "threshold_0_5_accuracy": 0.725,
+      "recall_at_k": 0.16666666666666666,
+      "recall_at_40": 1.0,
       "recall_at_40_k": 40.0,
-      "rows": 48.0,
+      "rows": 40.0,
       "positive_rows": 24.0,
       "heldout_events": 24.0,
-      "recall_at_k_k": 5.0,
-      "recall_at_k_fraction": 0.10416666666666667
+      "recall_at_k_k": 4.0,
+      "recall_at_k_fraction": 0.1
     },
     "details": [
-      "48 event-time rows across 24 held-out case(s); Recall@K uses the top 10% by predicted probability (K=5); Recall@40 also reported with its actual K. Stable input order breaks tied scores. On small samples Recall@40 can be uninformative."
+      "40 event-time rows across 24 held-out case(s); Recall@K uses the top 10% by predicted probability (K=4); Recall@40 also reported with its actual K. Stable input order breaks tied scores. On small samples Recall@40 can be uninformative."
     ],
     "confidence_intervals": {
       "method": "95% percentile cluster bootstrap of fixed predictions; conditional on fitted models; not retraining uncertainty",
@@ -328,23 +328,23 @@
       "seed": 20261031,
       "intervals": {
         "roc_auc": [
-          0.6744357638888888,
-          0.8711154513888888
+          0.6591145833333333,
+          0.9200846354166664
         ],
         "pr_auc": [
-          0.7237875279846787,
-          0.898271919752898
+          0.7307481138337861,
+          0.9616500543518192
         ],
         "brier_score": [
-          0.1523637399778825,
-          0.2584076965157973
+          0.11279640549200423,
+          0.24964108418371908
         ],
         "recall_at_40": [
-          0.875,
+          0.9166666666666666,
           1.0
         ],
         "recall_at_k": [
-          0.16666666666666666,
+          0.125,
           0.20833333333333334
         ]
       }
@@ -352,22 +352,23 @@
     "scope": "Selection-biased stability-filtered cohort; not comparable to the unchanged original holdout"
   },
   "conformal_calibration": {
-    "q": 0.9999999999982343,
+    "q": 8.34276966674247,
     "alpha": 0.1,
     "blocks": 13,
     "rows": 66,
     "target": "binary_event_label_not_true_probability",
-    "assumption": "exchangeable calibration/test blocks; not established for global spatial/scenario shift"
+    "scale": "ensemble_std",
+    "assumption": "exchangeable calibration/test cells; spatial dependence and global shift invalidate nominal coverage guarantees"
   },
   "conformal_holdout": {
     "target": "binary event labels, not the latent probability",
     "rows": 48,
     "blocks": 24,
-    "row_coverage": 1.0,
-    "whole_block_coverage": 1.0,
-    "mean_interval_width": 1.0,
-    "q": 0.9999999999982343,
-    "empty_binary_prediction_sets": 0,
+    "row_coverage": 0.8541666666666666,
+    "whole_block_coverage": 0.75,
+    "mean_interval_width": 0.8835158124705734,
+    "q": 8.34276966674247,
+    "empty_binary_prediction_sets": 4,
     "scope": "Descriptive on fixed source-location proxies; not a global coverage guarantee"
   },
   "stage4_kinematics": [
@@ -391,8 +392,8 @@
       "name": "Branch C slump",
       "expected_mode": "Cohesive slump / thaw slump / toe-cut wedge",
       "actual_mode": "Cohesive slump / thaw slump / toe-cut wedge",
-      "peak_velocity_m_s": 0.00019472593535647563,
-      "velocity_class": 4,
+      "peak_velocity_m_s": 0.0007293931129536939,
+      "velocity_class": 5,
       "passed": true
     },
     {
@@ -578,19 +579,51 @@
       "hindcast_candidates": "data/historical_hindcast_candidates.parquet",
       "pinls_training": {
         "threshold": 1.2,
-        "removed_ids": [],
+        "removed_ids": [
+          "nasa_coolr_polygon:2768:896726718bbffff:tminus60",
+          "nasa_coolr_polygon:2682:8967267ad9bffff:tminus60",
+          "nasa_coolr_polygon:9808:896726713c3ffff:tminus60",
+          "nasa_coolr_polygon:9777:896726799b3ffff:tminus60",
+          "nasa_coolr_polygon:9804:89672671353ffff:tminus60",
+          "nasa_coolr_polygon:11990:8967266262fffff:tminus60",
+          "nasa_coolr:25151:tminus60",
+          "nasa_coolr:34630:tminus60",
+          "nasa_coolr:27181:tminus60",
+          "nasa_coolr:3879:tminus60",
+          "nasa_coolr:34947:tminus60",
+          "nasa_coolr:3912:tminus60",
+          "nasa_coolr:40154:tminus60",
+          "nasa_coolr:35176:tminus60",
+          "nasa_coolr:25244:tminus60",
+          "nasa_coolr:27259:tminus60",
+          "nasa_coolr:25220:tminus60",
+          "nasa_coolr:35062:tminus60",
+          "nasa_coolr_report:5007:tminus60",
+          "nasa_coolr_report:2071:tminus60",
+          "nasa_coolr_report:8871:tminus60",
+          "nasa_coolr_report:2406:tminus60"
+        ],
         "retained_negative_slope_strata": {
-          "moderate_high_slope_ge15": 181,
-          "low_slope_lt15": 31
+          "moderate_high_slope_ge15": 162,
+          "low_slope_lt15": 28
         },
         "scope": "Requested sampling rule; not verified intact ground. Filtering evaluation negatives changes the estimand."
       },
       "pinls_holdout": {
         "threshold": 1.2,
-        "removed_ids": [],
+        "removed_ids": [
+          "nasa_coolr_report:3896:tminus60",
+          "nasa_coolr_report:1517:tminus60",
+          "nasa_coolr_report:6400:tminus60",
+          "nasa_coolr_report:12043:tminus60",
+          "nasa_coolr_report:49:tminus60",
+          "nasa_coolr_report:14684:tminus60",
+          "nasa_coolr_report:11393:tminus60",
+          "nasa_coolr_report:3646:tminus60"
+        ],
         "retained_negative_slope_strata": {
-          "moderate_high_slope_ge15": 18,
-          "low_slope_lt15": 6
+          "moderate_high_slope_ge15": 12,
+          "low_slope_lt15": 4
         },
         "scope": "Requested sampling rule; not verified intact ground. Filtering evaluation negatives changes the estimand."
       },
@@ -610,7 +643,7 @@
         "84da91bffffffff"
       ],
       "conformal_rows": 66,
-      "training_labeled_rows": 556,
+      "training_labeled_rows": 534,
       "spatial_embargo_blocks": [
         "840c733ffffffff",
         "8412d15ffffffff",
@@ -701,7 +734,7 @@
     },
     "observed_negative_rows": 745,
     "source_report_rows": 32,
-    "physics_model_version": "boundary_conformal_v5",
+    "physics_model_version": "mechanical_fs_v6",
     "mapped_footprint_expansion": {
       "status": "archived_source_geometry",
       "added_positive_cells_by_regime": {
@@ -803,76 +836,76 @@
     {
       "name": "Wayanad Monsoon",
       "cell_count": 509,
-      "min_fs_dynamic": 1.123784715480043,
-      "max_p_failure": 0.16896376390391094,
-      "fs_dynamic_median": 2.4254580794959737,
-      "p_failure_median": 0.027382931702580937,
-      "p_physical_median": 4.096767912020738e-06,
-      "p_xgb_median": 0.22404416799545288,
+      "min_fs_dynamic": 1.0459766689283416,
+      "max_p_failure": 0.3514058360789206,
+      "fs_dynamic_median": 2.2316685174059616,
+      "p_failure_median": 0.08621996998216619,
+      "p_physical_median": 1.6681519448114024e-05,
+      "p_xgb_median": 0.40553572177886965,
       "velocity_median_m_s": 0.0,
       "velocity_class_representative": "Extremely Rapid",
       "dominant_cause": "hydro_meteorological",
       "cause_percentages": {
-        "hydro_meteorological": 92.18811473206945,
-        "seismic_tectonic": 7.636354065663245,
-        "cryospheric": 0.07232485862863458,
+        "hydro_meteorological": 90.51402615499347,
+        "seismic_tectonic": 9.469728490786643,
+        "cryospheric": 0.0,
         "post_wildfire_biotic": 0.0,
-        "anthropogenic_fluvial": 0.1032063436386721
+        "anthropogenic_fluvial": 0.016245354219870483
       },
       "numbers_that_matter": [
         {
           "metric": "dynamic_factor_of_safety",
-          "value": 0.9569255709983915,
+          "value": 0.8949102269652796,
           "unit": "ratio",
           "threshold": "failure threshold 1.00; rapid-deformation watch 1.25",
           "status": "CRITICAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 92.18811473206945
+          "causal_group": "core_stability",
+          "weight_percent": 90.51402615499347
         },
         {
           "metric": "blended_failure_probability",
-          "value": 53.90161814280062,
+          "value": 81.6507521889082,
           "unit": "%",
           "threshold": "hotspot threshold 65%",
-          "status": "WATCH",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 92.18811473206945
+          "status": "CRITICAL",
+          "causal_group": "core_stability",
+          "weight_percent": 90.51402615499347
         },
         {
           "metric": "pore_pressure_head",
-          "value": 0.8402096010759136,
+          "value": 0.8527986455181462,
           "unit": "m",
           "threshold": "full saturation head 0.913 m",
           "status": "CRITICAL",
           "causal_group": "hydro_meteorological",
-          "weight_percent": 92.18811473206945
-        },
-        {
-          "metric": "local_soil_saturation",
-          "value": 96.53895346922651,
-          "unit": "%",
-          "threshold": "68% rapid-flow branch threshold",
-          "status": "CRITICAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 92.18811473206945
-        },
-        {
-          "metric": "24_hour_rainfall",
-          "value": 0.1,
-          "unit": "mm",
-          "threshold": "25 mm when burn severity \u22650.35 activates rapid-flow branch",
-          "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 92.18811473206945
+          "weight_percent": 90.51402615499347
         },
         {
           "metric": "pga",
           "value": 0.0,
           "unit": "g",
-          "threshold": "critical acceleration 0.2838 g",
+          "threshold": "critical acceleration 0.2363 g",
           "status": "NORMAL",
           "causal_group": "seismic_tectonic",
-          "weight_percent": 7.636354065663245
+          "weight_percent": 9.469728490786643
+        },
+        {
+          "metric": "toe_undercut_multiplier",
+          "value": 1.0000014819134768,
+          "unit": "ratio",
+          "threshold": "1.0 baseline; >1 adds undercut demand",
+          "status": "WATCH",
+          "causal_group": "anthropogenic_fluvial",
+          "weight_percent": 0.016245354219870483
+        },
+        {
+          "metric": "snowmelt_flux",
+          "value": 0.0,
+          "unit": "mm/day",
+          "threshold": "positive melt requires snow depth >0.01 m and air temperature >0\u00b0C",
+          "status": "NORMAL",
+          "causal_group": "cryospheric",
+          "weight_percent": 0.0
         }
       ],
       "kinematics_top_hotspot": {
@@ -880,11 +913,11 @@
         "latitude": 11.52530994535955,
         "longitude": 76.10597168051896,
         "slope_deg": 36.73064095633371,
-        "fs_dynamic": 0.9569255709983915,
-        "p_failure": 0.5390161814280062,
+        "fs_dynamic": 0.8949102269652796,
+        "p_failure": 0.816507521889082,
         "exposure_weight": 1.0,
-        "hotspot_score": 0.5390161814280062,
-        "peak_velocity_ms": 14.107543535508386,
+        "hotspot_score": 0.816507521889082,
+        "peak_velocity_ms": 14.212838793502167,
         "cruden_varnes_class": 7,
         "cruden_varnes_label": "Extremely Rapid",
         "failure_mode": "Rapid fluidized debris flow / avalanche"
@@ -906,196 +939,93 @@
     {
       "name": "Seaward Kaikoura Range",
       "cell_count": 484,
-      "min_fs_dynamic": 0.7926896988821338,
-      "max_p_failure": 0.8596553291167669,
-      "fs_dynamic_median": 1.1331643196975278,
-      "p_failure_median": 0.22180760941020344,
-      "p_physical_median": 0.1819589719043998,
-      "p_xgb_median": 0.2418703593313694,
-      "velocity_median_m_s": 0.0005204050559629379,
+      "min_fs_dynamic": 0.26552284454679176,
+      "max_p_failure": 0.9602100009132382,
+      "fs_dynamic_median": 1.0542966287613331,
+      "p_failure_median": 0.5373451516559598,
+      "p_physical_median": 0.3463092059921269,
+      "p_xgb_median": 0.6264656066894532,
+      "velocity_median_m_s": 0.0015632615364794176,
       "velocity_class_representative": "Extremely Rapid",
-      "dominant_cause": "hydro_meteorological",
+      "dominant_cause": "cryospheric",
       "cause_percentages": {
-        "hydro_meteorological": 71.1678709977865,
-        "seismic_tectonic": 6.189823756223795,
-        "cryospheric": 0.06590791476334518,
+        "hydro_meteorological": 43.86065922410988,
+        "seismic_tectonic": 8.964892335545423,
+        "cryospheric": 47.152625003857715,
         "post_wildfire_biotic": 0.0,
-        "anthropogenic_fluvial": 22.576397331226364
+        "anthropogenic_fluvial": 0.02182343648698595
       },
       "numbers_that_matter": [
         {
           "metric": "dynamic_factor_of_safety",
-          "value": 0.7462044541729499,
+          "value": 0.2350172987697128,
           "unit": "ratio",
           "threshold": "failure threshold 1.00; rapid-deformation watch 1.25",
           "status": "CRITICAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 71.1678709977865
+          "causal_group": "core_stability",
+          "weight_percent": 43.86065922410988
         },
         {
           "metric": "blended_failure_probability",
-          "value": 92.24323142549973,
+          "value": 97.76639742687614,
           "unit": "%",
           "threshold": "hotspot threshold 65%",
           "status": "CRITICAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 71.1678709977865
+          "causal_group": "core_stability",
+          "weight_percent": 43.86065922410988
         },
-        {
-          "metric": "pore_pressure_head",
-          "value": 0.7243113640323169,
-          "unit": "m",
-          "threshold": "full saturation head 0.843 m",
-          "status": "CRITICAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 71.1678709977865
-        },
-        {
-          "metric": "local_soil_saturation",
-          "value": 90.720487753293,
-          "unit": "%",
-          "threshold": "68% rapid-flow branch threshold",
-          "status": "CRITICAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 71.1678709977865
-        },
-        {
-          "metric": "24_hour_rainfall",
-          "value": 0.0,
-          "unit": "mm",
-          "threshold": "25 mm when burn severity \u22650.35 activates rapid-flow branch",
-          "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 71.1678709977865
-        },
-        {
-          "metric": "toe_undercut_multiplier",
-          "value": 1.1553806522977055,
-          "unit": "ratio",
-          "threshold": "1.0 baseline; >1 adds undercut demand",
-          "status": "WATCH",
-          "causal_group": "anthropogenic_fluvial",
-          "weight_percent": 22.576397331226364
-        }
-      ],
-      "kinematics_top_hotspot": {
-        "h3_index": "89da96931b7ffff",
-        "latitude": -42.29042406294326,
-        "longitude": 173.59329820621642,
-        "slope_deg": 38.24323245457241,
-        "fs_dynamic": 0.7462044541729499,
-        "p_failure": 0.9224323142549973,
-        "exposure_weight": 1.0,
-        "hotspot_score": 0.9224323142549973,
-        "peak_velocity_ms": 13.736882335872462,
-        "cruden_varnes_class": 7,
-        "cruden_varnes_label": "Extremely Rapid",
-        "failure_mode": "Rapid fluidized debris flow / avalanche"
-      },
-      "representative_cell_id": "89da96931b7ffff",
-      "provenance": {
-        "soil": "topographic_climatic_pedotransfer_estimate (estimated_not_measured)",
-        "soil_saturation": "Open-Meteo moisture / bulk-density porosity",
-        "vegetation": "Esri visible-band VDVI proxy",
-        "burn": [
-          "not_assessed_no_nearby_eonet_fire_evidence"
-        ],
-        "d_road_cut_m": "OSM mapped cutting tag at H3 centroid; otherwise 9999 m default",
-        "d_river_m": "H3-center distance to nearest DEM cell with TWI >= 14.5; 9999 m if absent",
-        "weather_and_other_defaults": [],
-        "probability": "mechanically gated XGBoost/physical blend; source inventory and reported-point proxy labels"
-      }
-    },
-    {
-      "name": "Zermatt Snowmelt",
-      "cell_count": 531,
-      "min_fs_dynamic": 1.2137819305548494,
-      "max_p_failure": 0.2228827885504608,
-      "fs_dynamic_median": 1.5340409162295081,
-      "p_failure_median": 0.12125795393336314,
-      "p_physical_median": 0.0015367264599349673,
-      "p_xgb_median": 0.202225986123085,
-      "velocity_median_m_s": 0.0,
-      "velocity_class_representative": "Rapid",
-      "dominant_cause": "cryospheric",
-      "cause_percentages": {
-        "hydro_meteorological": 40.3475904885633,
-        "seismic_tectonic": 9.431858657659781,
-        "cryospheric": 49.827730105285895,
-        "post_wildfire_biotic": 0.0,
-        "anthropogenic_fluvial": 0.3928207484910343
-      },
-      "numbers_that_matter": [
         {
           "metric": "snowmelt_flux",
-          "value": 3.6015970982142824,
+          "value": 4.495451032366079,
           "unit": "mm/day",
           "threshold": "positive melt requires snow depth >0.01 m and air temperature >0\u00b0C",
           "status": "WATCH",
           "causal_group": "cryospheric",
-          "weight_percent": 49.827730105285895
-        },
-        {
-          "metric": "freeze_thaw_cycles_7d",
-          "value": 3.0,
-          "unit": "cycles",
-          "threshold": "thaw degradation increases at \u22651 cycle",
-          "status": "WATCH",
-          "causal_group": "cryospheric",
-          "weight_percent": 49.827730105285895
-        },
-        {
-          "metric": "dynamic_factor_of_safety",
-          "value": 0.8929918844180033,
-          "unit": "ratio",
-          "threshold": "failure threshold 1.00; rapid-deformation watch 1.25",
-          "status": "CRITICAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 40.3475904885633
-        },
-        {
-          "metric": "blended_failure_probability",
-          "value": 74.59564145732668,
-          "unit": "%",
-          "threshold": "hotspot threshold 65%",
-          "status": "CRITICAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 40.3475904885633
+          "weight_percent": 47.152625003857715
         },
         {
           "metric": "pore_pressure_head",
-          "value": 0.668946863872494,
+          "value": 0.6061537433022303,
           "unit": "m",
-          "threshold": "full saturation head 1.103 m",
-          "status": "NORMAL",
+          "threshold": "full saturation head 0.729 m",
+          "status": "CRITICAL",
           "causal_group": "hydro_meteorological",
-          "weight_percent": 40.3475904885633
+          "weight_percent": 43.86065922410988
         },
         {
-          "metric": "24_hour_rainfall",
-          "value": 0.0,
-          "unit": "mm",
-          "threshold": "25 mm when burn severity \u22650.35 activates rapid-flow branch",
+          "metric": "pga",
+          "value": 0.008715230600214953,
+          "unit": "g",
+          "threshold": "critical acceleration 0.3377 g",
           "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 40.3475904885633
+          "causal_group": "seismic_tectonic",
+          "weight_percent": 8.964892335545423
+        },
+        {
+          "metric": "toe_undercut_multiplier",
+          "value": 1.0000011805036821,
+          "unit": "ratio",
+          "threshold": "1.0 baseline; >1 adds undercut demand",
+          "status": "WATCH",
+          "causal_group": "anthropogenic_fluvial",
+          "weight_percent": 0.02182343648698595
         }
       ],
       "kinematics_top_hotspot": {
-        "h3_index": "891f9c2f6b7ffff",
-        "latitude": 46.04336034868028,
-        "longitude": 7.769470934301981,
-        "slope_deg": 32.8278876713344,
-        "fs_dynamic": 0.8929918844180033,
-        "p_failure": 0.7459564145732668,
+        "h3_index": "89da96914dbffff",
+        "latitude": -42.23074032488341,
+        "longitude": 173.61860644107884,
+        "slope_deg": 40.80076653616769,
+        "fs_dynamic": 0.2350172987697128,
+        "p_failure": 0.9776639742687614,
         "exposure_weight": 1.0,
-        "hotspot_score": 0.7459564145732668,
-        "peak_velocity_ms": 0.007194467755673318,
-        "cruden_varnes_class": 5,
-        "cruden_varnes_label": "Rapid",
-        "failure_mode": "Cohesive slump / thaw slump / toe-cut wedge"
+        "hotspot_score": 0.9776639742687614,
+        "peak_velocity_ms": 13.613963216961917,
+        "cruden_varnes_class": 7,
+        "cruden_varnes_label": "Extremely Rapid",
+        "failure_mode": "Rapid fluidized debris flow / avalanche"
       },
-      "representative_cell_id": "891f9c2f6b7ffff",
+      "representative_cell_id": "89da96914dbffff",
       "provenance": {
         "soil": "topographic_climatic_pedotransfer_estimate (estimated_not_measured)",
         "soil_saturation": "Open-Meteo moisture / bulk-density porosity",
@@ -1106,187 +1036,82 @@
         "d_road_cut_m": "OSM mapped cutting tag at H3 centroid; otherwise 9999 m default",
         "d_river_m": "H3-center distance to nearest DEM cell with TWI >= 14.5; 9999 m if absent",
         "weather_and_other_defaults": [],
-        "probability": "mechanically gated XGBoost/physical blend; source inventory and reported-point proxy labels"
-      }
-    },
-    {
-      "name": "Malibu Post-Fire Burn Scar",
-      "cell_count": 470,
-      "min_fs_dynamic": 2.1078042206293897,
-      "max_p_failure": 0.059964968606177116,
-      "fs_dynamic_median": 2.7754226192434297,
-      "p_failure_median": 0.0032890401853731934,
-      "p_physical_median": 1.4906546608184357e-08,
-      "p_xgb_median": 0.17960693836212158,
-      "velocity_median_m_s": 0.0,
-      "velocity_class_representative": "Extremely Slow",
-      "dominant_cause": "anthropogenic_fluvial",
-      "cause_percentages": {
-        "hydro_meteorological": 45.37760152800923,
-        "seismic_tectonic": 7.79865925255972,
-        "cryospheric": 0.05163736409762092,
-        "post_wildfire_biotic": 0.0,
-        "anthropogenic_fluvial": 46.772101855333425
-      },
-      "numbers_that_matter": [
-        {
-          "metric": "toe_undercut_multiplier",
-          "value": 1.151479281827236,
-          "unit": "ratio",
-          "threshold": "1.0 baseline; >1 adds undercut demand",
-          "status": "WATCH",
-          "causal_group": "anthropogenic_fluvial",
-          "weight_percent": 46.772101855333425
-        },
-        {
-          "metric": "slope_angle",
-          "value": 33.878330503191265,
-          "unit": "degrees",
-          "threshold": "16\u00b0 road-cut; 28\u00b0 coseismic branch thresholds",
-          "status": "CRITICAL",
-          "causal_group": "anthropogenic_fluvial",
-          "weight_percent": 46.772101855333425
-        },
-        {
-          "metric": "dynamic_factor_of_safety",
-          "value": 1.8473741350740214,
-          "unit": "ratio",
-          "threshold": "failure threshold 1.00; rapid-deformation watch 1.25",
-          "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 45.37760152800923
-        },
-        {
-          "metric": "blended_failure_probability",
-          "value": 19.70005371461845,
-          "unit": "%",
-          "threshold": "hotspot threshold 65%",
-          "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 45.37760152800923
-        },
-        {
-          "metric": "pore_pressure_head",
-          "value": 0.1008631494575303,
-          "unit": "m",
-          "threshold": "full saturation head 1.051 m",
-          "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 45.37760152800923
-        },
-        {
-          "metric": "24_hour_rainfall",
-          "value": 0.0,
-          "unit": "mm",
-          "threshold": "25 mm when burn severity \u22650.35 activates rapid-flow branch",
-          "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 45.37760152800923
-        }
-      ],
-      "kinematics_top_hotspot": {
-        "h3_index": "8929a18146bffff",
-        "latitude": 34.09020907366281,
-        "longitude": -118.52939496707015,
-        "slope_deg": 33.878330503191265,
-        "fs_dynamic": 1.8473741350740214,
-        "p_failure": 0.19700053714618448,
-        "exposure_weight": 1.0,
-        "hotspot_score": 0.19700053714618448,
-        "peak_velocity_ms": 0.0,
-        "cruden_varnes_class": 1,
-        "cruden_varnes_label": "Extremely Slow",
-        "failure_mode": "Stable / sub-perception creep"
-      },
-      "representative_cell_id": "8929a18146bffff",
-      "provenance": {
-        "soil": "topographic_climatic_pedotransfer_estimate (estimated_not_measured)",
-        "soil_saturation": "relative wetness proxy, used as saturation fallback",
-        "vegetation": "Esri visible-band VDVI proxy",
-        "burn": [
-          "not_assessed_no_nearby_eonet_fire_evidence"
-        ],
-        "d_road_cut_m": "OSM mapped cutting tag at H3 centroid; otherwise 9999 m default",
-        "d_river_m": "H3-center distance to nearest DEM cell with TWI >= 14.5; 9999 m if absent",
-        "weather_and_other_defaults": [
-          "soil_temperature_c=air temperature / 10.0 fallback"
-        ],
         "probability": "mechanically gated XGBoost/physical blend; source inventory and reported-point proxy labels"
       }
     },
     {
       "name": "New Delhi Flat Plain",
       "cell_count": 498,
-      "min_fs_dynamic": 1.9684396118930267,
-      "max_p_failure": 7.682421644376866e-09,
+      "min_fs_dynamic": 1.8537215370295281,
+      "max_p_failure": 4.068817746121724e-08,
       "fs_dynamic_median": 5.0,
-      "p_failure_median": 2.6686158359536683e-11,
+      "p_failure_median": 3.097247796782031e-11,
       "p_physical_median": 0.0,
-      "p_xgb_median": 0.2930466905236244,
+      "p_xgb_median": 0.37583929151296613,
       "velocity_median_m_s": 0.0,
       "velocity_class_representative": "Extremely Slow",
       "dominant_cause": "hydro_meteorological",
       "cause_percentages": {
-        "hydro_meteorological": 91.17208763672434,
-        "seismic_tectonic": 6.8011347363799395,
-        "cryospheric": 0.06688239856864155,
+        "hydro_meteorological": 90.21567439887016,
+        "seismic_tectonic": 7.089239166968416,
+        "cryospheric": 0.0,
         "post_wildfire_biotic": 0.0,
-        "anthropogenic_fluvial": 1.9598952283270847
+        "anthropogenic_fluvial": 2.69508643416143
       },
       "numbers_that_matter": [
         {
+          "metric": "dynamic_factor_of_safety",
+          "value": 1.8392488247322807,
+          "unit": "ratio",
+          "threshold": "failure threshold 1.00; rapid-deformation watch 1.25",
+          "status": "NORMAL",
+          "causal_group": "core_stability",
+          "weight_percent": 90.21567439887016
+        },
+        {
+          "metric": "blended_failure_probability",
+          "value": 7.9198392160333695,
+          "unit": "%",
+          "threshold": "hotspot threshold 65%",
+          "status": "NORMAL",
+          "causal_group": "core_stability",
+          "weight_percent": 90.21567439887016
+        },
+        {
           "metric": "local_soil_saturation",
-          "value": 79.59048129786648,
+          "value": 78.80891991258363,
           "unit": "%",
           "threshold": "68% rapid-flow branch threshold",
           "status": "CRITICAL",
           "causal_group": "hydro_meteorological",
-          "weight_percent": 91.17208763672434
-        },
-        {
-          "metric": "dynamic_factor_of_safety",
-          "value": 1.95250402138889,
-          "unit": "ratio",
-          "threshold": "failure threshold 1.00; rapid-deformation watch 1.25",
-          "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 91.17208763672434
-        },
-        {
-          "metric": "blended_failure_probability",
-          "value": 8.754076745698836,
-          "unit": "%",
-          "threshold": "hotspot threshold 65%",
-          "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 91.17208763672434
-        },
-        {
-          "metric": "pore_pressure_head",
-          "value": 1.4212377757509316,
-          "unit": "m",
-          "threshold": "full saturation head 1.810 m",
-          "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 91.17208763672434
-        },
-        {
-          "metric": "24_hour_rainfall",
-          "value": 0.0,
-          "unit": "mm",
-          "threshold": "25 mm when burn severity \u22650.35 activates rapid-flow branch",
-          "status": "NORMAL",
-          "causal_group": "hydro_meteorological",
-          "weight_percent": 91.17208763672434
+          "weight_percent": 90.21567439887016
         },
         {
           "metric": "pga",
           "value": 0.0,
           "unit": "g",
-          "threshold": "critical acceleration 0.5350 g",
+          "threshold": "critical acceleration 0.4776 g",
           "status": "NORMAL",
           "causal_group": "seismic_tectonic",
-          "weight_percent": 6.8011347363799395
+          "weight_percent": 7.089239166968416
+        },
+        {
+          "metric": "toe_undercut_multiplier",
+          "value": 1.0013396152633864,
+          "unit": "ratio",
+          "threshold": "1.0 baseline; >1 adds undercut demand",
+          "status": "WATCH",
+          "causal_group": "anthropogenic_fluvial",
+          "weight_percent": 2.69508643416143
+        },
+        {
+          "metric": "snowmelt_flux",
+          "value": 0.0,
+          "unit": "mm/day",
+          "threshold": "positive melt requires snow depth >0.01 m and air temperature >0\u00b0C",
+          "status": "NORMAL",
+          "causal_group": "cryospheric",
+          "weight_percent": 0.0
         }
       ],
       "kinematics_top_hotspot": {
@@ -1294,10 +1119,10 @@
         "latitude": 28.628496271360653,
         "longitude": 77.22579118097363,
         "slope_deg": 19.487368447440012,
-        "fs_dynamic": 1.95250402138889,
-        "p_failure": 0.08754076745698836,
+        "fs_dynamic": 1.8392488247322807,
+        "p_failure": 0.0791983921603337,
         "exposure_weight": 1.0,
-        "hotspot_score": 0.08754076745698836,
+        "hotspot_score": 0.0791983921603337,
         "peak_velocity_ms": 0.0,
         "cruden_varnes_class": 1,
         "cruden_varnes_label": "Extremely Slow",
@@ -1338,8 +1163,8 @@
       "elevation_max_m": 1588.0,
       "slope_p95_deg": 26.340218789236886,
       "max_twi": 18.78748813718104,
-      "rain_24h_mm": 0.1,
-      "ari_7d_mm": 0.46124999999999994,
+      "rain_24h_mm": 1.2,
+      "ari_7d_mm": 2.0612500000000002,
       "max_pga_g": 0.0,
       "soil_property_source": "topographic_climatic_pedotransfer_estimate",
       "soil_property_quality": "estimated_not_measured",
@@ -1355,6 +1180,8 @@
         "eonet_wildfires": false,
         "eonet_landslides": true,
         "coolr": true,
+        "river": true,
+        "bedrock": true,
         "satellite": true
       }
     },
@@ -1385,6 +1212,8 @@
         "eonet_wildfires": false,
         "eonet_landslides": true,
         "coolr": true,
+        "river": true,
+        "bedrock": true,
         "satellite": true
       }
     },
@@ -1393,20 +1222,20 @@
       "latitude": 46.02,
       "longitude": 7.749,
       "regime": "cryospheric",
-      "h3_cells": 531,
-      "elevation_min_m": 1485.1160714285713,
-      "elevation_max_m": 3310.867745535714,
-      "slope_p95_deg": 39.00697980608259,
-      "max_twi": 18.94125948032757,
+      "h3_cells": null,
+      "elevation_min_m": null,
+      "elevation_max_m": null,
+      "slope_p95_deg": null,
+      "max_twi": null,
       "rain_24h_mm": 0.0,
       "ari_7d_mm": 0.0,
       "max_pga_g": 0.0,
       "soil_property_source": "topographic_climatic_pedotransfer_estimate",
       "soil_property_quality": "estimated_not_measured",
-      "satellite_cell_count": 531,
+      "satellite_cell_count": 0,
       "sources": {
         "geocoding": true,
-        "terrarium_dem": true,
+        "terrarium_dem": false,
         "open_meteo": true,
         "nasa_power": true,
         "soilgrids": false,
@@ -1415,7 +1244,9 @@
         "eonet_wildfires": false,
         "eonet_landslides": true,
         "coolr": true,
-        "satellite": true
+        "river": true,
+        "bedrock": true,
+        "satellite": false
       }
     },
     {
@@ -1423,20 +1254,20 @@
       "latitude": 34.07022,
       "longitude": -118.54453,
       "regime": "post-wildfire / biotic",
-      "h3_cells": 470,
-      "elevation_min_m": 1.1272321428571428,
-      "elevation_max_m": 607.4135044642857,
-      "slope_p95_deg": 32.581987340109684,
-      "max_twi": 18.322369720684662,
-      "rain_24h_mm": 0.0,
-      "ari_7d_mm": 0.0,
+      "h3_cells": null,
+      "elevation_min_m": null,
+      "elevation_max_m": null,
+      "slope_p95_deg": null,
+      "max_twi": null,
+      "rain_24h_mm": 13.4,
+      "ari_7d_mm": 13.4,
       "max_pga_g": 0.009366260021968933,
       "soil_property_source": "topographic_climatic_pedotransfer_estimate",
       "soil_property_quality": "estimated_not_measured",
-      "satellite_cell_count": 470,
+      "satellite_cell_count": 0,
       "sources": {
         "geocoding": true,
-        "terrarium_dem": true,
+        "terrarium_dem": false,
         "open_meteo": true,
         "nasa_power": true,
         "soilgrids": false,
@@ -1445,7 +1276,9 @@
         "eonet_wildfires": false,
         "eonet_landslides": true,
         "coolr": true,
-        "satellite": true
+        "river": true,
+        "bedrock": true,
+        "satellite": false
       }
     },
     {
@@ -1472,16 +1305,18 @@
         "soilgrids": false,
         "usgs": true,
         "overpass": false,
-        "eonet_wildfires": true,
+        "eonet_wildfires": false,
         "eonet_landslides": true,
         "coolr": true,
+        "river": true,
+        "bedrock": true,
         "satellite": true
       }
     }
   ],
-  "pretraining_ready": false,
+  "pretraining_ready": true,
   "audit_status": "pending fresh full-system audit",
-  "generated_at_utc": "2026-11-01T03:11:22.379031+00:00",
+  "generated_at_utc": "2026-11-01T08:38:30.274452+00:00",
   "label_policy": "Cited manual NASA COOLR polygon cells and H3 cells within 300 m of cited manual COOLR points are y=1 inventory proxies. Matched 60-day pre-event samples are y=0 inventory-absence pseudo-negatives, not surveyed or verified intact terrain. Stage 1 reflects these assumptions. Stage 2 scores balanced source groups with complete spatial blocks excluded from model fitting.",
   "engineering_ready": true,
   "empirical_benchmark_metrics": {
@@ -1489,10 +1324,10 @@
       "name": "Stage 1: spatial block CV",
       "status": "scored",
       "metrics": {
-        "roc_auc": 0.8441379096325718,
-        "pr_auc": 0.9023847100507287,
-        "brier_score": 0.16403481453286572,
-        "brier_skill_score": 0.3337935954012655
+        "roc_auc": 0.854648545706371,
+        "pr_auc": 0.9162265610437177,
+        "brier_score": 0.15263824633772002,
+        "brier_skill_score": 0.36541221969458626
       },
       "details": [
         "Pooled out-of-fold predictions from 5 spatial holdout folds; simulated mechanical negatives enter training only and are excluded from evaluation and calibration holdouts. Metrics here describe the raw constrained XGBoost score; Stage 2 describes the ungated isotonic event-buffer score, a different estimand from live gated scores.",
@@ -1506,24 +1341,24 @@
         "seed": 20261031,
         "intervals": {
           "roc_auc": [
-            0.7159296957897108,
-            0.9293436657361471
+            0.725086545252037,
+            0.9385996389125429
           ],
           "pr_auc": [
-            0.7884048656413175,
-            0.9666274317477672
+            0.7995462100343276,
+            0.9760122705077893
           ],
           "brier_score": [
-            0.09574827458318862,
-            0.2616632661058602
+            0.08566816049264385,
+            0.24642401335521966
           ],
           "recall_at_40": [
-            0.08905797101449275,
-            0.20054123711340205
+            0.08957162921348315,
+            0.20052763819095476
           ],
           "recall_at_k": [
-            0.1445162553858206,
-            0.18961635888217027
+            0.13920555080617905,
+            0.18478891870800737
           ]
         }
       }
@@ -1532,11 +1367,11 @@
       "name": "Stage 2: historical catastrophe hindcast",
       "status": "scored",
       "metrics": {
-        "roc_auc": 0.7699652777777778,
-        "pr_auc": 0.8005488776245061,
-        "brier_score": 0.20624399384963266,
-        "threshold_0_5_accuracy": 0.6666666666666666,
-        "recall_at_k": 0.20833333333333334,
+        "roc_auc": 0.7395833333333335,
+        "pr_auc": 0.773165918761894,
+        "brier_score": 0.2179379057249258,
+        "threshold_0_5_accuracy": 0.6458333333333334,
+        "recall_at_k": 0.16666666666666666,
         "recall_at_40": 0.9166666666666666,
         "recall_at_40_k": 40.0,
         "rows": 48.0,
@@ -1555,23 +1390,23 @@
         "seed": 20261031,
         "intervals": {
           "roc_auc": [
-            0.6744357638888888,
-            0.8711154513888888
+            0.6258246527777779,
+            0.8702473958333334
           ],
           "pr_auc": [
-            0.7237875279846787,
-            0.898271919752898
+            0.6750792766429463,
+            0.9097030850249029
           ],
           "brier_score": [
-            0.1523637399778825,
-            0.2584076965157973
+            0.16054585648511935,
+            0.2696044529451531
           ],
           "recall_at_40": [
-            0.875,
+            0.7916666666666666,
             1.0
           ],
           "recall_at_k": [
-            0.16666666666666666,
+            0.125,
             0.20833333333333334
           ]
         }
@@ -1580,16 +1415,16 @@
   },
   "full_system_audit": "artifacts/full_system_bug_audit.json",
   "combined_audit": {
-    "generated_at_utc": "2026-11-01T03:15:48.135616+00:00",
-    "implementation_fingerprint": "8df4e9f08334b626f8baf0c0afe368bc7f69b03a6bd98001bc3a6eff5da8b7e5",
+    "generated_at_utc": "2026-11-01T08:55:27.153284+00:00",
+    "implementation_fingerprint": "770283f5d49ff96235a8725a62024d2806689a477e190027de7e855a6b990025",
     "audits": {
       "full_system_bug_audit": true,
       "randomized_global_blind_audit": true,
       "literature_boundary_audit": true
     },
     "engineering_ready": true,
-    "pretraining_ready": false,
+    "pretraining_ready": true,
     "all_requested_targets_passed": false,
-    "scope": "Engineering invariants and latest requested pre-Phase-4 gates are reported separately. No operational certification."
+    "scope": "Engineering invariants govern readiness. Empirical scores and latency observations are descriptive; no operational certification."
   }
 }

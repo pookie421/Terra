@@ -36,11 +36,20 @@ Pre-training audit: scores now include the mechanical stability gate. Alpine sno
 
 Current source telemetry is in `location.nasa_telemetry` and `location.reliability_report`, including live-query or fallback COOLR count provenance and independent cached 100 km counts. The source badge remains `TIER_2_PARTIAL_PROXY`. Agent replies expose `briefing_guard`; unverified prose is replaced or withheld. Current results are in `artifacts/full_system_bug_audit.md` and `.json`.
 
-Physics v5 exposes `fs_mohr_coulomb`, `fs_postfire_yield_index`, `p_failure_m1`, `debris_volume_m3`, `suction_cohesion_kpa`, `cryo_perched_head_m` and `equivalent_water_mm` per cell. The combined `fs_dynamic` can be governed by the post-fire probability-derived index; that index is not a force-balance FS. Volume and cryospheric inputs include explicit scenario proxies. See `docs/physics_sources.md`.
+## Current v6 output contract
 
-`engineering_ready` is computed separately from `empirical_benchmark_metrics`. Combined readiness requires three fingerprint-matched audits plus the latest mandatory targets; `artifacts/readiness.json` is authoritative. Bootstrap intervals describe fixed-prediction spatial/event resampling, not operational reliability.
+`fs_dynamic` is the mechanical Mohr-Coulomb FS. Post-fire `p_failure_m1` stays separate in the physical probability union; the old compatibility yield-index field does not govern FS. `lateral_resistance_kpa` is retained as zero for compatibility. Snowpack, joint-temperature, soil strength and runout inputs include disclosed scenario assumptions.
 
+`location.bedrock_lithology` exposes the Macrostrat mapped unit and assumed strength adjustment. `location.river_discharge` exposes modeled GloFAS flow and the seven-day surge ratio. Neither is a local ground measurement. Source statuses distinguish `LIVE`, `CACHED`, `FALLBACK` and supplied-coordinate `PROVIDED` states. Provider deadlines are 2.2 seconds each; the full scan can take longer than three seconds.
 
-V5 cell additions: `cryospheric_eligible`, `effective_burn_severity`, `prefire_fuel_index_proxy` (RGB, not measured NDVI), `lateral_resistance_kpa`, `conformal_interval_90`, `uncertainty_width`, `bivariate_class`, `conformal_target`, `uncertainty_status`. The intervals predict binary labels under an exchangeable-block assumption; they are not confidence bounds on probability. Missing calibration produces [0,1].
+Cells expose `conformal_interval_90`, `uncertainty_width`, `bivariate_class`, `conformal_target` and `uncertainty_status`. Ensemble-scaled intervals target binary event labels, not true-probability confidence bounds. They may be [0,1]; spatial dependence invalidates an unconditional nominal coverage guarantee.
 
-`summary.kinematics_top_hotspot` adds `cascading_dbi`, `impoundment_status`, `channel_h3_index`, `dam_height_m`, `dam_volume_m3`, `catchment_area_m2`. Unknown geometry remains null. A channel hit additionally carries a full-source-cell failure-volume scenario and viewport-only contributing area, both explicitly labeled; neither is measured dam geometry.
+Critical summaries use steep candidate cells where available. Whole-viewport percentiles and the selected hotspot are different statistics. The first two `numbers_that_matter` cards are mechanical FS and the blended score; four distinct mechanism cards follow. Cause percentages are heuristic stress allocations, not causal inference.
+
+`summary.kinematics_top_hotspot` includes `cascading_dbi`, `impoundment_status` and optional dam/catchment geometry. Unknown geometry remains null. No observed dam is inferred from a channel intersection alone.
+
+If terrain is unavailable, geometry is empty and the hazard verdict is `UNAVAILABLE`. Successfully fetched weather, NASA, river and bedrock telemetry is still returned. Compatibility metric placeholders are marked `available: false`; do not display their numeric zeros as observations.
+
+Agent `briefing_guard` preserves valid numeric-grounded prose as `VERIFIED_LLM_PROSE`; offline prose uses `VERIFIED_TEMPLATE`. Rejected numeric prose is replaced or withheld. This guard does not independently verify names, semantics or recommendations.
+
+`engineering_ready` and `pretraining_ready` require matching full-system, randomized and boundary engineering reports. Empirical score/latency targets remain separate. [Readiness](artifacts/readiness.json), [current evidence](docs/current_status.md) and [roadmap](ROADMAP.md) describe the scope. A Git clone does not include the ignored local datasets or trained model.

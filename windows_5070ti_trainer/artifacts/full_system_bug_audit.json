@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-11-01T03:13:08.002944+00:00",
+  "generated_at_utc": "2026-11-01T08:54:12.635275+00:00",
   "checks": {
     "physics_and_kinematics": {
       "passed": true,
@@ -25,8 +25,8 @@
             "name": "Branch C slump",
             "expected_mode": "Cohesive slump / thaw slump / toe-cut wedge",
             "actual_mode": "Cohesive slump / thaw slump / toe-cut wedge",
-            "peak_velocity_m_s": 0.00019472593535647563,
-            "velocity_class": 4,
+            "peak_velocity_m_s": 0.0007293931129536939,
+            "velocity_class": 5,
             "passed": true
           },
           {
@@ -45,7 +45,7 @@
     "local_features_and_briefing_guard": {
       "passed": true,
       "details": {
-        "offline_regressions_passed": 25,
+        "offline_regressions_passed": 26,
         "feature_policy": "local slope and local FS; no ring overwrite"
       }
     },
@@ -53,8 +53,12 @@
       "passed": true,
       "details": {
         "archive": "../Terra_Full_Archive_Backup",
-        "files": 108,
-        "sha256_verified": true
+        "files": 107,
+        "sha256_verified": true,
+        "excluded_os_metadata": [
+          ".DS_Store",
+          "backend/.DS_Store"
+        ]
       }
     },
     "vector_3_feature_order": {
@@ -118,7 +122,7 @@
     "dataset_isolation": {
       "passed": true,
       "details": {
-        "train_rows": 556,
+        "train_rows": 534,
         "synthetic": 40,
         "positive_regime_counts": {
           "trigger_unclassified": 103,
@@ -151,7 +155,7 @@
     "source_compilation": {
       "passed": true,
       "details": {
-        "python_files_compiled": 82,
+        "python_files_compiled": 85,
         "files": [
           {
             "path": "backend/release.py",
@@ -167,7 +171,7 @@
           },
           {
             "path": "backend/llm/qwen_agent.py",
-            "sha256": "d5f33049c3dc845d778a22c232d179a2d0d1ee861ce56c1391d36d84c0f8060f"
+            "sha256": "46547f28447c81beaa9495766cc6aef902a7d027d5eb68f888333bd23a80144b"
           },
           {
             "path": "backend/realtime/device.py",
@@ -175,7 +179,7 @@
           },
           {
             "path": "backend/realtime/cache.py",
-            "sha256": "041fc7c7e738602606f91a678bcbded6b1f1ed99f2b6f21648a93cc7ce3251ee"
+            "sha256": "ced95c94ea1fe6100321b2cfa3f531ab746bc9c52158b1aa4a7c94b120211696"
           },
           {
             "path": "backend/realtime/__init__.py",
@@ -184,6 +188,10 @@
           {
             "path": "backend/realtime/satellite_processor.py",
             "sha256": "5d6584f280ca9b9da6427e9609586862559595fa3b3c4cea38ea51f0a19fe021"
+          },
+          {
+            "path": "backend/realtime/ground_context.py",
+            "sha256": "86b2851ab3a803dc3b466d9655b7fb316acc5830043922a027d6197940c3e2ee"
           },
           {
             "path": "backend/realtime/coolr.py",
@@ -203,11 +211,11 @@
           },
           {
             "path": "backend/realtime/global_ingestor.py",
-            "sha256": "e4718668598b731e9618c3f1994c82fcdc409b82ec39fda804f4efc7f786ca99"
+            "sha256": "bab41de39681bd014d29cca4725d77eb517d41e7318b3b90e5ef8458650a0b96"
           },
           {
             "path": "backend/ml/conformal_calibration.py",
-            "sha256": "fbadc5d8402106ac7da5d8df122fe8043f735848ae797fcdc8c0837c10cc9a28"
+            "sha256": "eb7de4457965b4e7c5ad4b2300378368f27d1a9323e015665eed3ae148b58eb4"
           },
           {
             "path": "backend/ml/pinls.py",
@@ -215,11 +223,11 @@
           },
           {
             "path": "backend/ml/validation_suite.py",
-            "sha256": "7f8d546e61aad194785cda1ee8569ec731c4ffaee275f80cd97dd19465e57c26"
+            "sha256": "649bf5e649741239f0221495d96e873ec127f833e3a31a228f381fe839b1df21"
           },
           {
             "path": "backend/ml/audit_dataset.py",
-            "sha256": "de0452f0906fee8c2a78766fb450f617f4061cf15d7ffb459aef51a7b3e64300"
+            "sha256": "e1311ddb4669c63e114032bf3200c9f61d8c9cf614135e73bf47445599ca455a"
           },
           {
             "path": "backend/ml/__init__.py",
@@ -243,7 +251,7 @@
           },
           {
             "path": "backend/ml/global_xgb.py",
-            "sha256": "4828ff5a1facff66b124782f603860090fa7f1895182011a8528796076c0a0ca"
+            "sha256": "b3b381ccffa917d2023b17afca50d348f64df449c782313989741d1089c28add"
           },
           {
             "path": "backend/api/reliability.py",
@@ -251,7 +259,7 @@
           },
           {
             "path": "backend/api/scan_service.py",
-            "sha256": "f269f04bc42a2340b803685b13ed528ca9cd2b37c1b5ad8fc1d295fc5162e5ba"
+            "sha256": "11839d7d1eed87145ff9770c6509fbaac09b6f6d3a1593f3fbfb3b8edac579af"
           },
           {
             "path": "backend/api/__init__.py",
@@ -271,11 +279,11 @@
           },
           {
             "path": "backend/physics/kinematics.py",
-            "sha256": "a92b0ddc63977bae571b4b52750142d6d7fa3f48d7d6916ac1b72d7887bfad69"
+            "sha256": "741203f6775a82a439a9c22fdb668ac490c3ae6abcb5dddbbcae2167a519aae2"
           },
           {
             "path": "backend/physics/multi_causal_engine.py",
-            "sha256": "3da799e34a72e804354c82890e528f0ac91bf92c514dc6249a7d8ae31c250f9b"
+            "sha256": "31bd29796bc4008b99fb0db7edf146a55490f2a228dd82866745cb9f1e0f9773"
           },
           {
             "path": "backend/physics/__init__.py",
@@ -287,31 +295,31 @@
           },
           {
             "path": "backend/physics/causal_attribution.py",
-            "sha256": "2beffcddf47b5236adca948f0811879eca77755423362009dae4d2e5727e2fe1"
+            "sha256": "0971d9e7dc11d71aaaa61023d7663faa57a56e0863f948d3c46d47cf3a3f3f5c"
           },
           {
             "path": "backend/physics/alpine_weather.py",
-            "sha256": "8f18c1f642d9ce64d093437f01b4a9ee13604aca51e677d8f9d25803c566c230"
+            "sha256": "9064cefdda6d8ba57b741d2b4274bedafff2dc2bb0f041d22ac6f03c47d04092"
           },
           {
             "path": "backend/physics/mechanisms.py",
-            "sha256": "aa3a9832506e64137a03ca630ae6a18b09f4a12029a17f985f4bda7744208735"
+            "sha256": "a9cecdca021d92182a5ca9f307c7438eb9d148aff1cf532bea50ca481537c0a3"
           },
           {
             "path": "scripts/randomized_global_blind_audit.py",
-            "sha256": "facd62f8e5d0dfc3a13815e9c907de02e570446f3d5b2add46c71559b3164699"
+            "sha256": "0f0f204914e6f8d5594f61f74aaaca5e8735705b8cac752e1bb23d3888e189a9"
           },
           {
             "path": "scripts/literature_boundary_audit.py",
-            "sha256": "faaa8554dfed555aa97a142afecd48f54aaded29f7e10df14705015d7bfef947"
+            "sha256": "f5036fd71ee83e3dadcaed9c2245741aa3f90df9d41da64e3072386831c20bb6"
           },
           {
             "path": "scripts/finalize_readiness.py",
-            "sha256": "2ea1ce4f39aadff41054d79ff6a45bf96552540a2db642fd006e068229e684f8"
+            "sha256": "3acf3cbd22031d3027a99607bc955a4f1d18d653307546cf5c571a4520b7e41c"
           },
           {
             "path": "scripts/check_training_artifacts.py",
-            "sha256": "86f2891c1a856ab65eae00bf06bb496ab11582f2870fea7ed6f276e0ec35f907"
+            "sha256": "99e5da0b98f76a8cc3b8b9fec9ff6589cd99ec214bca730c264f2616d8c183cd"
           },
           {
             "path": "scripts/refresh_existing_coolr_labels.py",
@@ -319,7 +327,7 @@
           },
           {
             "path": "scripts/export_core_code_audit.py",
-            "sha256": "8ad3ebaab2e7b77b94a0aac561f4e9cedf5d3f5d36b02549365066dccfe5532e"
+            "sha256": "148c756869d42641b197a6fb6506670821bbd99c263d384971dbf806aaa5894f"
           },
           {
             "path": "scripts/prepare_public_release.py",
@@ -331,11 +339,11 @@
           },
           {
             "path": "scripts/run_mac_baseline_and_verify.py",
-            "sha256": "6cf44ea9f7137af82aeabc6477b20b669ef92939d330ca61e8a910e7d84d2e2f"
+            "sha256": "70cd99944781145c61b04471da35964f007f0df4efc867610bf9c09968c85b05"
           },
           {
             "path": "scripts/full_system_bug_audit.py",
-            "sha256": "fa5fd7c770d48600fae5f09db620798397e34185c4a5bd9be4f8f9d63f01cd4d"
+            "sha256": "a261317c67de1988a7a5421c22116f99d2a7948ff530df2f063375f6bd1497a1"
           },
           {
             "path": "scripts/expand_coolr_manual_point_labels.py",
@@ -343,7 +351,7 @@
           },
           {
             "path": "scripts/verify_5_global_causes.py",
-            "sha256": "8cd83bd4177d726a67cd3c40383eb85ea11e3b5aa90211d946bf412f8e414718"
+            "sha256": "62c43917f8e87d0ec574aba505d7d9294100e72bd47ed86c4dffef3c063133a3"
           },
           {
             "path": "scripts/snapshot_replay.py",
@@ -354,12 +362,16 @@
             "sha256": "00a1666e99ddf9355b3b07528b5ad6016bc6210d784ee71df4d202c27d90f8d8"
           },
           {
+            "path": "scripts/terra_cli.py",
+            "sha256": "786f6f21558d27ee8165d4ddb3782fba80a44498dcc347dd556f9e7345b1ba5f"
+          },
+          {
             "path": "windows_5070ti_trainer/train_qwen25_agent.py",
             "sha256": "7c63b66894235c122e669a97dab0bfa60127ee741d04573f719acc803a4164d4"
           },
           {
             "path": "windows_5070ti_trainer/train_all_on_5070ti.py",
-            "sha256": "f76b098d4f72eedeb990d1fb20da2ec991db974dca0ecaca25330ba71eef57f2"
+            "sha256": "c0830345e856a90cadf5050fa70f5d401825d8e955b035001618fdf400f8d1c6"
           },
           {
             "path": "windows_5070ti_trainer/backend/release.py",
@@ -375,7 +387,7 @@
           },
           {
             "path": "windows_5070ti_trainer/backend/realtime/cache.py",
-            "sha256": "041fc7c7e738602606f91a678bcbded6b1f1ed99f2b6f21648a93cc7ce3251ee"
+            "sha256": "ced95c94ea1fe6100321b2cfa3f531ab746bc9c52158b1aa4a7c94b120211696"
           },
           {
             "path": "windows_5070ti_trainer/backend/realtime/__init__.py",
@@ -384,6 +396,10 @@
           {
             "path": "windows_5070ti_trainer/backend/realtime/satellite_processor.py",
             "sha256": "5d6584f280ca9b9da6427e9609586862559595fa3b3c4cea38ea51f0a19fe021"
+          },
+          {
+            "path": "windows_5070ti_trainer/backend/realtime/ground_context.py",
+            "sha256": "86b2851ab3a803dc3b466d9655b7fb316acc5830043922a027d6197940c3e2ee"
           },
           {
             "path": "windows_5070ti_trainer/backend/realtime/coolr.py",
@@ -403,11 +419,11 @@
           },
           {
             "path": "windows_5070ti_trainer/backend/realtime/global_ingestor.py",
-            "sha256": "e4718668598b731e9618c3f1994c82fcdc409b82ec39fda804f4efc7f786ca99"
+            "sha256": "bab41de39681bd014d29cca4725d77eb517d41e7318b3b90e5ef8458650a0b96"
           },
           {
             "path": "windows_5070ti_trainer/backend/ml/conformal_calibration.py",
-            "sha256": "fbadc5d8402106ac7da5d8df122fe8043f735848ae797fcdc8c0837c10cc9a28"
+            "sha256": "eb7de4457965b4e7c5ad4b2300378368f27d1a9323e015665eed3ae148b58eb4"
           },
           {
             "path": "windows_5070ti_trainer/backend/ml/pinls.py",
@@ -415,11 +431,11 @@
           },
           {
             "path": "windows_5070ti_trainer/backend/ml/validation_suite.py",
-            "sha256": "7f8d546e61aad194785cda1ee8569ec731c4ffaee275f80cd97dd19465e57c26"
+            "sha256": "649bf5e649741239f0221495d96e873ec127f833e3a31a228f381fe839b1df21"
           },
           {
             "path": "windows_5070ti_trainer/backend/ml/audit_dataset.py",
-            "sha256": "de0452f0906fee8c2a78766fb450f617f4061cf15d7ffb459aef51a7b3e64300"
+            "sha256": "e1311ddb4669c63e114032bf3200c9f61d8c9cf614135e73bf47445599ca455a"
           },
           {
             "path": "windows_5070ti_trainer/backend/ml/__init__.py",
@@ -443,7 +459,7 @@
           },
           {
             "path": "windows_5070ti_trainer/backend/ml/global_xgb.py",
-            "sha256": "4828ff5a1facff66b124782f603860090fa7f1895182011a8528796076c0a0ca"
+            "sha256": "b3b381ccffa917d2023b17afca50d348f64df449c782313989741d1089c28add"
           },
           {
             "path": "windows_5070ti_trainer/backend/physics/cascading.py",
@@ -451,11 +467,11 @@
           },
           {
             "path": "windows_5070ti_trainer/backend/physics/kinematics.py",
-            "sha256": "a92b0ddc63977bae571b4b52750142d6d7fa3f48d7d6916ac1b72d7887bfad69"
+            "sha256": "741203f6775a82a439a9c22fdb668ac490c3ae6abcb5dddbbcae2167a519aae2"
           },
           {
             "path": "windows_5070ti_trainer/backend/physics/multi_causal_engine.py",
-            "sha256": "3da799e34a72e804354c82890e528f0ac91bf92c514dc6249a7d8ae31c250f9b"
+            "sha256": "31bd29796bc4008b99fb0db7edf146a55490f2a228dd82866745cb9f1e0f9773"
           },
           {
             "path": "windows_5070ti_trainer/backend/physics/__init__.py",
@@ -467,19 +483,19 @@
           },
           {
             "path": "windows_5070ti_trainer/backend/physics/causal_attribution.py",
-            "sha256": "2beffcddf47b5236adca948f0811879eca77755423362009dae4d2e5727e2fe1"
+            "sha256": "0971d9e7dc11d71aaaa61023d7663faa57a56e0863f948d3c46d47cf3a3f3f5c"
           },
           {
             "path": "windows_5070ti_trainer/backend/physics/alpine_weather.py",
-            "sha256": "8f18c1f642d9ce64d093437f01b4a9ee13604aca51e677d8f9d25803c566c230"
+            "sha256": "9064cefdda6d8ba57b741d2b4274bedafff2dc2bb0f041d22ac6f03c47d04092"
           },
           {
             "path": "windows_5070ti_trainer/backend/physics/mechanisms.py",
-            "sha256": "aa3a9832506e64137a03ca630ae6a18b09f4a12029a17f985f4bda7744208735"
+            "sha256": "a9cecdca021d92182a5ca9f307c7438eb9d148aff1cf532bea50ca481537c0a3"
           },
           {
             "path": "windows_5070ti_trainer/scripts/check_training_artifacts.py",
-            "sha256": "86f2891c1a856ab65eae00bf06bb496ab11582f2870fea7ed6f276e0ec35f907"
+            "sha256": "99e5da0b98f76a8cc3b8b9fec9ff6589cd99ec214bca730c264f2616d8c183cd"
           }
         ]
       }
@@ -516,7 +532,7 @@
     "vector_7_portability": {
       "passed": true,
       "details": {
-        "files_scanned": 265,
+        "files_scanned": 283,
         "workstation_home_paths": 0,
         "scope": "whole workspace"
       }
@@ -528,90 +544,116 @@
   "scenarios": [
     {
       "name": "Wayanad",
-      "p05_fs": 0.9978912660512281,
-      "p95_failure": 0.6508788845496747,
+      "p05_fs": 0.9350062570227975,
+      "p95_failure": 0.8591950216676061,
       "hotspot_velocity_ms": 14.34842140524944,
       "dominant_cause": "hydro_meteorological",
       "hotspot_newmark_cm": 0.0,
       "viewport_max_newmark_cm": 0.0,
       "targets": {
-        "fs": false,
-        "failure_score": false,
+        "fs": true,
+        "failure_score": true,
         "cause": true,
         "velocity": true
       },
-      "passed": false,
+      "passed": true,
       "source_status": {
         "geocoding": {
           "available": true,
           "provider": "Provided coordinates",
-          "fetched_at_utc": "2026-11-01T03:13:12.462657+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:17.533303+00:00",
+          "error": null,
+          "mode": "PROVIDED"
         },
         "terrarium_dem": {
           "available": true,
           "provider": "AWS Terrarium",
-          "fetched_at_utc": "2026-11-01T03:13:12.462758+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:17.533509+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "open_meteo": {
           "available": true,
           "provider": "Open-Meteo",
-          "fetched_at_utc": "2026-11-01T03:13:12.462772+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:17.533523+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "nasa_power": {
           "available": true,
           "provider": "NASA POWER",
-          "fetched_at_utc": "2026-11-01T03:13:12.462778+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:17.533531+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "soilgrids": {
           "available": false,
           "provider": "ISRIC SoilGrids",
-          "fetched_at_utc": "2026-11-01T03:13:12.462784+00:00",
-          "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=76.134&lat=11.548&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)"
+          "fetched_at_utc": "2026-11-01T08:54:17.533538+00:00",
+          "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=76.134&lat=11.548&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)",
+          "mode": "FALLBACK"
         },
         "usgs": {
           "available": true,
           "provider": "USGS Earthquake Catalog",
-          "fetched_at_utc": "2026-11-01T03:13:12.462790+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:17.533591+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "overpass": {
           "available": false,
           "provider": "OpenStreetMap Overpass",
-          "fetched_at_utc": "2026-11-01T03:13:12.462795+00:00",
-          "error": "TimeoutError: "
+          "fetched_at_utc": "2026-11-01T08:54:17.533597+00:00",
+          "error": "TimeoutError: ",
+          "mode": "FALLBACK"
         },
         "eonet_wildfires": {
-          "available": true,
+          "available": false,
           "provider": "NASA EONET wildfires",
-          "fetched_at_utc": "2026-11-01T03:13:12.462800+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:17.533604+00:00",
+          "error": "TimeoutError: ",
+          "mode": "FALLBACK"
         },
         "eonet_landslides": {
           "available": true,
           "provider": "NASA EONET landslides",
-          "fetched_at_utc": "2026-11-01T03:13:12.462860+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:17.533610+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "coolr": {
           "available": true,
           "provider": "NASA COOLR",
-          "fetched_at_utc": "2026-11-01T03:13:12.462866+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:17.533616+00:00",
+          "error": null,
+          "mode": "LIVE"
+        },
+        "river": {
+          "available": true,
+          "provider": "Open-Meteo GloFAS",
+          "fetched_at_utc": "2026-11-01T08:54:17.533622+00:00",
+          "error": null,
+          "mode": "LIVE"
+        },
+        "bedrock": {
+          "available": true,
+          "provider": "Macrostrat",
+          "fetched_at_utc": "2026-11-01T08:54:17.533628+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "satellite": {
           "available": true,
           "provider": "Esri World Imagery RGB z13",
-          "fetched_at_utc": "2026-11-01T03:13:21.536286+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:19.738097+00:00",
+          "error": null,
+          "mode": "LIVE"
         }
       },
       "nasa_telemetry": {
-        "nasa_power_gwetroot": 0.85,
-        "nasa_power_prectotcorr_mm": 0.17,
+        "nasa_power_gwetroot": 0.84,
+        "nasa_power_prectotcorr_mm": 0.49,
+        "nasa_eonet_active_events": [],
         "nasa_coolr_regional_count_100km": 0,
         "nearest_coolr_event_km": 225.81220612946683,
         "nasa_coolr_nearby_count": 0,
@@ -619,7 +661,7 @@
           "count": 0,
           "quality": "NASA_live_query_or_TTL_cache",
           "source_url": "https://gis.earthdata.nasa.gov/portal/rest/services/Landslides/COOLR_Events_Points/FeatureServer/0/query?where=1%3D1&geometry=75.684%2C11.098%2C76.584%2C11.998&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
-          "fetched_at_utc": "2026-11-01T03:13:13.381638+00:00",
+          "fetched_at_utc": "2026-11-01T08:54:18.448447+00:00",
           "geometry": "plus/minus 0.45 degree envelope; not an exact 50 km circle",
           "query": {
             "where": "1=1",
@@ -655,26 +697,24 @@
           "nasa_power": {
             "available": true,
             "provider": "NASA POWER",
-            "fetched_at_utc": "2026-11-01T03:13:12.462778+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:17.533531+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "eonet_wildfires": {
-            "available": true,
+            "available": false,
             "provider": "NASA EONET wildfires",
-            "fetched_at_utc": "2026-11-01T03:13:12.462800+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:17.533604+00:00",
+            "error": "TimeoutError: ",
+            "mode": "FALLBACK"
           },
           "eonet_landslides": {
             "available": true,
             "provider": "NASA EONET landslides",
-            "fetched_at_utc": "2026-11-01T03:13:12.462860+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:17.533610+00:00",
+            "error": null,
+            "mode": "LIVE"
           }
-        },
-        "nasa_eonet_active_events_publication_summary": {
-          "record_count": 9380,
-          "records_sha256": "e5b1f0b00c4f531a5944b130195729c8e631af04d1efedcf63f965f5e502d5d6",
-          "note": "Raw event records omitted from the Git report; original audit retained in the local pre-publication archive. This is a returned-record count, not a local hazard count."
         }
       },
       "reliability_report": {
@@ -694,75 +734,100 @@
           "geocoding": {
             "available": true,
             "provider": "Provided coordinates",
-            "fetched_at_utc": "2026-11-01T03:13:12.462657+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:17.533303+00:00",
+            "error": null,
+            "mode": "PROVIDED"
           },
           "terrarium_dem": {
             "available": true,
             "provider": "AWS Terrarium",
-            "fetched_at_utc": "2026-11-01T03:13:12.462758+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:17.533509+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "open_meteo": {
             "available": true,
             "provider": "Open-Meteo",
-            "fetched_at_utc": "2026-11-01T03:13:12.462772+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:17.533523+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "nasa_power": {
             "available": true,
             "provider": "NASA POWER",
-            "fetched_at_utc": "2026-11-01T03:13:12.462778+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:17.533531+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "soilgrids": {
             "available": false,
             "provider": "ISRIC SoilGrids",
-            "fetched_at_utc": "2026-11-01T03:13:12.462784+00:00",
-            "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=76.134&lat=11.548&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)"
+            "fetched_at_utc": "2026-11-01T08:54:17.533538+00:00",
+            "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=76.134&lat=11.548&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)",
+            "mode": "FALLBACK"
           },
           "usgs": {
             "available": true,
             "provider": "USGS Earthquake Catalog",
-            "fetched_at_utc": "2026-11-01T03:13:12.462790+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:17.533591+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "overpass": {
             "available": false,
             "provider": "OpenStreetMap Overpass",
-            "fetched_at_utc": "2026-11-01T03:13:12.462795+00:00",
-            "error": "TimeoutError: "
+            "fetched_at_utc": "2026-11-01T08:54:17.533597+00:00",
+            "error": "TimeoutError: ",
+            "mode": "FALLBACK"
           },
           "eonet_wildfires": {
-            "available": true,
+            "available": false,
             "provider": "NASA EONET wildfires",
-            "fetched_at_utc": "2026-11-01T03:13:12.462800+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:17.533604+00:00",
+            "error": "TimeoutError: ",
+            "mode": "FALLBACK"
           },
           "eonet_landslides": {
             "available": true,
             "provider": "NASA EONET landslides",
-            "fetched_at_utc": "2026-11-01T03:13:12.462860+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:17.533610+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "coolr": {
             "available": true,
             "provider": "NASA COOLR",
-            "fetched_at_utc": "2026-11-01T03:13:12.462866+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:17.533616+00:00",
+            "error": null,
+            "mode": "LIVE"
+          },
+          "river": {
+            "available": true,
+            "provider": "Open-Meteo GloFAS",
+            "fetched_at_utc": "2026-11-01T08:54:17.533622+00:00",
+            "error": null,
+            "mode": "LIVE"
+          },
+          "bedrock": {
+            "available": true,
+            "provider": "Macrostrat",
+            "fetched_at_utc": "2026-11-01T08:54:17.533628+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "satellite": {
             "available": true,
             "provider": "Esri World Imagery RGB z13",
-            "fetched_at_utc": "2026-11-01T03:13:21.536286+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:19.738097+00:00",
+            "error": null,
+            "mode": "LIVE"
           }
         },
         "coolr": {
           "count": 0,
           "quality": "NASA_live_query_or_TTL_cache",
           "source_url": "https://gis.earthdata.nasa.gov/portal/rest/services/Landslides/COOLR_Events_Points/FeatureServer/0/query?where=1%3D1&geometry=75.684%2C11.098%2C76.584%2C11.998&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
-          "fetched_at_utc": "2026-11-01T03:13:13.381638+00:00",
+          "fetched_at_utc": "2026-11-01T08:54:18.448447+00:00",
           "geometry": "plus/minus 0.45 degree envelope; not an exact 50 km circle",
           "query": {
             "where": "1=1",
@@ -788,12 +853,12 @@
     },
     {
       "name": "Kaikoura",
-      "p05_fs": 0.5647003866533071,
-      "p95_failure": 0.9954752619633181,
-      "hotspot_velocity_ms": 13.736882335872462,
+      "p05_fs": 0.17928850923915662,
+      "p95_failure": 0.9967680765198108,
+      "hotspot_velocity_ms": 13.73977007634912,
       "dominant_cause": "seismic_tectonic",
-      "hotspot_newmark_cm": 6.895496215035022,
-      "viewport_max_newmark_cm": 6.895496215035022,
+      "hotspot_newmark_cm": 18.77277811416488,
+      "viewport_max_newmark_cm": 18.77277811416488,
       "targets": {
         "fs": true,
         "failure_score": true,
@@ -805,73 +870,99 @@
         "geocoding": {
           "available": true,
           "provider": "Provided coordinates",
-          "fetched_at_utc": "2026-11-01T03:13:22.284006+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:20.563545+00:00",
+          "error": null,
+          "mode": "PROVIDED"
         },
         "terrarium_dem": {
           "available": true,
           "provider": "AWS Terrarium",
-          "fetched_at_utc": "2026-11-01T03:13:22.284087+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:20.563715+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "open_meteo": {
           "available": true,
           "provider": "Open-Meteo",
-          "fetched_at_utc": "2026-11-01T03:13:22.284101+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:20.563767+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "nasa_power": {
           "available": true,
           "provider": "NASA POWER",
-          "fetched_at_utc": "2026-11-01T03:13:22.284108+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:20.563789+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "soilgrids": {
           "available": false,
           "provider": "ISRIC SoilGrids",
-          "fetched_at_utc": "2026-11-01T03:13:22.284114+00:00",
-          "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=173.62&lat=-42.26&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)"
+          "fetched_at_utc": "2026-11-01T08:54:20.563806+00:00",
+          "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=173.62&lat=-42.26&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)",
+          "mode": "FALLBACK"
         },
         "usgs": {
           "available": true,
           "provider": "USGS Earthquake Catalog",
-          "fetched_at_utc": "2026-11-01T03:13:22.284120+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:20.563822+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "overpass": {
           "available": false,
           "provider": "OpenStreetMap Overpass",
-          "fetched_at_utc": "2026-11-01T03:13:22.284125+00:00",
-          "error": "TimeoutError: "
+          "fetched_at_utc": "2026-11-01T08:54:20.563836+00:00",
+          "error": "TimeoutError: ",
+          "mode": "FALLBACK"
         },
         "eonet_wildfires": {
-          "available": true,
+          "available": false,
           "provider": "NASA EONET wildfires",
-          "fetched_at_utc": "2026-11-01T03:13:22.284132+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:20.563851+00:00",
+          "error": "TimeoutError: ",
+          "mode": "FALLBACK"
         },
         "eonet_landslides": {
           "available": true,
           "provider": "NASA EONET landslides",
-          "fetched_at_utc": "2026-11-01T03:13:22.284138+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:20.563865+00:00",
+          "error": null,
+          "mode": "CACHED"
         },
         "coolr": {
           "available": true,
           "provider": "NASA COOLR",
-          "fetched_at_utc": "2026-11-01T03:13:22.284143+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:20.563879+00:00",
+          "error": null,
+          "mode": "LIVE"
+        },
+        "river": {
+          "available": true,
+          "provider": "Open-Meteo GloFAS",
+          "fetched_at_utc": "2026-11-01T08:54:20.563893+00:00",
+          "error": null,
+          "mode": "LIVE"
+        },
+        "bedrock": {
+          "available": true,
+          "provider": "Macrostrat",
+          "fetched_at_utc": "2026-11-01T08:54:20.563920+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "satellite": {
           "available": true,
           "provider": "Esri World Imagery RGB z13",
-          "fetched_at_utc": "2026-11-01T03:13:24.937164+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:22.766620+00:00",
+          "error": null,
+          "mode": "LIVE"
         }
       },
       "nasa_telemetry": {
-        "nasa_power_gwetroot": 0.44,
-        "nasa_power_prectotcorr_mm": 0.0,
+        "nasa_power_gwetroot": 0.43,
+        "nasa_power_prectotcorr_mm": 0.29,
+        "nasa_eonet_active_events": [],
         "nasa_coolr_regional_count_100km": 0,
         "nearest_coolr_event_km": 314.1863387598495,
         "nasa_coolr_nearby_count": 0,
@@ -879,7 +970,7 @@
           "count": 0,
           "quality": "NASA_live_query_or_TTL_cache",
           "source_url": "https://gis.earthdata.nasa.gov/portal/rest/services/Landslides/COOLR_Events_Points/FeatureServer/0/query?where=1%3D1&geometry=173.17000000000002%2C-42.71%2C174.07%2C-41.809999999999995&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
-          "fetched_at_utc": "2026-11-01T03:13:23.119365+00:00",
+          "fetched_at_utc": "2026-11-01T08:54:21.484200+00:00",
           "geometry": "plus/minus 0.45 degree envelope; not an exact 50 km circle",
           "query": {
             "where": "1=1",
@@ -915,26 +1006,24 @@
           "nasa_power": {
             "available": true,
             "provider": "NASA POWER",
-            "fetched_at_utc": "2026-11-01T03:13:22.284108+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:20.563789+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "eonet_wildfires": {
-            "available": true,
+            "available": false,
             "provider": "NASA EONET wildfires",
-            "fetched_at_utc": "2026-11-01T03:13:22.284132+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:20.563851+00:00",
+            "error": "TimeoutError: ",
+            "mode": "FALLBACK"
           },
           "eonet_landslides": {
             "available": true,
             "provider": "NASA EONET landslides",
-            "fetched_at_utc": "2026-11-01T03:13:22.284138+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:20.563865+00:00",
+            "error": null,
+            "mode": "CACHED"
           }
-        },
-        "nasa_eonet_active_events_publication_summary": {
-          "record_count": 9380,
-          "records_sha256": "e5b1f0b00c4f531a5944b130195729c8e631af04d1efedcf63f965f5e502d5d6",
-          "note": "Raw event records omitted from the Git report; original audit retained in the local pre-publication archive. This is a returned-record count, not a local hazard count."
         }
       },
       "reliability_report": {
@@ -954,75 +1043,100 @@
           "geocoding": {
             "available": true,
             "provider": "Provided coordinates",
-            "fetched_at_utc": "2026-11-01T03:13:22.284006+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:20.563545+00:00",
+            "error": null,
+            "mode": "PROVIDED"
           },
           "terrarium_dem": {
             "available": true,
             "provider": "AWS Terrarium",
-            "fetched_at_utc": "2026-11-01T03:13:22.284087+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:20.563715+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "open_meteo": {
             "available": true,
             "provider": "Open-Meteo",
-            "fetched_at_utc": "2026-11-01T03:13:22.284101+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:20.563767+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "nasa_power": {
             "available": true,
             "provider": "NASA POWER",
-            "fetched_at_utc": "2026-11-01T03:13:22.284108+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:20.563789+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "soilgrids": {
             "available": false,
             "provider": "ISRIC SoilGrids",
-            "fetched_at_utc": "2026-11-01T03:13:22.284114+00:00",
-            "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=173.62&lat=-42.26&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)"
+            "fetched_at_utc": "2026-11-01T08:54:20.563806+00:00",
+            "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=173.62&lat=-42.26&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)",
+            "mode": "FALLBACK"
           },
           "usgs": {
             "available": true,
             "provider": "USGS Earthquake Catalog",
-            "fetched_at_utc": "2026-11-01T03:13:22.284120+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:20.563822+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "overpass": {
             "available": false,
             "provider": "OpenStreetMap Overpass",
-            "fetched_at_utc": "2026-11-01T03:13:22.284125+00:00",
-            "error": "TimeoutError: "
+            "fetched_at_utc": "2026-11-01T08:54:20.563836+00:00",
+            "error": "TimeoutError: ",
+            "mode": "FALLBACK"
           },
           "eonet_wildfires": {
-            "available": true,
+            "available": false,
             "provider": "NASA EONET wildfires",
-            "fetched_at_utc": "2026-11-01T03:13:22.284132+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:20.563851+00:00",
+            "error": "TimeoutError: ",
+            "mode": "FALLBACK"
           },
           "eonet_landslides": {
             "available": true,
             "provider": "NASA EONET landslides",
-            "fetched_at_utc": "2026-11-01T03:13:22.284138+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:20.563865+00:00",
+            "error": null,
+            "mode": "CACHED"
           },
           "coolr": {
             "available": true,
             "provider": "NASA COOLR",
-            "fetched_at_utc": "2026-11-01T03:13:22.284143+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:20.563879+00:00",
+            "error": null,
+            "mode": "LIVE"
+          },
+          "river": {
+            "available": true,
+            "provider": "Open-Meteo GloFAS",
+            "fetched_at_utc": "2026-11-01T08:54:20.563893+00:00",
+            "error": null,
+            "mode": "LIVE"
+          },
+          "bedrock": {
+            "available": true,
+            "provider": "Macrostrat",
+            "fetched_at_utc": "2026-11-01T08:54:20.563920+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "satellite": {
             "available": true,
             "provider": "Esri World Imagery RGB z13",
-            "fetched_at_utc": "2026-11-01T03:13:24.937164+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:22.766620+00:00",
+            "error": null,
+            "mode": "LIVE"
           }
         },
         "coolr": {
           "count": 0,
           "quality": "NASA_live_query_or_TTL_cache",
           "source_url": "https://gis.earthdata.nasa.gov/portal/rest/services/Landslides/COOLR_Events_Points/FeatureServer/0/query?where=1%3D1&geometry=173.17000000000002%2C-42.71%2C174.07%2C-41.809999999999995&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
-          "fetched_at_utc": "2026-11-01T03:13:23.119365+00:00",
+          "fetched_at_utc": "2026-11-01T08:54:21.484200+00:00",
           "geometry": "plus/minus 0.45 degree envelope; not an exact 50 km circle",
           "query": {
             "where": "1=1",
@@ -1048,9 +1162,9 @@
     },
     {
       "name": "Zermatt",
-      "p05_fs": 0.26765212626484786,
-      "p95_failure": 0.9968816035335748,
-      "hotspot_velocity_ms": 1.5769253276875241,
+      "p05_fs": 0.2753710633690034,
+      "p95_failure": 0.9999371690975187,
+      "hotspot_velocity_ms": 1.330927733427499,
       "dominant_cause": "cryospheric",
       "hotspot_newmark_cm": 0.0,
       "viewport_max_newmark_cm": 0.0,
@@ -1064,73 +1178,99 @@
         "geocoding": {
           "available": true,
           "provider": "Provided coordinates",
-          "fetched_at_utc": "2026-11-01T03:13:25.673049+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:23.678825+00:00",
+          "error": null,
+          "mode": "PROVIDED"
         },
         "terrarium_dem": {
           "available": true,
           "provider": "AWS Terrarium",
-          "fetched_at_utc": "2026-11-01T03:13:25.673136+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:23.691164+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "open_meteo": {
           "available": true,
           "provider": "Open-Meteo",
-          "fetched_at_utc": "2026-11-01T03:13:25.673152+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:23.691250+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "nasa_power": {
           "available": true,
           "provider": "NASA POWER",
-          "fetched_at_utc": "2026-11-01T03:13:25.673159+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:23.691273+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "soilgrids": {
           "available": false,
           "provider": "ISRIC SoilGrids",
-          "fetched_at_utc": "2026-11-01T03:13:25.673165+00:00",
-          "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=7.749&lat=46.02&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)"
+          "fetched_at_utc": "2026-11-01T08:54:23.691290+00:00",
+          "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=7.749&lat=46.02&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)",
+          "mode": "FALLBACK"
         },
         "usgs": {
           "available": true,
           "provider": "USGS Earthquake Catalog",
-          "fetched_at_utc": "2026-11-01T03:13:25.673170+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:23.691307+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "overpass": {
           "available": false,
           "provider": "OpenStreetMap Overpass",
-          "fetched_at_utc": "2026-11-01T03:13:25.673175+00:00",
-          "error": "TimeoutError: "
+          "fetched_at_utc": "2026-11-01T08:54:23.691322+00:00",
+          "error": "TimeoutError: ",
+          "mode": "FALLBACK"
         },
         "eonet_wildfires": {
-          "available": true,
+          "available": false,
           "provider": "NASA EONET wildfires",
-          "fetched_at_utc": "2026-11-01T03:13:25.673181+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:23.691337+00:00",
+          "error": "TimeoutError: ",
+          "mode": "FALLBACK"
         },
         "eonet_landslides": {
           "available": true,
           "provider": "NASA EONET landslides",
-          "fetched_at_utc": "2026-11-01T03:13:25.673186+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:23.691351+00:00",
+          "error": null,
+          "mode": "CACHED"
         },
         "coolr": {
           "available": true,
           "provider": "NASA COOLR",
-          "fetched_at_utc": "2026-11-01T03:13:25.673191+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:23.691366+00:00",
+          "error": null,
+          "mode": "LIVE"
+        },
+        "river": {
+          "available": true,
+          "provider": "Open-Meteo GloFAS",
+          "fetched_at_utc": "2026-11-01T08:54:23.691381+00:00",
+          "error": null,
+          "mode": "LIVE"
+        },
+        "bedrock": {
+          "available": true,
+          "provider": "Macrostrat",
+          "fetched_at_utc": "2026-11-01T08:54:23.691396+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "satellite": {
           "available": true,
           "provider": "Esri World Imagery RGB z13",
-          "fetched_at_utc": "2026-11-01T03:13:28.403398+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:25.894100+00:00",
+          "error": null,
+          "mode": "LIVE"
         }
       },
       "nasa_telemetry": {
         "nasa_power_gwetroot": 0.48,
-        "nasa_power_prectotcorr_mm": 0.25,
+        "nasa_power_prectotcorr_mm": 0.04,
+        "nasa_eonet_active_events": [],
         "nasa_coolr_regional_count_100km": 0,
         "nearest_coolr_event_km": 138.20173631531657,
         "nasa_coolr_nearby_count": 0,
@@ -1138,7 +1278,7 @@
           "count": 0,
           "quality": "NASA_live_query_or_TTL_cache",
           "source_url": "https://gis.earthdata.nasa.gov/portal/rest/services/Landslides/COOLR_Events_Points/FeatureServer/0/query?where=1%3D1&geometry=7.2989999999999995%2C45.57%2C8.199%2C46.470000000000006&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
-          "fetched_at_utc": "2026-11-01T03:13:26.740854+00:00",
+          "fetched_at_utc": "2026-11-01T08:54:24.642718+00:00",
           "geometry": "plus/minus 0.45 degree envelope; not an exact 50 km circle",
           "query": {
             "where": "1=1",
@@ -1174,26 +1314,24 @@
           "nasa_power": {
             "available": true,
             "provider": "NASA POWER",
-            "fetched_at_utc": "2026-11-01T03:13:25.673159+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:23.691273+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "eonet_wildfires": {
-            "available": true,
+            "available": false,
             "provider": "NASA EONET wildfires",
-            "fetched_at_utc": "2026-11-01T03:13:25.673181+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:23.691337+00:00",
+            "error": "TimeoutError: ",
+            "mode": "FALLBACK"
           },
           "eonet_landslides": {
             "available": true,
             "provider": "NASA EONET landslides",
-            "fetched_at_utc": "2026-11-01T03:13:25.673186+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:23.691351+00:00",
+            "error": null,
+            "mode": "CACHED"
           }
-        },
-        "nasa_eonet_active_events_publication_summary": {
-          "record_count": 9380,
-          "records_sha256": "e5b1f0b00c4f531a5944b130195729c8e631af04d1efedcf63f965f5e502d5d6",
-          "note": "Raw event records omitted from the Git report; original audit retained in the local pre-publication archive. This is a returned-record count, not a local hazard count."
         }
       },
       "reliability_report": {
@@ -1213,75 +1351,100 @@
           "geocoding": {
             "available": true,
             "provider": "Provided coordinates",
-            "fetched_at_utc": "2026-11-01T03:13:25.673049+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:23.678825+00:00",
+            "error": null,
+            "mode": "PROVIDED"
           },
           "terrarium_dem": {
             "available": true,
             "provider": "AWS Terrarium",
-            "fetched_at_utc": "2026-11-01T03:13:25.673136+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:23.691164+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "open_meteo": {
             "available": true,
             "provider": "Open-Meteo",
-            "fetched_at_utc": "2026-11-01T03:13:25.673152+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:23.691250+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "nasa_power": {
             "available": true,
             "provider": "NASA POWER",
-            "fetched_at_utc": "2026-11-01T03:13:25.673159+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:23.691273+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "soilgrids": {
             "available": false,
             "provider": "ISRIC SoilGrids",
-            "fetched_at_utc": "2026-11-01T03:13:25.673165+00:00",
-            "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=7.749&lat=46.02&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)"
+            "fetched_at_utc": "2026-11-01T08:54:23.691290+00:00",
+            "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=7.749&lat=46.02&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)",
+            "mode": "FALLBACK"
           },
           "usgs": {
             "available": true,
             "provider": "USGS Earthquake Catalog",
-            "fetched_at_utc": "2026-11-01T03:13:25.673170+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:23.691307+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "overpass": {
             "available": false,
             "provider": "OpenStreetMap Overpass",
-            "fetched_at_utc": "2026-11-01T03:13:25.673175+00:00",
-            "error": "TimeoutError: "
+            "fetched_at_utc": "2026-11-01T08:54:23.691322+00:00",
+            "error": "TimeoutError: ",
+            "mode": "FALLBACK"
           },
           "eonet_wildfires": {
-            "available": true,
+            "available": false,
             "provider": "NASA EONET wildfires",
-            "fetched_at_utc": "2026-11-01T03:13:25.673181+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:23.691337+00:00",
+            "error": "TimeoutError: ",
+            "mode": "FALLBACK"
           },
           "eonet_landslides": {
             "available": true,
             "provider": "NASA EONET landslides",
-            "fetched_at_utc": "2026-11-01T03:13:25.673186+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:23.691351+00:00",
+            "error": null,
+            "mode": "CACHED"
           },
           "coolr": {
             "available": true,
             "provider": "NASA COOLR",
-            "fetched_at_utc": "2026-11-01T03:13:25.673191+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:23.691366+00:00",
+            "error": null,
+            "mode": "LIVE"
+          },
+          "river": {
+            "available": true,
+            "provider": "Open-Meteo GloFAS",
+            "fetched_at_utc": "2026-11-01T08:54:23.691381+00:00",
+            "error": null,
+            "mode": "LIVE"
+          },
+          "bedrock": {
+            "available": true,
+            "provider": "Macrostrat",
+            "fetched_at_utc": "2026-11-01T08:54:23.691396+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "satellite": {
             "available": true,
             "provider": "Esri World Imagery RGB z13",
-            "fetched_at_utc": "2026-11-01T03:13:28.403398+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:25.894100+00:00",
+            "error": null,
+            "mode": "LIVE"
           }
         },
         "coolr": {
           "count": 0,
           "quality": "NASA_live_query_or_TTL_cache",
           "source_url": "https://gis.earthdata.nasa.gov/portal/rest/services/Landslides/COOLR_Events_Points/FeatureServer/0/query?where=1%3D1&geometry=7.2989999999999995%2C45.57%2C8.199%2C46.470000000000006&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
-          "fetched_at_utc": "2026-11-01T03:13:26.740854+00:00",
+          "fetched_at_utc": "2026-11-01T08:54:24.642718+00:00",
           "geometry": "plus/minus 0.45 degree envelope; not an exact 50 km circle",
           "query": {
             "where": "1=1",
@@ -1307,90 +1470,116 @@
     },
     {
       "name": "Malibu",
-      "p05_fs": 0.31146951683646795,
-      "p95_failure": 0.9898386980828233,
-      "hotspot_velocity_ms": 8.591604906722532,
+      "p05_fs": 1.3228326068037493,
+      "p95_failure": 0.9465491992549311,
+      "hotspot_velocity_ms": 0.0,
       "dominant_cause": "post_wildfire_biotic",
       "hotspot_newmark_cm": 0.0,
       "viewport_max_newmark_cm": 0.0,
       "targets": {
-        "fs": true,
+        "fs": false,
         "failure_score": true,
         "cause": true,
-        "velocity": true
+        "velocity": false
       },
-      "passed": true,
+      "passed": false,
       "source_status": {
         "geocoding": {
           "available": true,
           "provider": "Provided coordinates",
-          "fetched_at_utc": "2026-11-01T03:13:29.221022+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:26.856498+00:00",
+          "error": null,
+          "mode": "PROVIDED"
         },
         "terrarium_dem": {
           "available": true,
           "provider": "AWS Terrarium",
-          "fetched_at_utc": "2026-11-01T03:13:29.221100+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:26.856959+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "open_meteo": {
           "available": true,
           "provider": "Open-Meteo",
-          "fetched_at_utc": "2026-11-01T03:13:29.221113+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:26.857014+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "nasa_power": {
           "available": true,
           "provider": "NASA POWER",
-          "fetched_at_utc": "2026-11-01T03:13:29.221121+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:26.857036+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "soilgrids": {
           "available": false,
           "provider": "ISRIC SoilGrids",
-          "fetched_at_utc": "2026-11-01T03:13:29.221126+00:00",
-          "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=-118.54453&lat=34.07022&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)"
+          "fetched_at_utc": "2026-11-01T08:54:26.857052+00:00",
+          "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=-118.54453&lat=34.07022&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)",
+          "mode": "FALLBACK"
         },
         "usgs": {
           "available": true,
           "provider": "USGS Earthquake Catalog",
-          "fetched_at_utc": "2026-11-01T03:13:29.221132+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:26.857068+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "overpass": {
           "available": false,
           "provider": "OpenStreetMap Overpass",
-          "fetched_at_utc": "2026-11-01T03:13:29.221137+00:00",
-          "error": "TimeoutError: "
+          "fetched_at_utc": "2026-11-01T08:54:26.857084+00:00",
+          "error": "TimeoutError: ",
+          "mode": "FALLBACK"
         },
         "eonet_wildfires": {
-          "available": true,
+          "available": false,
           "provider": "NASA EONET wildfires",
-          "fetched_at_utc": "2026-11-01T03:13:29.221142+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:26.857099+00:00",
+          "error": "TimeoutError: ",
+          "mode": "FALLBACK"
         },
         "eonet_landslides": {
           "available": true,
           "provider": "NASA EONET landslides",
-          "fetched_at_utc": "2026-11-01T03:13:29.221147+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:26.857113+00:00",
+          "error": null,
+          "mode": "CACHED"
         },
         "coolr": {
           "available": true,
           "provider": "NASA COOLR",
-          "fetched_at_utc": "2026-11-01T03:13:29.221153+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:26.857128+00:00",
+          "error": null,
+          "mode": "LIVE"
+        },
+        "river": {
+          "available": true,
+          "provider": "Open-Meteo GloFAS",
+          "fetched_at_utc": "2026-11-01T08:54:26.857142+00:00",
+          "error": null,
+          "mode": "LIVE"
+        },
+        "bedrock": {
+          "available": true,
+          "provider": "Macrostrat",
+          "fetched_at_utc": "2026-11-01T08:54:26.857156+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "satellite": {
           "available": true,
           "provider": "Esri World Imagery RGB z13",
-          "fetched_at_utc": "2026-11-01T03:13:31.712530+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:29.074461+00:00",
+          "error": null,
+          "mode": "LIVE"
         }
       },
       "nasa_telemetry": {
         "nasa_power_gwetroot": 0.43,
-        "nasa_power_prectotcorr_mm": 0.05,
+        "nasa_power_prectotcorr_mm": 0.18,
+        "nasa_eonet_active_events": [],
         "nasa_coolr_regional_count_100km": 1,
         "nearest_coolr_event_km": 99.58515625755327,
         "nasa_coolr_nearby_count": 0,
@@ -1398,7 +1587,7 @@
           "count": 0,
           "quality": "NASA_live_query_or_TTL_cache",
           "source_url": "https://gis.earthdata.nasa.gov/portal/rest/services/Landslides/COOLR_Events_Points/FeatureServer/0/query?where=1%3D1&geometry=-118.99453%2C33.620219999999996%2C-118.09452999999999%2C34.52022&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
-          "fetched_at_utc": "2026-11-01T03:13:30.112232+00:00",
+          "fetched_at_utc": "2026-11-01T08:54:27.794069+00:00",
           "geometry": "plus/minus 0.45 degree envelope; not an exact 50 km circle",
           "query": {
             "where": "1=1",
@@ -1434,26 +1623,24 @@
           "nasa_power": {
             "available": true,
             "provider": "NASA POWER",
-            "fetched_at_utc": "2026-11-01T03:13:29.221121+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:26.857036+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "eonet_wildfires": {
-            "available": true,
+            "available": false,
             "provider": "NASA EONET wildfires",
-            "fetched_at_utc": "2026-11-01T03:13:29.221142+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:26.857099+00:00",
+            "error": "TimeoutError: ",
+            "mode": "FALLBACK"
           },
           "eonet_landslides": {
             "available": true,
             "provider": "NASA EONET landslides",
-            "fetched_at_utc": "2026-11-01T03:13:29.221147+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:26.857113+00:00",
+            "error": null,
+            "mode": "CACHED"
           }
-        },
-        "nasa_eonet_active_events_publication_summary": {
-          "record_count": 9380,
-          "records_sha256": "e5b1f0b00c4f531a5944b130195729c8e631af04d1efedcf63f965f5e502d5d6",
-          "note": "Raw event records omitted from the Git report; original audit retained in the local pre-publication archive. This is a returned-record count, not a local hazard count."
         }
       },
       "reliability_report": {
@@ -1473,75 +1660,100 @@
           "geocoding": {
             "available": true,
             "provider": "Provided coordinates",
-            "fetched_at_utc": "2026-11-01T03:13:29.221022+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:26.856498+00:00",
+            "error": null,
+            "mode": "PROVIDED"
           },
           "terrarium_dem": {
             "available": true,
             "provider": "AWS Terrarium",
-            "fetched_at_utc": "2026-11-01T03:13:29.221100+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:26.856959+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "open_meteo": {
             "available": true,
             "provider": "Open-Meteo",
-            "fetched_at_utc": "2026-11-01T03:13:29.221113+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:26.857014+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "nasa_power": {
             "available": true,
             "provider": "NASA POWER",
-            "fetched_at_utc": "2026-11-01T03:13:29.221121+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:26.857036+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "soilgrids": {
             "available": false,
             "provider": "ISRIC SoilGrids",
-            "fetched_at_utc": "2026-11-01T03:13:29.221126+00:00",
-            "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=-118.54453&lat=34.07022&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)"
+            "fetched_at_utc": "2026-11-01T08:54:26.857052+00:00",
+            "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=-118.54453&lat=34.07022&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)",
+            "mode": "FALLBACK"
           },
           "usgs": {
             "available": true,
             "provider": "USGS Earthquake Catalog",
-            "fetched_at_utc": "2026-11-01T03:13:29.221132+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:26.857068+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "overpass": {
             "available": false,
             "provider": "OpenStreetMap Overpass",
-            "fetched_at_utc": "2026-11-01T03:13:29.221137+00:00",
-            "error": "TimeoutError: "
+            "fetched_at_utc": "2026-11-01T08:54:26.857084+00:00",
+            "error": "TimeoutError: ",
+            "mode": "FALLBACK"
           },
           "eonet_wildfires": {
-            "available": true,
+            "available": false,
             "provider": "NASA EONET wildfires",
-            "fetched_at_utc": "2026-11-01T03:13:29.221142+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:26.857099+00:00",
+            "error": "TimeoutError: ",
+            "mode": "FALLBACK"
           },
           "eonet_landslides": {
             "available": true,
             "provider": "NASA EONET landslides",
-            "fetched_at_utc": "2026-11-01T03:13:29.221147+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:26.857113+00:00",
+            "error": null,
+            "mode": "CACHED"
           },
           "coolr": {
             "available": true,
             "provider": "NASA COOLR",
-            "fetched_at_utc": "2026-11-01T03:13:29.221153+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:26.857128+00:00",
+            "error": null,
+            "mode": "LIVE"
+          },
+          "river": {
+            "available": true,
+            "provider": "Open-Meteo GloFAS",
+            "fetched_at_utc": "2026-11-01T08:54:26.857142+00:00",
+            "error": null,
+            "mode": "LIVE"
+          },
+          "bedrock": {
+            "available": true,
+            "provider": "Macrostrat",
+            "fetched_at_utc": "2026-11-01T08:54:26.857156+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "satellite": {
             "available": true,
             "provider": "Esri World Imagery RGB z13",
-            "fetched_at_utc": "2026-11-01T03:13:31.712530+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:29.074461+00:00",
+            "error": null,
+            "mode": "LIVE"
           }
         },
         "coolr": {
           "count": 0,
           "quality": "NASA_live_query_or_TTL_cache",
           "source_url": "https://gis.earthdata.nasa.gov/portal/rest/services/Landslides/COOLR_Events_Points/FeatureServer/0/query?where=1%3D1&geometry=-118.99453%2C33.620219999999996%2C-118.09452999999999%2C34.52022&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
-          "fetched_at_utc": "2026-11-01T03:13:30.112232+00:00",
+          "fetched_at_utc": "2026-11-01T08:54:27.794069+00:00",
           "geometry": "plus/minus 0.45 degree envelope; not an exact 50 km circle",
           "query": {
             "where": "1=1",
@@ -1567,8 +1779,8 @@
     },
     {
       "name": "New Delhi",
-      "p05_fs": 4.417092850296489,
-      "p95_failure": 1.8188658159295486e-07,
+      "p05_fs": 4.087888248405813,
+      "p95_failure": 1.1247113565444327e-06,
       "hotspot_velocity_ms": 0.0,
       "dominant_cause": "hydro_meteorological",
       "hotspot_newmark_cm": 0.0,
@@ -1583,74 +1795,100 @@
         "geocoding": {
           "available": true,
           "provider": "Provided coordinates",
-          "fetched_at_utc": "2026-11-01T03:13:32.433084+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:29.936179+00:00",
+          "error": null,
+          "mode": "PROVIDED"
         },
         "terrarium_dem": {
           "available": true,
           "provider": "AWS Terrarium",
-          "fetched_at_utc": "2026-11-01T03:13:32.433162+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:29.936264+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "open_meteo": {
           "available": true,
           "provider": "Open-Meteo",
-          "fetched_at_utc": "2026-11-01T03:13:32.433174+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:29.936278+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "nasa_power": {
           "available": true,
           "provider": "NASA POWER",
-          "fetched_at_utc": "2026-11-01T03:13:32.433180+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:29.936286+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "soilgrids": {
           "available": false,
           "provider": "ISRIC SoilGrids",
-          "fetched_at_utc": "2026-11-01T03:13:32.433186+00:00",
-          "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=77.209&lat=28.6139&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)"
+          "fetched_at_utc": "2026-11-01T08:54:29.936292+00:00",
+          "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=77.209&lat=28.6139&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)",
+          "mode": "FALLBACK"
         },
         "usgs": {
           "available": true,
           "provider": "USGS Earthquake Catalog",
-          "fetched_at_utc": "2026-11-01T03:13:32.433191+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:29.936298+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "overpass": {
           "available": false,
           "provider": "OpenStreetMap Overpass",
-          "fetched_at_utc": "2026-11-01T03:13:32.433196+00:00",
-          "error": "TimeoutError: "
+          "fetched_at_utc": "2026-11-01T08:54:29.936304+00:00",
+          "error": "TimeoutError: ",
+          "mode": "FALLBACK"
         },
         "eonet_wildfires": {
-          "available": true,
+          "available": false,
           "provider": "NASA EONET wildfires",
-          "fetched_at_utc": "2026-11-01T03:13:32.433201+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:29.936310+00:00",
+          "error": "TimeoutError: ",
+          "mode": "FALLBACK"
         },
         "eonet_landslides": {
           "available": true,
           "provider": "NASA EONET landslides",
-          "fetched_at_utc": "2026-11-01T03:13:32.433206+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:29.936316+00:00",
+          "error": null,
+          "mode": "CACHED"
         },
         "coolr": {
           "available": true,
           "provider": "NASA COOLR",
-          "fetched_at_utc": "2026-11-01T03:13:32.433211+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:29.936322+00:00",
+          "error": null,
+          "mode": "LIVE"
+        },
+        "river": {
+          "available": true,
+          "provider": "Open-Meteo GloFAS",
+          "fetched_at_utc": "2026-11-01T08:54:29.936328+00:00",
+          "error": null,
+          "mode": "LIVE"
+        },
+        "bedrock": {
+          "available": true,
+          "provider": "Macrostrat",
+          "fetched_at_utc": "2026-11-01T08:54:29.936333+00:00",
+          "error": null,
+          "mode": "LIVE"
         },
         "satellite": {
           "available": true,
           "provider": "Esri World Imagery RGB z13",
-          "fetched_at_utc": "2026-11-01T03:13:34.877403+00:00",
-          "error": null
+          "fetched_at_utc": "2026-11-01T08:54:32.140242+00:00",
+          "error": null,
+          "mode": "LIVE"
         }
       },
       "part1_target_lt_0_1_percent": true,
       "nasa_telemetry": {
         "nasa_power_gwetroot": 0.51,
-        "nasa_power_prectotcorr_mm": 0.35,
+        "nasa_power_prectotcorr_mm": 10.08,
+        "nasa_eonet_active_events": [],
         "nasa_coolr_regional_count_100km": 0,
         "nearest_coolr_event_km": 247.09042520848593,
         "nasa_coolr_nearby_count": 0,
@@ -1658,7 +1896,7 @@
           "count": 0,
           "quality": "NASA_live_query_or_TTL_cache",
           "source_url": "https://gis.earthdata.nasa.gov/portal/rest/services/Landslides/COOLR_Events_Points/FeatureServer/0/query?where=1%3D1&geometry=76.759%2C28.1639%2C77.659%2C29.0639&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
-          "fetched_at_utc": "2026-11-01T03:13:33.302735+00:00",
+          "fetched_at_utc": "2026-11-01T08:54:30.862590+00:00",
           "geometry": "plus/minus 0.45 degree envelope; not an exact 50 km circle",
           "query": {
             "where": "1=1",
@@ -1694,26 +1932,24 @@
           "nasa_power": {
             "available": true,
             "provider": "NASA POWER",
-            "fetched_at_utc": "2026-11-01T03:13:32.433180+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:29.936286+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "eonet_wildfires": {
-            "available": true,
+            "available": false,
             "provider": "NASA EONET wildfires",
-            "fetched_at_utc": "2026-11-01T03:13:32.433201+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:29.936310+00:00",
+            "error": "TimeoutError: ",
+            "mode": "FALLBACK"
           },
           "eonet_landslides": {
             "available": true,
             "provider": "NASA EONET landslides",
-            "fetched_at_utc": "2026-11-01T03:13:32.433206+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:29.936316+00:00",
+            "error": null,
+            "mode": "CACHED"
           }
-        },
-        "nasa_eonet_active_events_publication_summary": {
-          "record_count": 9380,
-          "records_sha256": "e5b1f0b00c4f531a5944b130195729c8e631af04d1efedcf63f965f5e502d5d6",
-          "note": "Raw event records omitted from the Git report; original audit retained in the local pre-publication archive. This is a returned-record count, not a local hazard count."
         }
       },
       "reliability_report": {
@@ -1733,75 +1969,100 @@
           "geocoding": {
             "available": true,
             "provider": "Provided coordinates",
-            "fetched_at_utc": "2026-11-01T03:13:32.433084+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:29.936179+00:00",
+            "error": null,
+            "mode": "PROVIDED"
           },
           "terrarium_dem": {
             "available": true,
             "provider": "AWS Terrarium",
-            "fetched_at_utc": "2026-11-01T03:13:32.433162+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:29.936264+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "open_meteo": {
             "available": true,
             "provider": "Open-Meteo",
-            "fetched_at_utc": "2026-11-01T03:13:32.433174+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:29.936278+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "nasa_power": {
             "available": true,
             "provider": "NASA POWER",
-            "fetched_at_utc": "2026-11-01T03:13:32.433180+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:29.936286+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "soilgrids": {
             "available": false,
             "provider": "ISRIC SoilGrids",
-            "fetched_at_utc": "2026-11-01T03:13:32.433186+00:00",
-            "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=77.209&lat=28.6139&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)"
+            "fetched_at_utc": "2026-11-01T08:54:29.936292+00:00",
+            "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=77.209&lat=28.6139&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)",
+            "mode": "FALLBACK"
           },
           "usgs": {
             "available": true,
             "provider": "USGS Earthquake Catalog",
-            "fetched_at_utc": "2026-11-01T03:13:32.433191+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:29.936298+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "overpass": {
             "available": false,
             "provider": "OpenStreetMap Overpass",
-            "fetched_at_utc": "2026-11-01T03:13:32.433196+00:00",
-            "error": "TimeoutError: "
+            "fetched_at_utc": "2026-11-01T08:54:29.936304+00:00",
+            "error": "TimeoutError: ",
+            "mode": "FALLBACK"
           },
           "eonet_wildfires": {
-            "available": true,
+            "available": false,
             "provider": "NASA EONET wildfires",
-            "fetched_at_utc": "2026-11-01T03:13:32.433201+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:29.936310+00:00",
+            "error": "TimeoutError: ",
+            "mode": "FALLBACK"
           },
           "eonet_landslides": {
             "available": true,
             "provider": "NASA EONET landslides",
-            "fetched_at_utc": "2026-11-01T03:13:32.433206+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:29.936316+00:00",
+            "error": null,
+            "mode": "CACHED"
           },
           "coolr": {
             "available": true,
             "provider": "NASA COOLR",
-            "fetched_at_utc": "2026-11-01T03:13:32.433211+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:29.936322+00:00",
+            "error": null,
+            "mode": "LIVE"
+          },
+          "river": {
+            "available": true,
+            "provider": "Open-Meteo GloFAS",
+            "fetched_at_utc": "2026-11-01T08:54:29.936328+00:00",
+            "error": null,
+            "mode": "LIVE"
+          },
+          "bedrock": {
+            "available": true,
+            "provider": "Macrostrat",
+            "fetched_at_utc": "2026-11-01T08:54:29.936333+00:00",
+            "error": null,
+            "mode": "LIVE"
           },
           "satellite": {
             "available": true,
             "provider": "Esri World Imagery RGB z13",
-            "fetched_at_utc": "2026-11-01T03:13:34.877403+00:00",
-            "error": null
+            "fetched_at_utc": "2026-11-01T08:54:32.140242+00:00",
+            "error": null,
+            "mode": "LIVE"
           }
         },
         "coolr": {
           "count": 0,
           "quality": "NASA_live_query_or_TTL_cache",
           "source_url": "https://gis.earthdata.nasa.gov/portal/rest/services/Landslides/COOLR_Events_Points/FeatureServer/0/query?where=1%3D1&geometry=76.759%2C28.1639%2C77.659%2C29.0639&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
-          "fetched_at_utc": "2026-11-01T03:13:33.302735+00:00",
+          "fetched_at_utc": "2026-11-01T08:54:30.862590+00:00",
           "geometry": "plus/minus 0.45 degree envelope; not an exact 50 km circle",
           "query": {
             "where": "1=1",
@@ -1834,17 +2095,17 @@
   ],
   "validation": {
     "stage1": {
-      "roc_auc": 0.8441379096325718,
-      "pr_auc": 0.9023847100507287,
-      "brier_score": 0.16403481453286572,
-      "brier_skill_score": 0.3337935954012655
+      "roc_auc": 0.854648545706371,
+      "pr_auc": 0.9162265610437177,
+      "brier_score": 0.15263824633772002,
+      "brier_skill_score": 0.36541221969458626
     },
     "stage2": {
-      "roc_auc": 0.7699652777777778,
-      "pr_auc": 0.8005488776245061,
-      "brier_score": 0.20624399384963266,
-      "threshold_0_5_accuracy": 0.6666666666666666,
-      "recall_at_k": 0.20833333333333334,
+      "roc_auc": 0.7395833333333335,
+      "pr_auc": 0.773165918761894,
+      "brier_score": 0.2179379057249258,
+      "threshold_0_5_accuracy": 0.6458333333333334,
+      "recall_at_k": 0.16666666666666666,
       "recall_at_40": 0.9166666666666666,
       "recall_at_40_k": 40.0,
       "rows": 48.0,
@@ -1879,8 +2140,8 @@
         "name": "Branch C slump",
         "expected_mode": "Cohesive slump / thaw slump / toe-cut wedge",
         "actual_mode": "Cohesive slump / thaw slump / toe-cut wedge",
-        "peak_velocity_m_s": 0.00019472593535647563,
-        "velocity_class": 4,
+        "peak_velocity_m_s": 0.0007293931129536939,
+        "velocity_class": 5,
         "passed": true
       },
       {
@@ -1905,10 +2166,10 @@
       "name": "Stage 1: spatial block CV",
       "status": "scored",
       "metrics": {
-        "roc_auc": 0.8441379096325718,
-        "pr_auc": 0.9023847100507287,
-        "brier_score": 0.16403481453286572,
-        "brier_skill_score": 0.3337935954012655
+        "roc_auc": 0.854648545706371,
+        "pr_auc": 0.9162265610437177,
+        "brier_score": 0.15263824633772002,
+        "brier_skill_score": 0.36541221969458626
       },
       "details": [
         "Pooled out-of-fold predictions from 5 spatial holdout folds; simulated mechanical negatives enter training only and are excluded from evaluation and calibration holdouts. Metrics here describe the raw constrained XGBoost score; Stage 2 describes the ungated isotonic event-buffer score, a different estimand from live gated scores.",
@@ -1922,24 +2183,24 @@
         "seed": 20261031,
         "intervals": {
           "roc_auc": [
-            0.7159296957897108,
-            0.9293436657361471
+            0.725086545252037,
+            0.9385996389125429
           ],
           "pr_auc": [
-            0.7884048656413175,
-            0.9666274317477672
+            0.7995462100343276,
+            0.9760122705077893
           ],
           "brier_score": [
-            0.09574827458318862,
-            0.2616632661058602
+            0.08566816049264385,
+            0.24642401335521966
           ],
           "recall_at_40": [
-            0.08905797101449275,
-            0.20054123711340205
+            0.08957162921348315,
+            0.20052763819095476
           ],
           "recall_at_k": [
-            0.1445162553858206,
-            0.18961635888217027
+            0.13920555080617905,
+            0.18478891870800737
           ]
         }
       }
@@ -1948,11 +2209,11 @@
       "name": "Stage 2: historical catastrophe hindcast",
       "status": "scored",
       "metrics": {
-        "roc_auc": 0.7699652777777778,
-        "pr_auc": 0.8005488776245061,
-        "brier_score": 0.20624399384963266,
-        "threshold_0_5_accuracy": 0.6666666666666666,
-        "recall_at_k": 0.20833333333333334,
+        "roc_auc": 0.7395833333333335,
+        "pr_auc": 0.773165918761894,
+        "brier_score": 0.2179379057249258,
+        "threshold_0_5_accuracy": 0.6458333333333334,
+        "recall_at_k": 0.16666666666666666,
         "recall_at_40": 0.9166666666666666,
         "recall_at_40_k": 40.0,
         "rows": 48.0,
@@ -1971,23 +2232,23 @@
         "seed": 20261031,
         "intervals": {
           "roc_auc": [
-            0.6744357638888888,
-            0.8711154513888888
+            0.6258246527777779,
+            0.8702473958333334
           ],
           "pr_auc": [
-            0.7237875279846787,
-            0.898271919752898
+            0.6750792766429463,
+            0.9097030850249029
           ],
           "brier_score": [
-            0.1523637399778825,
-            0.2584076965157973
+            0.16054585648511935,
+            0.2696044529451531
           ],
           "recall_at_40": [
-            0.875,
+            0.7916666666666666,
             1.0
           ],
           "recall_at_k": [
-            0.16666666666666666,
+            0.125,
             0.20833333333333334
           ]
         }
@@ -1995,13 +2256,8 @@
     }
   },
   "engineering_ready": true,
-  "pretraining_ready": false,
+  "pretraining_ready": true,
   "readiness_scope": "Engineering and invariant audit only; randomized audit must also pass. Empirical results are descriptive.",
-  "implementation_fingerprint": "8df4e9f08334b626f8baf0c0afe368bc7f69b03a6bd98001bc3a6eff5da8b7e5",
-  "combined_engineering_ready": true,
-  "publication_metadata": {
-    "original_audit_sha256": "adfc302881ab733c95dc2986e06af6c04ff7c6f5c2be880051390c8ac4ee8e21",
-    "local_original": "archive_snapshots/pre_github_publication/windows_5070ti_trainer/artifacts/full_system_bug_audit.json",
-    "change": "Only embedded raw EONET record arrays summarized; checks, metrics, timestamps, fingerprints and readiness flags unchanged."
-  }
+  "implementation_fingerprint": "770283f5d49ff96235a8725a62024d2806689a477e190027de7e855a6b990025",
+  "combined_engineering_ready": true
 }

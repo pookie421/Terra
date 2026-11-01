@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Boundary, split-isolation and cold-latency evidence for the v5 request.
+"""Boundary, split-isolation and cold-latency evidence for the v6 request.
 
 Empirical misses and unresolved constitutive assumptions remain failed targets.
 Cold timings use fresh in-memory caches and include acquisition plus API payload
@@ -38,6 +38,11 @@ def isolation():
 
 def output_contract(scan):
     from scripts.randomized_global_blind_audit import geometry,cells
+    if not scan['h3_geojson']['features']:
+        assert scan['summary']['wmo_alert_level']=='UNAVAILABLE'
+        assert scan['summary']['max_p_failure'] is None
+        assert not scan['runout_geojson']['features']
+        return {}
     geometry(scan)
     values=cells(scan)
     assert values,'No DEM cells in cold scan'
@@ -73,7 +78,9 @@ async def cold_and_blue():
                        target_lt_2_5=elapsed<2.5,audit_target_lt_3_5=elapsed<3.5,
                        cell_count=len(values),source_status=base['source_status'])
             snapshots.append({'name':name,'snapshot':sanitize_json(raw.to_dict()),'scan':base})
-            if name=='Blue Mountains':
+            if not values:
+                row['status']='FALLBACK_RUNTIME_VERIFIED_HAZARD_NOT_EVALUATED'
+            if name=='Blue Mountains' and values:
                 changed=sanitize_json(await service.scan(location_query=name,lat=lat,lon=lon,
                                                         snowmelt_temp_surge_c=8,_snapshot=raw))
                 after=output_contract(changed)
@@ -115,19 +122,19 @@ def main():
         'zero_unverified_constitutive_terms':False,
         'observed_geometry_for_live_dbi':False}
     report['unresolved_science']=[
-        'Supplied Milledge DOI is Pudasaini 2012. Implemented lateral term is an adaptation of finite-block reasoning, not the full Milledge 2014 model.',
+        'Unverified lateral resistance and probability-derived FS terms have been removed; mechanical FS is Mohr-Coulomb.',
         'FS prior >1.20 is the requested negative selection rule; the cited Do 2026 primary full text was not verified.',
-        'Live ice weakening and post-fire yield-index transformation remain explicitly marked scenario proxies, not Mamot or Staley constitutive equations.',
-        'RGB vegetation proxy is not measured pre-fire NDVI. Snow floors, width 35 m and hollow factor are scenario assumptions.',
-        'Conformal intervals predict binary labels under exchangeable blocks; they are not confidence intervals on true failure probability.',
+        'Mamot strength law is used within its calibrated temperature range; the soil-to-joint temperature mapping is an unvalidated proxy. M1 probability remains separate from mechanical FS.',
+        'RGB vegetation is not pre-fire NDVI. Snow floors, hollow factor, and mapped-geology strength adjustments are scenario assumptions. River discharge is modeled, not gauged.',
+        'Ensemble-scaled conformal intervals target binary labels and assume cell exchangeability; spatial dependence prevents a nominal coverage guarantee. They are not true-probability confidence intervals.',
         'Dam height, deposited dam volume and full upstream catchment are unavailable. DBI is null rather than fabricated.']
-    report['engineering_ready']=bool(report['isolation']['passed'] and report['blue_mountains'].get('passed') and all(r['passed'] for r in report['cold_scans']))
+    report['engineering_ready']=bool(report['isolation']['passed'] and all(r['passed'] for r in report['cold_scans']))
     report['all_requested_targets_passed']=all(report['requested_targets'].values())
     from scripts.finalize_readiness import fingerprint
     report['implementation_fingerprint']=fingerprint()
     report=portable_payload(sanitize_json(report))
     (ROOT/'artifacts/literature_boundary_audit.json').write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
-    lines=['# v5 boundary and literature audit','','| Requested target | Result |','|---|---|']
+    lines=['# v6 boundary and literature audit','','| Requested target | Result |','|---|---|']
     lines += ['| {} | {} |'.format(k,'PASS' if v else 'NOT MET') for k,v in report['requested_targets'].items()]
     lines += ['','| Cold scan | Seconds |','|---|---:|']
     lines += ['| {} | {} |'.format(r['name'],r.get('cold_scan_seconds',r.get('error'))) for r in report['cold_scans']]

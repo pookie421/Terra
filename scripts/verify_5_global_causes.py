@@ -179,6 +179,9 @@ def evaluate_live_physics(scan: GlobalScan, model: Optional[GlobalMonotonicXGB] 
         freeze_thaw_cycles_7d=float(freeze_cycles), burn_severity=burn, ndvi_norm=vegetation,
         profile_curvature=np.asarray([cell.profile_curvature for cell in cells]),
         peak_3h_intensity_mmhr=float(scan.weather.peak_rain_3h_mm or 0)/3 if scan.weather else 0.,
+        river_surge_ratio=(scan.river or {}).get("surge_ratio",1.),
+        geology_friction_adjustment_deg=(scan.bedrock or {}).get("friction_adjustment_deg",0.),
+        geology_cohesion_adjustment_kpa=(scan.bedrock or {}).get("cohesion_adjustment_kpa",0.),
         latitude_deg=scan.location.latitude, pga_g=float(pga), road_cut_distance_m=road_distance, river_distance_m=river_distance,
     )
     station_inputs = inputs

@@ -11,7 +11,7 @@ def cryospheric_eligibility(snow_depth_m, baseline_temperature_c, elevation_m, l
 def apply_alpine_weather(inputs, elevations_m, snowmelt_temp_surge_c=0.0, latitude_deg=None):
     elevation = np.asarray(elevations_m, dtype=float)
     latitude = inputs.latitude_deg if latitude_deg is None else latitude_deg
-    lapse = .0065 * np.maximum(0.0, elevation - elevation.min())
+    lapse = .0065 * (elevation - float(np.median(elevation)))
     baseline = np.asarray(inputs.air_temperature_c) - lapse
     eligible = cryospheric_eligibility(inputs.snow_depth_m, baseline, elevation, latitude)
     snow_floor = .40 * np.clip((elevation - 1800.0) / 1000.0, .2, 1.5)

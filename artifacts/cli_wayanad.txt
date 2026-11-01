@@ -1,0 +1,58 @@
+
+TERRA research scan — Chooralmala, Wayanad
+Coordinates: 11.548 76.134 Latency ms: 3997 H3 cells: 509
+Elevation range: [452.7142857142857, 1588.0]
+P95 slope: 26.340218789236886 Max TWI: 18.78748813718104
+Mapped geology: Archean intrusive rocks | intrusive igneous rocks | age: {'early': 2500, 'late': 4000}
+
+FEEDS (successful responses may come from cache; fallback values are not measurements)
+geocoding            FALLBACK         Known-coordinate fallback after geocoder failure
+terrarium_dem        LIVE             AWS Terrarium
+open_meteo           LIVE             Open-Meteo
+nasa_power           LIVE             NASA POWER
+soilgrids            FALLBACK         RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=76.134&lat=11.548&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)
+usgs                 LIVE             USGS Earthquake Catalog
+overpass             FALLBACK         TimeoutError: 
+eonet_wildfires      FALLBACK         TimeoutError: 
+eonet_landslides     LIVE             NASA EONET landslides
+coolr                LIVE             NASA COOLR
+river                LIVE             Open-Meteo GloFAS
+bedrock              LIVE             Macrostrat
+satellite            LIVE             Esri World Imagery RGB z13
+Rain last 24 h                 1.2                  mm       [LIVE]
+Antecedent rain index 7 d      2.0612500000000002   mm       [LIVE]
+Rain forecast next 48 h        18.4                 mm       [LIVE]
+Snow depth                     0.0                  m        [LIVE]
+Air temperature (scenario)     28.1                 C        [LIVE]
+Soil temperature observed      27.4                 C        [LIVE]
+Assimilated saturation: 1.0 [DERIVED from available hydrology; see source statuses]
+NASA POWER root wetness        0.84                 fraction [LIVE]
+NASA POWER daily rain          0.49                 mm       [LIVE]
+NASA COOLR nearby count        0                    events   [LIVE]
+Modeled river discharge        4.28                 m3/s     [LIVE]
+Modeled seven-day surge        1.0                  ratio    [LIVE]
+USGS-derived seismic PGA       0.0                  g        [LIVE]
+
+VERDICT: RED — research score, not an operational warning
+Critical FS static/dynamic: 0.9422359951306346 0.9422359951306348 Hotspot FS: 0.8949102269652796
+Critical failure score: 75.05% Hotspot label interval (90% nominal): [0.0, 100.0] Class: HIGH_SUSCEPTIBILITY_HIGH_UNCERTAINTY
+Interval targets binary labels; it is not a confidence interval for true failure probability.
+Causes: {'hydro_meteorological': 99.99914124023903, 'seismic_tectonic': 0.0, 'cryospheric': 0.0, 'post_wildfire_biotic': 0.0, 'anthropogenic_fluvial': 0.0008587597609604184}
+Mode: Rapid fluidized debris flow / avalanche Velocity m/s: 14.212838793502167 Class: 7
+Distance m: 1722
+Runout: 89600641c3bffff ETA min: 1.32979377691823 roads: 0 households: None
+Distance m: 360
+Runout: 89600641c2bffff ETA min: 0.17419930098451905 roads: 0 households: None
+Distance m: 1381
+Runout: 896006415cbffff ETA min: 1.611303826592526 roads: 0 households: None
+Distance m: 1398
+Runout: 89600641cabffff ETA min: 1.4220368075933836 roads: 0 households: None
+Distance m: 342
+Runout: 89600641c17ffff ETA min: 0.19655939470642667 roads: 0 households: None
+dynamic_factor_of_safety       0.8949 ratio | CRITICAL | failure threshold 1.00; rapid-deformation watch 1.25
+blended_failure_probability    81.65 % | CRITICAL | hotspot threshold 65%
+pore_pressure_head             0.8528 m | CRITICAL | full saturation head 0.913 m
+toe_undercut_multiplier        1 ratio | WATCH | 1.0 baseline; >1 adds undercut demand
+pga                            0 g | NORMAL | critical acceleration 0.2363 g
+snowmelt_flux                  0 mm/day | NORMAL | positive melt requires snow depth >0.01 m and air temperature >0°C

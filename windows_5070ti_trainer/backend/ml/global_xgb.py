@@ -111,8 +111,8 @@ class GlobalMonotonicXGB:
         matrix = _validate_X(X)
         return np.asarray(model.predict_proba(matrix)[:, 1], dtype=np.float64)
 
-    def calibrate_conformal(self, probabilities, labels, groups, training_groups, alpha=.10):
-        """Split conformal with block-maximum |Y-score|; calibration never trains the model."""
+    def calibrate_conformal(self, probabilities, labels, groups, training_groups, alpha=.10, scales=None):
+        """Ensemble-scaled cell residuals; spatial dependence prevents a coverage guarantee."""
         if not np.isfinite(alpha) or not 0 < alpha < 1:
             raise ValueError('Conformal alpha must be between zero and one')
         p=np.asarray(probabilities,float); y=np.asarray(labels,float); g=np.asarray(groups).astype(str)
@@ -122,24 +122,33 @@ class GlobalMonotonicXGB:
             raise ValueError('Conformal probabilities and binary labels are invalid')
         if set(g)&set(map(str,training_groups)):
             raise TrainingDataError('Conformal blocks overlap training/isotonic folds')
-        scores=np.array([np.max(np.abs(y[g==block]-p[g==block])) for block in np.unique(g)])
+        scale=np.ones_like(p) if scales is None else np.maximum(np.asarray(scales,float),1e-6)
+        if scale.shape!=p.shape or not np.isfinite(scale).all():raise ValueError('Invalid ensemble scales')
+        scores=np.abs(y-p)/scale
         rank=int(np.ceil((len(scores)+1)*(1-alpha)))
         q=float(np.sort(scores)[rank-1]) if rank<=len(scores) else 1.0
-        self.conformal_={'q':q,'alpha':alpha,'blocks':len(scores),'rows':len(y),
-                         'target':'binary_event_label_not_true_probability',
-                         'assumption':'exchangeable calibration/test blocks; not established for global spatial/scenario shift'}
+        self.conformal_={'q':q,'alpha':alpha,'blocks':len(np.unique(g)),'rows':len(y),
+                         'target':'binary_event_label_not_true_probability', 'scale':'ensemble_std' if scales is not None else 'unit',
+                         'assumption':'exchangeable calibration/test cells; spatial dependence and global shift invalidate nominal coverage guarantees'}
         return self.conformal_
 
-    def conformal_intervals(self, probabilities):
+    def ensemble_std(self, features):
+        x=_validate_X(features)
+        predictions=[fold.predict_proba(x)[:,1] for fold in self._require_fitted().calibrated_classifiers_]
+        return np.std(predictions,axis=0)
+
+    def conformal_intervals(self, probabilities, features=None):
         p=np.asarray(probabilities,float)
         if not np.isfinite(p).all() or np.any((p<0)|(p>1)):
             raise ValueError('Invalid conformal prediction score')
         calibration=getattr(self,'conformal_',None)
         q=calibration['q'] if calibration else 1.0
+        if calibration and calibration.get('scale')=='ensemble_std' and features is not None:
+            q=q*np.maximum(self.ensemble_std(features),1e-6)
         lower=np.maximum(0.,p-q); upper=np.minimum(1.,p+q)
         width=upper-lower
         classes=np.char.add(np.where(p>=.5,'HIGH_SUSCEPTIBILITY_','LOW_SUSCEPTIBILITY_'),
-                            np.where(width>=.5,'HIGH_UNCERTAINTY','LOW_UNCERTAINTY'))
+                            np.where(width>=.25,'HIGH_UNCERTAINTY','LOW_UNCERTAINTY'))
         return np.column_stack((lower,upper)),width,classes
 
     def shap_log_odds_contributions(self, X: np.ndarray, absolute: bool = True) -> np.ndarray:
@@ -203,8 +212,11 @@ def blend_failure_probability(p_xgb: np.ndarray, p_physical: np.ndarray,
         np.asarray(slope_deg, dtype=float), np.asarray(fs_dynamic, dtype=float))
     if not np.isfinite(ml).all() or not np.isfinite(physical).all():
         raise ValueError("probabilities must be finite")
-    weight = .35 + .50 / (1 + np.exp(np.clip((fs-1.05)/.06,-700,700)))
-    return mechanical_stability_gate(slope, fs) * np.clip((1-weight)*ml+weight*physical,0.,1.)
+    base_blend = .65*ml + .35*physical
+    yield_weight = .35 + .50/(1.+np.exp(np.clip((fs-1.05)/.06,-700,700)))
+    yield_blend = (1.-yield_weight)*ml + yield_weight*physical
+    combined = np.where(fs<=1.05,np.maximum(base_blend,yield_blend),base_blend)
+    return mechanical_stability_gate(slope,fs)*np.clip(combined,0.,1.)
 
 
 def make_base_estimator(

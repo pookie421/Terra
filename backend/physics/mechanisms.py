@@ -21,7 +21,7 @@ def postfire(burn,slope_deg,clay,sand,rain,peak_mmhr,depth):
     relief=np.maximum(depth*50*np.sin(np.radians(slope_deg)),10.)
     ln_volume=4.22+.39*np.sqrt(4*r15)+.36*np.log(area)+.13*np.sqrt(relief)
     volume=np.where(active,np.exp(np.clip(ln_volume,-700,700)),0.)
-    yield_index=np.where(probability>.5,np.clip(1.05-1.5*(probability-.5),.3,2.5),5.)
+    yield_index=np.full_like(probability,5.)  # deprecated diagnostic, never mechanical FS
     return probability,volume,yield_index,r15
 
 def suction_cohesion(saturation,tan_phi,active_head,alpha_kpa_inv=.1,n=2.):
@@ -36,10 +36,13 @@ def ice_factors(elevation,soil_temp,snow,cycles,warming,eligible=None):
     if eligible is None:
         from .alpine_weather import cryospheric_eligibility
         eligible=cryospheric_eligibility(snow,soil_temp,elevation,0.)
-    # Delta is an explicit temperature perturbation, not an observed joint history.
-    delta=np.clip(warming,0,7.9)
-    cohesion=np.where(eligible,np.clip(1-.12*delta-.10*cycles,.14,1),1.)
-    friction=np.where(eligible,np.clip(1-.08*delta-.05*cycles,.40,1),1.)
+    # Requested joint-temperature proxy, NOT an observed joint temperature.
+    joint=np.clip(np.asarray(soil_temp)-1.5-.30*np.asarray(cycles)+.50*np.asarray(warming),-8.,-.5)
+    strength=mamot_joint_strength(joint,200.)
+    friction_raw=.42-.21*joint
+    cohesion_raw=strength-200.*friction_raw
+    cohesion=np.where(eligible,np.clip(cohesion_raw/(53.3-73.5*(-8.)),.14,1.),1.)
+    friction=np.where(eligible,np.clip(friction_raw/(.42-.21*(-8.)),.40,1.),1.)
     return eligible,cohesion,friction
 
 def mamot_joint_strength(temperature_c,normal_stress_kpa):

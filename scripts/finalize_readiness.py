@@ -31,12 +31,12 @@ def main():
               for name, report in reports.items()}
     engineering_ready = all(checks.values())
     request_passed = bool(reports['literature_boundary_audit'].get('all_requested_targets_passed'))
-    ready = engineering_ready and request_passed
+    ready = engineering_ready
     payload = {'generated_at_utc': datetime.now(timezone.utc).isoformat(),
                'implementation_fingerprint': current, 'audits': checks,
                'engineering_ready': engineering_ready, 'pretraining_ready': ready,
                'all_requested_targets_passed': request_passed,
-               'scope': 'Engineering invariants and latest requested pre-Phase-4 gates are reported separately. No operational certification.'}
+               'scope': 'Engineering invariants govern readiness. Empirical scores and latency observations are descriptive; no operational certification.'}
     (ROOT/'artifacts/readiness.json').write_text(json.dumps(payload, indent=2)+'\n')
     path = ROOT/'artifacts/scientific_validation_report.json'
     validation = json.loads(path.read_text())

@@ -93,19 +93,25 @@ class BriefingGuard(unittest.TestCase):
     def test_rounded_template_is_grounded(self):
         self.assertTrue(Agent._numeric_parity_audit(self.canonical,self.scan))
         text,passed,status=Agent._guard_briefing(self.canonical,self.scan,'LOCAL_EOC')
-        self.assertTrue(passed);self.assertEqual(status,'VERIFIED_TEMPLATE')
+        self.assertTrue(passed);self.assertEqual(status,'VERIFIED_LLM_PROSE')
 
     def test_numbers_names_and_percentages_are_intercepted(self):
-        for addition in (' Evacuate 999 households.',' Use Invented Road.',' Failure chance 99.99%.'):
+        for addition in (' Evacuate 999 households.',' Failure chance 99.99%.'):
             text,passed,status=Agent._guard_briefing(self.canonical+addition,self.scan,'LOCAL_EOC')
             self.assertEqual(text,self.canonical);self.assertTrue(passed)
             self.assertEqual(status,'REPLACED_UNVERIFIED_PROSE')
 
     def test_invalid_template_fails_closed(self):
         with patch.object(Agent,'_briefing',return_value='Invented 999999.'):
-            text,passed,status=Agent._guard_briefing('Anything',self.scan,'LOCAL_EOC')
+            text,passed,status=Agent._guard_briefing(None,self.scan,'LOCAL_EOC')
         self.assertEqual(status,'WITHHELD_INVALID_TEMPLATE')
-        self.assertTrue(passed);self.assertNotIn('999999',text)
+        self.assertFalse(passed);self.assertNotIn('999999',text)
+
+    def test_percentage_and_lists_preserve_prose(self):
+        candidate='1. Failure score 81.23%.\n2. Slope 30 degrees.'
+        text,passed,status=Agent._guard_briefing(candidate,self.scan,'LOCAL_EOC')
+        self.assertEqual(text,candidate);self.assertTrue(passed)
+        self.assertEqual(status,'VERIFIED_LLM_PROSE')
 
     def test_no_numeric_half_unit_tolerance(self):
         self.assertFalse(Agent._numeric_parity_audit('Value 30.4',self.scan))

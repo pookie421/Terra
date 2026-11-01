@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+from contextvars import ContextVar
+CACHE_TRACE=ContextVar("terra_cache_trace",default=None)
 import time
 from collections import OrderedDict
 from typing import Any, Awaitable, Callable, Dict, Hashable, Tuple, TypeVar
@@ -18,6 +20,7 @@ class AsyncTTLCache:
         self._values: "OrderedDict[Hashable, Tuple[float, Any]]" = OrderedDict()
         self._inflight: Dict[Hashable, "asyncio.Task[Any]"] = {}
         self._lock = asyncio.Lock()
+        self._waiters = {}
 
     async def get_or_create(
         self, key: Hashable, ttl_seconds: float, factory: Callable[[], Awaitable[T]]
@@ -28,17 +31,30 @@ class AsyncTTLCache:
                 expires_at, value = cached
                 if expires_at > time.monotonic():
                     self._values.move_to_end(key)
+                    trace=CACHE_TRACE.get()
+                    if trace is not None:trace.append("CACHED")
                     return value
                 del self._values[key]
 
+            trace=CACHE_TRACE.get()
+            if trace is not None:trace.append("LIVE")
             task = self._inflight.get(key)
             if task is None:
                 task = asyncio.create_task(self._load(key, ttl_seconds, factory))
                 task.add_done_callback(self._consume_exception)
                 self._inflight[key] = task
 
-        # A caller timing out must not cancel a fetch that other callers share.
-        return await asyncio.shield(task)
+            self._waiters[task] = self._waiters.get(task,0)+1
+        try:
+            return await asyncio.shield(task)
+        finally:
+            async with self._lock:
+                remaining=self._waiters[task]-1
+                if remaining:self._waiters[task]=remaining
+                else:self._waiters.pop(task,None)
+                cancel=not remaining and not task.done()
+                if cancel:task.cancel()
+            if cancel:await asyncio.gather(task,return_exceptions=True)
 
     async def _load(
         self, key: Hashable, ttl_seconds: float, factory: Callable[[], Awaitable[T]]

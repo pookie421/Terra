@@ -231,7 +231,7 @@ def main() -> int:
         (artifacts / "global_multi_causal_xgb.metadata.json").write_text(json.dumps({
             "training_rows":int(len(y)), "positive_rows":int((y==1).sum()), "negative_rows":int((y==0).sum()),
             "synthetic_training_only_rows":int(sum(str(g).startswith("synthetic:") for g in groups)),
-            "physics_model_version":"boundary_conformal_v5", "conformal":model.conformal_, "feature_names":list(FEATURE_NAMES),
+            "physics_model_version":"mechanical_fs_v6", "conformal":model.conformal_, "feature_names":list(FEATURE_NAMES),
             "calibration":"isotonic on source/absence holdouts; simulated controls enter fitting only",
             "probability_policy":"mechanically gated blend; deployed score not separately calibrated",
         }, indent=2), encoding="utf-8")

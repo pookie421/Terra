@@ -40,6 +40,7 @@ class SourceStatus:
     provider: str
     fetched_at_utc: str
     error: Optional[str] = None
+    mode: str = "UNASSESSED"
 
 
 @dataclass
@@ -132,6 +133,8 @@ class GlobalScan:
     satellite_cells: Dict[str, Dict[str, Any]]
     sources: Dict[str, SourceStatus]
     elapsed_seconds: float
+    river: Optional[Dict[str, Any]] = None
+    bedrock: Optional[Dict[str, Any]] = None
     coolr_nearby: Dict[str, Any] = field(default_factory=lambda: {"count":0,"quality":"not_queried"})
 
     def to_dict(self) -> Dict[str, Any]:
@@ -194,8 +197,9 @@ class GlobalIngestor:
         latitude, longitude = location_info.latitude, location_info.longitude
         south, west, north, east = self._bbox(latitude, longitude, radius_km)
 
+        from .ground_context import river_discharge, bedrock
         from .coolr import nearby_count
-        source_names = ["terrarium_dem", "open_meteo", "nasa_power", "soilgrids", "usgs", "overpass", "eonet_wildfires", "eonet_landslides", "coolr"]
+        source_names = ["terrarium_dem", "open_meteo", "nasa_power", "soilgrids", "usgs", "overpass", "eonet_wildfires", "eonet_landslides", "coolr", "river", "bedrock"]
         results = await asyncio.gather(
             self._capture("terrarium_dem", "AWS Terrarium", self.dem_processor.process(latitude, longitude, radius_km, client)),
             self._capture("open_meteo", "Open-Meteo", self._get_weather(latitude, longitude, client)),
@@ -206,6 +210,8 @@ class GlobalIngestor:
             self._capture("eonet_wildfires", "NASA EONET wildfires", fetch_eonet_events(client, "wildfires", max(10.0, self.provider_timeout_s), self.cache)),
             self._capture("eonet_landslides", "NASA EONET landslides", fetch_eonet_events(client, "landslides", max(6.0, self.provider_timeout_s), self.cache)),
             self._capture("coolr", "NASA COOLR", nearby_count(client,latitude,longitude,self.cache)),
+            self._capture("river", "Open-Meteo GloFAS", river_discharge(client,latitude,longitude)),
+            self._capture("bedrock", "Macrostrat", bedrock(client,latitude,longitude)),
             return_exceptions=False,
         )
         payloads: Dict[str, Any] = {}
@@ -222,18 +228,20 @@ class GlobalIngestor:
             event_map["{}:{}".format(event.event_id, event.date_utc)] = event
         satellite_cells: Dict[str, SatelliteCell] = {}
         if payloads.get("terrarium_dem"):
-            try:
-                satellite_cells = await self.satellite_processor.process_cells(
+            satellite_cells, statuses['satellite'] = await self._capture(
+                'satellite', 'Esri World Imagery RGB z13', self.satellite_processor.process_cells(
                     {cell_id: (cell.latitude, cell.longitude) for cell_id, cell in payloads["terrarium_dem"].cells.items()},
                     event_map,
                     client,
                     burn_override=burn_override,
-                )
-                statuses["satellite"] = SourceStatus(bool(satellite_cells), "Esri World Imagery RGB z13", datetime.now(timezone.utc).isoformat(), None if satellite_cells else "No imagery cells were decoded")
-            except Exception as exc:
-                statuses["satellite"] = SourceStatus(False, "Esri World Imagery RGB z13", datetime.now(timezone.utc).isoformat(), "{}: {}".format(type(exc).__name__, exc))
+                ))
+            if not satellite_cells:
+                satellite_cells = {}
+                statuses['satellite'].available = False
+                statuses['satellite'].mode = 'FALLBACK'
+                statuses['satellite'].error = statuses['satellite'].error or 'No imagery cells were decoded'
         else:
-            statuses["satellite"] = SourceStatus(False, "Esri World Imagery RGB z13", datetime.now(timezone.utc).isoformat(), "Terrain cells or recent EONET events unavailable")
+            statuses["satellite"] = SourceStatus(False, "Esri World Imagery RGB z13", datetime.now(timezone.utc).isoformat(), "Terrain cells unavailable", "FALLBACK")
 
         weather = payloads["open_meteo"]
         power = payloads["nasa_power"]
@@ -247,6 +255,7 @@ class GlobalIngestor:
             coolr_count={**local,'count':local['cached_count_50km'],'quality':'partial_local_catalog_fallback_50km','source_url':URL}
         if not coolr_count['quality'].startswith('NASA'):
             statuses['coolr'].available=False
+            statuses['coolr'].mode='FALLBACK'
             statuses['coolr'].error=coolr_count.get('live_error_type','provider_deadline')
         return GlobalScan(
             location=location_info,
@@ -257,7 +266,7 @@ class GlobalIngestor:
             hydrology=hydrology,
             seismic=payloads["usgs"],
             infrastructure=payloads["overpass"],
-            coolr_nearby=coolr_count,
+            coolr_nearby=coolr_count, river=payloads["river"], bedrock=payloads["bedrock"],
             eonet_events=[event.to_dict() for event in event_values],
             satellite_cells={key: asdict(value) for key, value in satellite_cells.items()},
             sources=statuses,
@@ -265,13 +274,17 @@ class GlobalIngestor:
         )
 
     async def _capture(self, name: str, provider: str, awaitable: Any) -> Tuple[Any, SourceStatus]:
+        from .cache import CACHE_TRACE
+        trace=[];token=CACHE_TRACE.set(trace)
         fetched_at = datetime.now(timezone.utc).isoformat()
         try:
-            deadline = 2.0 if name in ('soilgrids','overpass') else self.provider_timeout_s
+            deadline = 2.2
             payload = await asyncio.wait_for(awaitable, timeout=deadline)
-            return payload, SourceStatus(True, provider, fetched_at)
+            return payload, SourceStatus(True, provider, fetched_at, mode="CACHED" if trace and all(x=="CACHED" for x in trace) else "LIVE")
         except Exception as exc:
-            return None, SourceStatus(False, provider, fetched_at, "{}: {}".format(type(exc).__name__, exc))
+            return None, SourceStatus(False, provider, fetched_at, "{}: {}".format(type(exc).__name__, exc), "FALLBACK")
+        finally:
+            CACHE_TRACE.reset(token)
 
     async def _resolve_location(self, location: Location, client: httpx.AsyncClient) -> Tuple[LocationInfo, SourceStatus]:
         fetched_at = datetime.now(timezone.utc).isoformat()
@@ -290,7 +303,10 @@ class GlobalIngestor:
                 response.raise_for_status()
                 return response.json()
 
-            data = await self.cache.get_or_create(key, 30 * 24 * 3600, load)
+            data, status = await self._capture('geocoding', 'Open-Meteo Geocoding',
+                self.cache.get_or_create(key, 30 * 24 * 3600, load))
+            if data is None:
+                raise ValueError('Geocoding unavailable: '+str(status.error))
             results = data.get("results") or []
             if not results:
                 raise ValueError("Open-Meteo geocoding found no result for {!r}".format(query))
@@ -304,12 +320,12 @@ class GlobalIngestor:
                 display_name=result.get("name"),
                 country=result.get("country"),
             )
-            return info, SourceStatus(True, "Open-Meteo Geocoding", fetched_at)
+            return info, status
         if isinstance(location, (tuple, list)) and len(location) == 2:
             lat, lon = float(location[0]), float(location[1])
             self._validate_coordinate(lat, lon)
             return LocationInfo("{:.6f}, {:.6f}".format(lat, lon), lat, lon), SourceStatus(
-                True, "Provided coordinates", fetched_at
+                True, "Provided coordinates", fetched_at, mode="PROVIDED"
             )
         raise TypeError("location must be a place-name string or (latitude, longitude) pair")
 

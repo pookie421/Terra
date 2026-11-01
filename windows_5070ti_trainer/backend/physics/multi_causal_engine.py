@@ -46,6 +46,9 @@ class PhysicsInputs:
     latitude_deg: ArrayInput = 0.0
     baseline_air_temperature_c: ArrayInput = -999.0
     observed_snow_depth_m: ArrayInput = -1.0
+    river_surge_ratio: ArrayInput = 1.0
+    geology_friction_adjustment_deg: ArrayInput = 0.0
+    geology_cohesion_adjustment_kpa: ArrayInput = 0.0
     block_width_m: ArrayInput = 35.0
     hollow_confinement_ratio: ArrayInput = 1.0
 
@@ -192,8 +195,10 @@ class MultiCausalEngine:
         )
         ksat = np.clip(ksat_raw, 1e-7, 1e-3)
         friction_deg = np.clip(24.0 + 14.0 * sand - 8.0 * clay, 18.0, 39.0)
+        friction_deg += values["geology_friction_adjustment_deg"]
         tan_phi = np.tan(np.radians(friction_deg))
         cohesion_soil = np.clip(4.0 + 16.0 * clay - 3.5 * sand, 2.0, 20.0)
+        cohesion_soil = np.maximum(0.,cohesion_soil + values["geology_cohesion_adjustment_kpa"])
         base_depth = np.clip(2.8 * np.exp(-0.85 * np.tan(slope)), 0.60, 3.00)
         # Keep the slab thickness independent of the separate post-fire runoff branch.
         regolith_depth = base_depth.copy()  # slab depth is independent of the runoff branch
@@ -259,22 +264,16 @@ class MultiCausalEngine:
         toe_multiplier = (
             1.0
             + 0.35 * np.exp(-road_distance / 60.0) * (slope_deg > 16.0)
-            + 0.15 * np.exp(-river_distance / 80.0) * (twi / 15.0)
+            + 0.15 * np.exp(-river_distance / 80.0) * (twi / 15.0) * np.where((twi>=14.5)&(values["river_surge_ratio"]>1.3),np.sqrt(np.clip(values["river_surge_ratio"],1,5)),1.)
         )
         wet_unit_weight = (bulk_density + local_saturation * theta_s) * GAMMA_W_KN_M3
         effective_cohesion = (soil_cohesion_effective + root_cohesion) * thaw + suction
         kh = 0.50 * pga
 
-        width = values['block_width_m']; confinement = values['hollow_confinement_ratio']
-        if np.any(width <= 0) or np.any(confinement < 1):
-            raise ValueError('Block width must be positive and hollow confinement ratio >=1')
-        k0 = 1.0 - np.sin(np.radians(friction_deg))
-        side_normal = np.maximum(0., wet_unit_weight*regolith_depth*cos_slope - pressure_head*GAMMA_W_KN_M3)
-        lateral = (2.*regolith_depth/width) * (effective_cohesion + .5*k0*side_normal*tan_phi) / confinement
-        # Requested finite-block adaptation, not the complete Milledge 2014 MD-STAB model.
+        lateral = np.zeros_like(regolith_depth)  # compatibility output; no lateral force
         normal_static = wet_unit_weight * regolith_depth * cos2 - pressure_head * GAMMA_W_KN_M3
         driving_static = wet_unit_weight * regolith_depth * sin_slope * cos_slope * toe_multiplier * fire_driving
-        fs_static_raw = (effective_cohesion + lateral + normal_static * tan_phi) / np.maximum(driving_static, 1.0)
+        fs_static_raw = (effective_cohesion + normal_static * tan_phi) / np.maximum(driving_static, 1.0)
         fs_static = np.clip(fs_static_raw, 0.10, 5.00)
 
         normal_dynamic = (
@@ -288,20 +287,20 @@ class MultiCausalEngine:
             * toe_multiplier * fire_driving
         )
         denominator_dynamic = np.maximum(driving_dynamic, 1.0)
-        fs_dynamic_raw = (effective_cohesion + lateral + normal_dynamic * tan_phi) / denominator_dynamic
+        fs_dynamic_raw = (effective_cohesion + normal_dynamic * tan_phi) / denominator_dynamic
         fs_mohr = np.clip(fs_dynamic_raw, 0.10, 5.00)
-        fs_dynamic = np.minimum(fs_mohr,fs_fire)
+        fs_dynamic = fs_mohr.copy()
 
         # Delta-method FOSM, including the derivative of the specified FS clip.
         sigma_cohesion = 0.18 * effective_cohesion
-        lateral_coefficient = 2.*regolith_depth/width/confinement
+        lateral_coefficient = 0.0
         sigma_tan_phi = 0.12 * tan_phi
         sigma_pressure = 0.15 * pressure_head
         clip_active = (fs_dynamic_raw > 0.10) & (fs_dynamic_raw < 5.00)
-        d_fs_dc = np.where(clip_active, (1.+lateral_coefficient) / denominator_dynamic, 0.0)
-        d_fs_dtan = np.where(clip_active, (normal_dynamic + .5*lateral_coefficient*side_normal*(k0-tan_phi/(1.+tan_phi**2)**1.5)) / denominator_dynamic, 0.0)
+        d_fs_dc = np.where(clip_active, 1.0 / denominator_dynamic, 0.0)
+        d_fs_dtan = np.where(clip_active, normal_dynamic / denominator_dynamic, 0.0)
         d_fs_dpressure = np.where(
-            clip_active, -GAMMA_W_KN_M3 * tan_phi*(1.+.5*lateral_coefficient*k0*(side_normal>0)) / denominator_dynamic, 0.0
+            clip_active, -GAMMA_W_KN_M3 * tan_phi / denominator_dynamic, 0.0
         )
         sigma_fs = np.sqrt(
             (d_fs_dc * sigma_cohesion) ** 2
@@ -315,10 +314,7 @@ class MultiCausalEngine:
         dry_gamma = bulk_density * GAMMA_W_KN_M3
         dry_normal = dry_gamma * base_depth * cos2
         dry_driving = dry_gamma * base_depth * sin_slope * cos_slope * toe_multiplier
-        dry_phi=np.arctan(tan_phi_base)
-        dry_lateral=(2.*base_depth/width/confinement)*(cohesion_soil+root_cohesion_baseline
-                     +.5*(1.-np.sin(dry_phi))*dry_gamma*base_depth*cos_slope*tan_phi_base)
-        fs_static_dry = np.clip((cohesion_soil + root_cohesion_baseline + dry_lateral + dry_normal * tan_phi_base)
+        fs_static_dry = np.clip((cohesion_soil + root_cohesion_baseline + dry_normal * tan_phi_base)
                                / np.maximum(dry_driving, 1.0), 0.10, 5.0)
         critical_acceleration = np.clip((fs_static_dry - 1.0) * sin_slope, 0.05, 0.60)
         pga_ratio = np.clip(

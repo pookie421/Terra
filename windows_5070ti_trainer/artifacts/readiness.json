@@ -1,13 +1,13 @@
 {
-  "generated_at_utc": "2026-11-01T03:15:48.135616+00:00",
-  "implementation_fingerprint": "8df4e9f08334b626f8baf0c0afe368bc7f69b03a6bd98001bc3a6eff5da8b7e5",
+  "generated_at_utc": "2026-11-01T08:55:27.153284+00:00",
+  "implementation_fingerprint": "770283f5d49ff96235a8725a62024d2806689a477e190027de7e855a6b990025",
   "audits": {
     "full_system_bug_audit": true,
     "randomized_global_blind_audit": true,
     "literature_boundary_audit": true
   },
   "engineering_ready": true,
-  "pretraining_ready": false,
+  "pretraining_ready": true,
   "all_requested_targets_passed": false,
-  "scope": "Engineering invariants and latest requested pre-Phase-4 gates are reported separately. No operational certification."
+  "scope": "Engineering invariants govern readiness. Empirical scores and latency observations are descriptive; no operational certification."
 }

@@ -1,0 +1,47 @@
+
+TERRA research scan — Zermatt
+Coordinates: 46.01998 7.74863 Latency ms: 3220 H3 cells: 0
+Elevation range: None
+Mapped geology: None | None | age: None
+
+FEEDS (successful responses may come from cache; fallback values are not measurements)
+geocoding            LIVE             Open-Meteo Geocoding
+terrarium_dem        FALLBACK         TimeoutError: 
+open_meteo           LIVE             Open-Meteo
+nasa_power           LIVE             NASA POWER
+soilgrids            FALLBACK         RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=7.74863&lat=46.01998&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)
+usgs                 LIVE             USGS Earthquake Catalog
+overpass             FALLBACK         TimeoutError: 
+eonet_wildfires      FALLBACK         TimeoutError: 
+eonet_landslides     LIVE             NASA EONET landslides
+coolr                LIVE             NASA COOLR
+river                LIVE             Open-Meteo GloFAS
+bedrock              LIVE             Macrostrat
+satellite            FALLBACK         Terrain cells unavailable
+Rain last 24 h                 None                 mm       [LIVE]
+Antecedent rain index 7 d      None                 mm       [LIVE]
+Rain forecast next 48 h        0.0                  mm       [LIVE]
+Snow depth                     None                 m        [LIVE]
+Air temperature (scenario)     None                 C        [LIVE]
+Soil temperature observed      None                 C        [LIVE]
+Assimilated saturation: None [DERIVED from available hydrology; see source statuses]
+NASA POWER root wetness        0.48                 fraction [LIVE]
+NASA POWER daily rain          0.04                 mm       [LIVE]
+NASA COOLR nearby count        0                    events   [LIVE]
+Modeled river discharge        None                 m3/s     [LIVE]
+Modeled seven-day surge        None                 ratio    [LIVE]
+USGS-derived seismic PGA       None                 g        [LIVE]
+
+VERDICT: UNAVAILABLE — research score, not an operational warning
+Critical FS static/dynamic: None None Hotspot FS: None
+Critical failure score: None Hotspot label interval (90% nominal): None Class: None
+Interval targets binary labels; it is not a confidence interval for true failure probability.
+Causes: {'hydro_meteorological': 20.0, 'seismic_tectonic': 20.0, 'cryospheric': 20.0, 'post_wildfire_biotic': 20.0, 'anthropogenic_fluvial': 20.0}
+Mode: None Velocity m/s: None Class: None
+dynamic_factor_of_safety       0 ratio | NORMAL | unavailable
+blended_failure_probability    0 % | NORMAL | unavailable
+peak_velocity                  0 m/s | NORMAL | unavailable
+pore_pressure_head             0 m | NORMAL | unavailable
+slope_angle                    0 degrees | NORMAL | unavailable
+newmark_displacement           0 cm | NORMAL | unavailable

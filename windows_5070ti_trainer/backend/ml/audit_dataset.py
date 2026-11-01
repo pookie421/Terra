@@ -140,7 +140,7 @@ async def audit_refresh(path):
         populate_physics_features(row,SimpleNamespace(cells={str(cell.cell_id):cell}))
         row['terrain_source_status']=original_status
         row['is_synthetic']=False
-        row['physics_model_version']='boundary_conformal_v5'
+        row['physics_model_version']='mechanical_fs_v6'
         row['physics_feature_provenance_json']=json.dumps(row.get('physics_feature_provenance') or {},sort_keys=True)
     controls=mechanical_controls();rows.extend(controls)
     # Explicit union of keys prevents Arrow dropping columns absent from the first seed row.
@@ -155,7 +155,7 @@ async def audit_refresh(path):
         synthetic_negative_rows=len(controls),synthetic_control_counts=dict(Counter(r['name'] for r in controls)),
         observed_negative_rows=sum(r.get('label')==0 and not r.get('is_synthetic') for r in rows),
         catalog_candidate_count=sum(r.get('event_record_type') not in ('simulated_mechanical_negative','temporal_absence_sample') for r in rows),
-        complete_14_feature_rows=len(rows),source_report_rows=len(raw_by_id),physics_model_version='boundary_conformal_v5',
+        complete_14_feature_rows=len(rows),source_report_rows=len(raw_by_id),physics_model_version='mechanical_fs_v6',
         label_policy='Inventory polygons, manual point buffers and precisely located reported-landslide point proxies are positive. Temporal absences are unverified pseudo-negatives. 40 explicitly simulated negatives augment training only.',
         warning='Five source trigger/context regimes are represented but sample sizes are small and point locations are not mapped crowns. Historic burn severity, freeze-thaw cycles and construction geometry are not inferred from positive labels; missing inputs remain flagged defaults. Synthetic negatives never enter held-out calibration/evaluation.')
     summary.update(
