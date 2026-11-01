@@ -1,0 +1,20 @@
+{
+  "scope": "Descriptive diagnostics on the already fixed balanced holdout; no split or model tuning from these scores.",
+  "regimes": {
+    "coseismic": {
+      "rows": 16,
+      "positive_rows": 8,
+      "roc_auc": 0.8046875
+    },
+    "cryosphere": {
+      "rows": 16,
+      "positive_rows": 8,
+      "roc_auc": 0.6484375
+    },
+    "monsoon_rain": {
+      "rows": 16,
+      "positive_rows": 8,
+      "roc_auc": 0.8828125
+    }
+  }
+}

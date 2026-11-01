@@ -1,0 +1,6 @@
+# Install after the CUDA PyTorch wheel in RUN_TRAINING_5070TI.bat.
+unsloth
+trl
+datasets
+peft
+transformers

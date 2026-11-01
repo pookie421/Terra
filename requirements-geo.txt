@@ -1,0 +1,3 @@
+# Optional SoilGrids WCS GeoTIFF decode path. Pedotransfer fallback remains available without these.
+pyproj>=3.6,<4
+rasterio>=1.3,<2

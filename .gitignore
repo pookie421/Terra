@@ -1,0 +1,56 @@
+# Local environments and generated caches
+__pycache__/
+*.py[cod]
+.venv*/
+venv/
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+node_modules/
+.next/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+*.log
+*.tmp
+*.temp
+archive_snapshots/
+Terra_Full_Archive_Backup/
+# Credentials and editors
+*.pem
+*.key
+*.p12
+.aws/
+.codex/
+.agents/
+.idea/
+.vscode/
+# Local source-derived observations, raw responses and learned weights
+*.parquet
+*.pq
+*.pkl
+*.joblib
+*.gguf
+*.safetensors
+*.bin
+*.jsonl
+*.tif
+*.tiff
+*.zip
+*.tar.gz
+**/data/historical_hindcast.csv
+**/data/historical_hindcast_pinls.csv
+**/data/landslide_training.csv
+**/data/source_catalogs/terrain_*.json
+**/artifacts/full_system_live_api_snapshots.json
+**/artifacts/literature_boundary_snapshots.json
+**/artifacts/qwen*/
+**/artifacts/*merged*/
+# Lightweight metadata, source manifests, source citations and audit results stay tracked.
+# Third-party mapped geometries stay local pending source-specific redistribution review.
+**/data/source_catalogs/audit_mapped_polygons.json
+# Raw third-party report text also stays local; publish source metadata separately.
+**/data/source_catalogs/audit_regime_reports.json

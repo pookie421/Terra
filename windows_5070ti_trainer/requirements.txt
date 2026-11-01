@@ -1,0 +1,11 @@
+xgboost>=2.0,<4
+scikit-learn>=1.4,<2
+shap>=0.45,<1
+optuna>=3.6,<5
+httpx>=0.27,<1
+h3>=4.1,<5
+numpy>=1.26,<3
+Pillow>=9.5,<13
+pyarrow>=14,<24
+pandas>=2.1,<4
+joblib

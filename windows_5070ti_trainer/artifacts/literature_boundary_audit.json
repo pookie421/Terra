@@ -1,0 +1,359 @@
+{
+  "generated_at_utc": "2026-11-01T03:14:09.442439+00:00",
+  "engineering_ready": true,
+  "timing_scope": "Fresh in-memory cache; public provider acquisition plus scan payload and JSON serialization; excludes process startup/HTTP transport",
+  "isolation": {
+    "passed": true,
+    "training_rows": 576,
+    "calibration_rows": 66,
+    "holdout_rows": 48,
+    "blocks_disjoint": true,
+    "original_holdout_ids_unchanged": true,
+    "negative_selection": {
+      "pinls_training": {
+        "threshold": 1.2,
+        "removed_ids": [],
+        "retained_negative_slope_strata": {
+          "moderate_high_slope_ge15": 181,
+          "low_slope_lt15": 31
+        },
+        "scope": "Requested sampling rule; not verified intact ground. Filtering evaluation negatives changes the estimand."
+      },
+      "pinls_holdout": {
+        "threshold": 1.2,
+        "removed_ids": [],
+        "retained_negative_slope_strata": {
+          "moderate_high_slope_ge15": 18,
+          "low_slope_lt15": 6
+        },
+        "scope": "Requested sampling rule; not verified intact ground. Filtering evaluation negatives changes the estimand."
+      }
+    }
+  },
+  "cold_scans": [
+    {
+      "name": "Blue Mountains",
+      "passed": true,
+      "provider_seconds": 7.729871958,
+      "cold_scan_seconds": 8.324551,
+      "target_lt_2_5": false,
+      "audit_target_lt_3_5": false,
+      "cell_count": 434,
+      "source_status": {
+        "geocoding": {
+          "available": true,
+          "provider": "Provided coordinates",
+          "fetched_at_utc": "2026-11-01T03:14:10.393548+00:00",
+          "error": null
+        },
+        "terrarium_dem": {
+          "available": true,
+          "provider": "AWS Terrarium",
+          "fetched_at_utc": "2026-11-01T03:14:10.393922+00:00",
+          "error": null
+        },
+        "open_meteo": {
+          "available": true,
+          "provider": "Open-Meteo",
+          "fetched_at_utc": "2026-11-01T03:14:10.393982+00:00",
+          "error": null
+        },
+        "nasa_power": {
+          "available": true,
+          "provider": "NASA POWER",
+          "fetched_at_utc": "2026-11-01T03:14:10.394100+00:00",
+          "error": null
+        },
+        "soilgrids": {
+          "available": false,
+          "provider": "ISRIC SoilGrids",
+          "fetched_at_utc": "2026-11-01T03:14:10.394115+00:00",
+          "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=150.311&lat=-33.712&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)"
+        },
+        "usgs": {
+          "available": true,
+          "provider": "USGS Earthquake Catalog",
+          "fetched_at_utc": "2026-11-01T03:14:10.394129+00:00",
+          "error": null
+        },
+        "overpass": {
+          "available": false,
+          "provider": "OpenStreetMap Overpass",
+          "fetched_at_utc": "2026-11-01T03:14:10.394142+00:00",
+          "error": "TimeoutError: "
+        },
+        "eonet_wildfires": {
+          "available": true,
+          "provider": "NASA EONET wildfires",
+          "fetched_at_utc": "2026-11-01T03:14:10.394155+00:00",
+          "error": null
+        },
+        "eonet_landslides": {
+          "available": true,
+          "provider": "NASA EONET landslides",
+          "fetched_at_utc": "2026-11-01T03:14:10.394167+00:00",
+          "error": null
+        },
+        "coolr": {
+          "available": true,
+          "provider": "NASA COOLR",
+          "fetched_at_utc": "2026-11-01T03:14:10.394190+00:00",
+          "error": null
+        },
+        "satellite": {
+          "available": true,
+          "provider": "Esri World Imagery RGB z13",
+          "fetched_at_utc": "2026-11-01T03:14:17.992618+00:00",
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "Wayanad",
+      "passed": true,
+      "provider_seconds": 12.244583666000002,
+      "cold_scan_seconds": 12.76275375,
+      "target_lt_2_5": false,
+      "audit_target_lt_3_5": false,
+      "cell_count": 509,
+      "source_status": {
+        "geocoding": {
+          "available": true,
+          "provider": "Provided coordinates",
+          "fetched_at_utc": "2026-11-01T03:14:19.712888+00:00",
+          "error": null
+        },
+        "terrarium_dem": {
+          "available": true,
+          "provider": "AWS Terrarium",
+          "fetched_at_utc": "2026-11-01T03:14:19.713092+00:00",
+          "error": null
+        },
+        "open_meteo": {
+          "available": true,
+          "provider": "Open-Meteo",
+          "fetched_at_utc": "2026-11-01T03:14:19.713121+00:00",
+          "error": null
+        },
+        "nasa_power": {
+          "available": true,
+          "provider": "NASA POWER",
+          "fetched_at_utc": "2026-11-01T03:14:19.713136+00:00",
+          "error": null
+        },
+        "soilgrids": {
+          "available": false,
+          "provider": "ISRIC SoilGrids",
+          "fetched_at_utc": "2026-11-01T03:14:19.713149+00:00",
+          "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=76.134&lat=11.548&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)"
+        },
+        "usgs": {
+          "available": true,
+          "provider": "USGS Earthquake Catalog",
+          "fetched_at_utc": "2026-11-01T03:14:19.713162+00:00",
+          "error": null
+        },
+        "overpass": {
+          "available": false,
+          "provider": "OpenStreetMap Overpass",
+          "fetched_at_utc": "2026-11-01T03:14:19.713175+00:00",
+          "error": "TimeoutError: "
+        },
+        "eonet_wildfires": {
+          "available": false,
+          "provider": "NASA EONET wildfires",
+          "fetched_at_utc": "2026-11-01T03:14:19.713187+00:00",
+          "error": "TimeoutError: "
+        },
+        "eonet_landslides": {
+          "available": true,
+          "provider": "NASA EONET landslides",
+          "fetched_at_utc": "2026-11-01T03:14:19.713200+00:00",
+          "error": null
+        },
+        "coolr": {
+          "available": true,
+          "provider": "NASA COOLR",
+          "fetched_at_utc": "2026-11-01T03:14:19.713212+00:00",
+          "error": null
+        },
+        "satellite": {
+          "available": true,
+          "provider": "Esri World Imagery RGB z13",
+          "fetched_at_utc": "2026-11-01T03:14:31.902823+00:00",
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "New Delhi",
+      "passed": true,
+      "provider_seconds": 8.692033834,
+      "cold_scan_seconds": 9.348349625,
+      "target_lt_2_5": false,
+      "audit_target_lt_3_5": false,
+      "cell_count": 498,
+      "source_status": {
+        "geocoding": {
+          "available": true,
+          "provider": "Provided coordinates",
+          "fetched_at_utc": "2026-11-01T03:14:32.528348+00:00",
+          "error": null
+        },
+        "terrarium_dem": {
+          "available": true,
+          "provider": "AWS Terrarium",
+          "fetched_at_utc": "2026-11-01T03:14:32.528447+00:00",
+          "error": null
+        },
+        "open_meteo": {
+          "available": true,
+          "provider": "Open-Meteo",
+          "fetched_at_utc": "2026-11-01T03:14:32.528463+00:00",
+          "error": null
+        },
+        "nasa_power": {
+          "available": true,
+          "provider": "NASA POWER",
+          "fetched_at_utc": "2026-11-01T03:14:32.528470+00:00",
+          "error": null
+        },
+        "soilgrids": {
+          "available": false,
+          "provider": "ISRIC SoilGrids",
+          "fetched_at_utc": "2026-11-01T03:14:32.528478+00:00",
+          "error": "RuntimeError: SoilGrids REST failed (Server error '503 Service Temporarily Unavailable' for url 'https://rest.isric.org/soilgrids/v2.0/properties/query?lon=77.209&lat=28.6139&property=bdod&property=clay&property=sand&property=soc&depth=0-5cm&depth=5-15cm&depth=15-30cm&value=mean'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)"
+        },
+        "usgs": {
+          "available": true,
+          "provider": "USGS Earthquake Catalog",
+          "fetched_at_utc": "2026-11-01T03:14:32.528484+00:00",
+          "error": null
+        },
+        "overpass": {
+          "available": false,
+          "provider": "OpenStreetMap Overpass",
+          "fetched_at_utc": "2026-11-01T03:14:32.528491+00:00",
+          "error": "TimeoutError: "
+        },
+        "eonet_wildfires": {
+          "available": true,
+          "provider": "NASA EONET wildfires",
+          "fetched_at_utc": "2026-11-01T03:14:32.528496+00:00",
+          "error": null
+        },
+        "eonet_landslides": {
+          "available": true,
+          "provider": "NASA EONET landslides",
+          "fetched_at_utc": "2026-11-01T03:14:32.528502+00:00",
+          "error": null
+        },
+        "coolr": {
+          "available": true,
+          "provider": "NASA COOLR",
+          "fetched_at_utc": "2026-11-01T03:14:32.528508+00:00",
+          "error": null
+        },
+        "satellite": {
+          "available": true,
+          "provider": "Esri World Imagery RGB z13",
+          "fetched_at_utc": "2026-11-01T03:14:41.130458+00:00",
+          "error": null
+        }
+      }
+    }
+  ],
+  "blue_mountains": {
+    "passed": true,
+    "eligible_cells": 0,
+    "max_abs_fs_change": 0.0,
+    "critical_fs": 1.3133980210591183,
+    "critical_score": 0.3160251172438465,
+    "stable_fs_gt_1": true,
+    "same_provider_snapshot": true
+  },
+  "conformal_holdout": {
+    "target": "binary event labels, not the latent probability",
+    "rows": 48,
+    "blocks": 24,
+    "row_coverage": 1.0,
+    "whole_block_coverage": 1.0,
+    "mean_interval_width": 1.0,
+    "q": 0.9999999999982343,
+    "empty_binary_prediction_sets": 0,
+    "scope": "Descriptive on fixed source-location proxies; not a global coverage guarantee"
+  },
+  "pinls_holdout": {
+    "name": "Stage 2: historical catastrophe hindcast",
+    "status": "scored",
+    "metrics": {
+      "roc_auc": 0.7699652777777778,
+      "pr_auc": 0.8005488776245061,
+      "brier_score": 0.20624399384963266,
+      "threshold_0_5_accuracy": 0.6666666666666666,
+      "recall_at_k": 0.20833333333333334,
+      "recall_at_40": 0.9166666666666666,
+      "recall_at_40_k": 40.0,
+      "rows": 48.0,
+      "positive_rows": 24.0,
+      "heldout_events": 24.0,
+      "recall_at_k_k": 5.0,
+      "recall_at_k_fraction": 0.10416666666666667
+    },
+    "details": [
+      "48 event-time rows across 24 held-out case(s); Recall@K uses the top 10% by predicted probability (K=5); Recall@40 also reported with its actual K. Stable input order breaks tied scores. On small samples Recall@40 can be uninformative."
+    ],
+    "confidence_intervals": {
+      "method": "95% percentile cluster bootstrap of fixed predictions; conditional on fitted models; not retraining uncertainty",
+      "cluster_count": 24,
+      "valid_replicates": 500,
+      "seed": 20261031,
+      "intervals": {
+        "roc_auc": [
+          0.6744357638888888,
+          0.8711154513888888
+        ],
+        "pr_auc": [
+          0.7237875279846787,
+          0.898271919752898
+        ],
+        "brier_score": [
+          0.1523637399778825,
+          0.2584076965157973
+        ],
+        "recall_at_40": [
+          0.875,
+          1.0
+        ],
+        "recall_at_k": [
+          0.16666666666666666,
+          0.20833333333333334
+        ]
+      }
+    },
+    "scope": "Selection-biased stability-filtered cohort; not comparable to the unchanged original holdout"
+  },
+  "requested_targets": {
+    "blue_mountains_no_warming_created_cryo": true,
+    "blue_mountains_critical_fs_gt_1": true,
+    "stage2_original_auc_gte_0_82": false,
+    "stage2_pinls_auc_gte_0_82": false,
+    "wayanad_score_gte_0_80": false,
+    "all_cold_scans_lt_3_5_seconds": false,
+    "all_cold_scans_lt_2_5_seconds": false,
+    "zero_unverified_constitutive_terms": false,
+    "observed_geometry_for_live_dbi": false
+  },
+  "unresolved_science": [
+    "Supplied Milledge DOI is Pudasaini 2012. Implemented lateral term is an adaptation of finite-block reasoning, not the full Milledge 2014 model.",
+    "FS prior >1.20 is the requested negative selection rule; the cited Do 2026 primary full text was not verified.",
+    "Live ice weakening and post-fire yield-index transformation remain explicitly marked scenario proxies, not Mamot or Staley constitutive equations.",
+    "RGB vegetation proxy is not measured pre-fire NDVI. Snow floors, width 35 m and hollow factor are scenario assumptions.",
+    "Conformal intervals predict binary labels under exchangeable blocks; they are not confidence intervals on true failure probability.",
+    "Dam height, deposited dam volume and full upstream catchment are unavailable. DBI is null rather than fabricated."
+  ],
+  "all_requested_targets_passed": false,
+  "implementation_fingerprint": "8df4e9f08334b626f8baf0c0afe368bc7f69b03a6bd98001bc3a6eff5da8b7e5",
+  "pretraining_ready": false,
+  "combined_engineering_ready": true
+}
