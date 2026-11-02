@@ -65,7 +65,7 @@ def compare(base,changed):
  contradictions=[]
  for p in [*a.values(),*b.values()]:
   stable=p['fs_dynamic']>1.25 and p['p_failure_m1']<.5
-  if (stable and (p['peak_velocity_ms']>=.016/(365.25*86400) or p['cruden_varnes_class']!=1)) or (p['peak_velocity_ms']>.05 and p['fs_dynamic']>1):contradictions.append(p['h3_index'])
+  if (stable and (p['peak_velocity_ms']>=.016/(365.25*86400) or p['cruden_varnes_class']!=1)) or (p['peak_velocity_ms']>.05 and p['fs_dynamic']>1.05 and p['p_failure_m1']<.5):contradictions.append(p['h3_index'])
  return {'monotonic_violations':len(negative),'min_delta':min(deltas.values()),'negative_examples':negative[:5],'kinematic_contradictions':len(contradictions)}
 
 async def acquire(indices,timeout):
@@ -169,7 +169,7 @@ def main():
     print(name,'sweep',sweep,'PASS' if row['passed'] else 'FAIL',row.get('perturbed_score'),row.get('error',''),flush=True)
  try:
   feature_contract()
-  assert (ROOT/'LICENSE').read_bytes()==(ROOT/'windows_5070ti_trainer/LICENSE').read_bytes()
+  assert (ROOT/'LICENSE').read_bytes()==(ROOT/'training/LICENSE').read_bytes()
   report['bundle_sync_passed']=True
  except Exception as exc:report['bundle_sync_passed']=False;report['bundle_error']=str(exc)
  from scripts.finalize_readiness import fingerprint

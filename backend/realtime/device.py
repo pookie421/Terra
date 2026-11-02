@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 
 def detect_compute_device(torch_module: Optional[Any] = None) -> str:
-    """Return the fastest available PyTorch device without requiring PyTorch for Phase 1."""
+    """Return the fastest available PyTorch device without requiring PyTorch for ingestion."""
     if torch_module is None:
         try:
             import torch as torch_module  # type: ignore

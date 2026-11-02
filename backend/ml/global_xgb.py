@@ -151,6 +151,22 @@ class GlobalMonotonicXGB:
                             np.where(width>=.25,'HIGH_UNCERTAINTY','LOW_UNCERTAINTY'))
         return np.column_stack((lower,upper)),width,classes
 
+    def epistemic_probability_intervals(self, feature_rows, blended_prob, fosm_sigma_p):
+        """Normal spread proxy; not calibrated probability coverage.
+
+        Fold disagreement and a bounded FOSM spread heuristic are treated as independent, although
+        both use the same inputs. This does not measure all epistemic uncertainty.
+        """
+        p = np.asarray(blended_prob, dtype=float)
+        physical = np.asarray(fosm_sigma_p, dtype=float)
+        fold = self.ensemble_std(feature_rows)
+        if p.shape != fold.shape or physical.shape != p.shape:
+            raise ValueError('Probability spread arrays must have matching shapes')
+        if not np.isfinite(p).all() or not np.isfinite(physical).all() or np.any(physical < 0) or np.any((p < 0) | (p > 1)):
+            raise ValueError('Invalid probability/spread')
+        sigma = np.sqrt(fold**2 + physical**2)
+        return np.column_stack((np.clip(p-1.645*sigma,0,1),np.clip(p+1.645*sigma,0,1)))
+
     def shap_log_odds_contributions(self, X: np.ndarray, absolute: bool = True) -> np.ndarray:
         """Average absolute TreeSHAP contributions from calibrated fold models.
 
@@ -197,12 +213,20 @@ class GlobalMonotonicXGB:
         return self.model
 
 
-def mechanical_stability_gate(slope_deg: np.ndarray, fs_dynamic: np.ndarray) -> np.ndarray:
-    """User-specified smooth mechanical screen; not a calibrated probability."""
+def mechanical_stability_gate(slope_deg: np.ndarray, fs_dynamic: np.ndarray, p_physical: Optional[np.ndarray] = None) -> np.ndarray:
+    """Project-defined smooth mechanical screen; not a calibrated probability."""
     slope, fs = np.broadcast_arrays(np.asarray(slope_deg, dtype=float), np.asarray(fs_dynamic, dtype=float))
     if not np.isfinite(slope).all() or not np.isfinite(fs).all():
         raise ValueError("slope and factor of safety must be finite")
-    return (1.0 / (1.0 + np.exp(np.clip(-(slope - 8.5) / 0.65, -700, 700)))) * (1.0 / (1.0 + np.exp(np.clip((fs - 2.15) / 0.18, -700, 700))))
+    effective_fs = fs
+    if p_physical is not None:
+        phys = np.broadcast_to(np.asarray(p_physical, dtype=float), fs.shape)
+        if not np.isfinite(phys).all():
+            raise ValueError("physical probabilities must be finite")
+        effective_fs = np.minimum(fs, 1.40 - 0.65 * np.clip(phys, 0.0, 1.0))
+    slope_screen = 1.0 / (1.0 + np.exp(np.clip(-(slope - 8.5) / 0.65, -700, 700)))
+    dynamic_screen = 1.0 / (1.0 + np.exp(np.clip((effective_fs - 1.35) / 0.12, -700, 700)))
+    return slope_screen * dynamic_screen
 
 
 def blend_failure_probability(p_xgb: np.ndarray, p_physical: np.ndarray,
@@ -216,7 +240,7 @@ def blend_failure_probability(p_xgb: np.ndarray, p_physical: np.ndarray,
     yield_weight = .35 + .50/(1.+np.exp(np.clip((fs-1.05)/.06,-700,700)))
     yield_blend = (1.-yield_weight)*ml + yield_weight*physical
     combined = np.where(fs<=1.05,np.maximum(base_blend,yield_blend),base_blend)
-    return mechanical_stability_gate(slope,fs)*np.clip(combined,0.,1.)
+    return mechanical_stability_gate(slope,fs,physical)*np.clip(combined,0.,1.)
 
 
 def make_base_estimator(

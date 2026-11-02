@@ -51,10 +51,17 @@ class PhysicalBoundaries(unittest.TestCase):
   with self.assertRaises(ValueError):m.calibrate_conformal(p,y,groups,['training'],alpha=1)
 
 class ProviderDeadline(unittest.IsolatedAsyncioTestCase):
- async def test_optional_providers_have_independent_two_second_deadlines(self):
+ async def test_configured_deep_deadlines_and_cancellation(self):
+  from unittest.mock import patch
   ingestor=GlobalIngestor(provider_timeout_s=25)
-  async def slow():await asyncio.sleep(10)
-  start=asyncio.get_running_loop().time()
-  results=await asyncio.gather(*(ingestor._capture(k,k,slow()) for k in ['overpass','soilgrids']))
-  self.assertLess(asyncio.get_running_loop().time()-start,2.5)
-  self.assertTrue(all(p is None and not status.available for p,status in results))
+  cancelled=[];timeouts=[];original=asyncio.wait_for
+  async def slow():
+   try:await asyncio.sleep(10)
+   finally:cancelled.append(True)
+  async def shortened(awaitable,timeout):
+   timeouts.append(timeout)
+   return await original(awaitable,timeout=.02)
+  with patch('backend.realtime.global_ingestor.asyncio.wait_for',shortened):
+   results=await asyncio.gather(*(ingestor._capture(k,k,slow()) for k in ['overpass','soilgrids']))
+  self.assertEqual(timeouts,[25.,25.]);self.assertEqual(len(cancelled),2)
+  self.assertTrue(all(p is None and not status.available and status.mode=='FALLBACK' for p,status in results))

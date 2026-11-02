@@ -49,6 +49,9 @@ class PhysicsInputs:
     river_surge_ratio: ArrayInput = 1.0
     geology_friction_adjustment_deg: ArrayInput = 0.0
     geology_cohesion_adjustment_kpa: ArrayInput = 0.0
+    rain_15min_override_mm: ArrayInput = -1.0
+    snowmelt_override_mm_day: ArrayInput = -1.0
+    pore_pressure_override_m: ArrayInput = -1.0  # temporal solver: -1 uses the static storm calculation
     block_width_m: ArrayInput = 35.0
     hollow_confinement_ratio: ArrayInput = 1.0
 
@@ -208,12 +211,15 @@ class MultiCausalEngine:
             np.maximum(0.0, 4.5 * air_temp + 0.0126 * rain * air_temp),
             0.0,
         )
+        snowmelt = np.where(values["snowmelt_override_mm_day"] >= 0, values["snowmelt_override_mm_day"], snowmelt)
         from .alpine_weather import cryospheric_eligibility
         baseline_air = np.where(values['baseline_air_temperature_c'] > -998,
                                 values['baseline_air_temperature_c'], air_temp-values['warming_delta_c'])
         observed_snow = np.where(values['observed_snow_depth_m'] >= 0,
                                  values['observed_snow_depth_m'], snow_depth)
         cryo_active = cryospheric_eligibility(observed_snow, baseline_air, values['elevation_m'], values['latitude_deg'])
+        # Elevation is an eligibility screen, not evidence that an ice-filled joint exists.
+        cryo_active &= (observed_snow > .005) | (freeze_cycles > 0) | (values['warming_delta_c'] > 0)
         _, thaw, ice_friction = ice_factors(values['elevation_m'],soil_temp,snow_depth,freeze_cycles,values['warming_delta_c'],eligible=cryo_active)
         tan_phi_base = tan_phi.copy()
         tan_phi = tan_phi * ice_friction
@@ -224,7 +230,11 @@ class MultiCausalEngine:
         keff = ksat.copy()
 
         median_twi = float(np.median(twi))
-        local_saturation = np.clip(initial_saturation * np.power(twi / median_twi, 0.28), 0.10, 0.99)
+        # Project storm/convergence proxies, not a solved TRIGRS water balance.
+        active_water_mm = rain + 1.35 * snowmelt
+        wetness_convergence = 1.0 + (np.power(twi / median_twi, 0.28) - 1.0) * np.clip(active_water_mm / 35.0, 0.08, 1.0)
+        storm_wetting = (1.0 - initial_saturation) * np.clip(active_water_mm / 210.0, 0.0, 0.85)
+        local_saturation = np.clip((initial_saturation + storm_wetting) * wetness_convergence, 0.10, 0.99)
 
         fire_driving = np.ones_like(burn)
         soil_cohesion_effective = cohesion_soil.copy()
@@ -238,8 +248,11 @@ class MultiCausalEngine:
             np.sqrt(safe_time / math.pi) * np.exp(-1.0 / safe_time)
             - self._erfc(1.0 / np.sqrt(safe_time))
         )
+        s_fc = np.clip(theta_33 / np.maximum(theta_s, 0.30), 0.48, 0.76)
+        drainage_gate = np.clip(active_water_mm / 15.0, 0.04, 1.0)
+        mobile_water_fraction = drainage_gate * np.clip((local_saturation-s_fc) / np.maximum(1.0-s_fc,0.15),0.0,1.0)
         pressure_head = np.clip(
-            regolith_depth * local_saturation * cos2
+            regolith_depth * mobile_water_fraction * cos2
             + regolith_depth * np.minimum(infiltration / keff, 4.0) * iverson_response,
             0.0,
             regolith_depth * cos2,
@@ -251,15 +264,17 @@ class MultiCausalEngine:
         perched=np.where(cryo_active & (snowmelt>0),
             np.minimum(regolith_depth*cos2, np.maximum(0.,infiltration-ksat*basal_ratio)*storm_hr*3600/np.maximum(theta_s,.01)),0.)
         pressure_head=np.minimum(regolith_depth*cos2,pressure_head+perched)
+        override=values["pore_pressure_override_m"]
+        pressure_head=np.where(override>=0,np.clip(override,0,regolith_depth*cos2),pressure_head)
         se=np.clip((local_saturation-.08)/.92,.02,.999)
         alpha=values['vg_alpha_kpa_inv'];n=values['vg_n']
         if np.any(alpha<=0) or np.any(n<=1):raise ValueError('Invalid van Genuchten parameters')
-        suction_stress=-se/alpha*np.expm1(np.log(se)*n/(1-n))**(1/n)
+        suction_stress=-se/alpha*np.expm1(np.clip(np.log(se)*n/(1-n),0.,700.))**(1/n)
         taper=np.clip((.85-se)/.10,0,1);taper=taper*taper*(3-2*taper)
         storm_activation=np.clip((rain+snowmelt)/25.,0,1)
         suction=np.clip(-suction_stress*tan_phi,0,8)*taper*(1-storm_activation)
         suction=np.where(perched>0,0.,suction)
-        p_m1,volume,fs_fire,r15=postfire(burn,effective_slope,clay,sand,rain,values['peak_3h_intensity_mmhr'],base_depth)
+        p_m1,volume,fs_fire,r15=postfire(burn,effective_slope,clay,sand,rain,values['peak_3h_intensity_mmhr'],base_depth,values['rain_15min_override_mm'])
 
         toe_multiplier = (
             1.0
@@ -316,7 +331,8 @@ class MultiCausalEngine:
         dry_driving = dry_gamma * base_depth * sin_slope * cos_slope * toe_multiplier
         fs_static_dry = np.clip((cohesion_soil + root_cohesion_baseline + dry_normal * tan_phi_base)
                                / np.maximum(dry_driving, 1.0), 0.10, 5.0)
-        critical_acceleration = np.clip((fs_static_dry - 1.0) * sin_slope, 0.05, 0.60)
+        # Project static-state yield with a heuristic 0.75 factor; geology is still included.
+        critical_acceleration = np.clip((fs_static - 1.0) * sin_slope * 0.75, 0.05, 0.60)
         pga_ratio = np.clip(
             critical_acceleration / np.maximum(pga, 1e-12), 1e-12, 1.0 - 1e-12
         )
@@ -326,17 +342,17 @@ class MultiCausalEngine:
             0.0,
         )
 
-        # User-specified detachment cap; retain a separate regional empirical component.
+        # Project-defined detachment cap; retain a separate regional empirical component.
         newmark = np.minimum(newmark, 120.0)
         p_seismic = 0.335 * (-np.expm1(-0.048 * np.power(newmark, 1.565)))
         # Requested probabilistic union; this treats the three components as independent.
         p_fosm = p_failure.copy()
         p_failure = 1.0-(1.0-p_fosm)*(1.0-p_seismic)*(1.0-p_m1)
-        warnings = ["M1/Gartner inputs are cell proxies; postfire FS is a yield index. Ice weakening, basal drainage and VG parameters are scenario assumptions. Probability union assumes independent components."]
+        warnings = ["M1/Gartner inputs are cell proxies; mechanical FS is separate from surface runoff initiation. Ice weakening, basal drainage and VG parameters are scenario assumptions. Probability union assumes independent components."]
         reversed_bounds = np.where(theta_33 <= theta_1500)[0]
         if reversed_bounds.size:
             warnings.append(
-                "Saxton-Rawls bounds produced theta_33 <= theta_1500 for {} cell(s); exact requested clipping was retained".format(
+                "Saxton-Rawls bounds produced theta_33 <= theta_1500 for {} cell(s); configured clipping was retained".format(
                     int(reversed_bounds.size)
                 )
             )

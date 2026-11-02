@@ -3,11 +3,13 @@
 import hashlib
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-FILES=['backend/realtime/dem_processor.py','backend/realtime/global_ingestor.py','backend/realtime/ground_context.py','backend/api/scan_service.py','windows_5070ti_trainer/train_all_on_5070ti.py','windows_5070ti_trainer/train_qwen25_agent.py','backend/physics/multi_causal_engine.py','backend/physics/mechanisms.py',
+FILES=['backend/realtime/dem_processor.py','backend/realtime/global_ingestor.py','backend/realtime/ground_context.py','backend/api/scan_service.py','training/train.py','training/train_qwen25_agent.py','backend/physics/multi_causal_engine.py','backend/physics/mechanisms.py',
        'backend/physics/alpine_weather.py','backend/physics/kinematics.py',
        'backend/physics/causal_attribution.py','backend/ml/global_xgb.py',
        'backend/ml/conformal_calibration.py','backend/physics/cascading.py',
-       'backend/llm/qwen_agent.py']
+       'backend/llm/qwen_agent.py','backend/physics/temporal_forecaster.py',
+       'backend/realtime/forecast_weather.py','backend/ml/build_real_labeled_dataset.py',
+       'scripts/terra_cli.py','backend/api/live_input_builder.py','backend/realtime/cache.py']
 def main():
     parts=['# Exact core source for external audit','',
            'Line-number prefixes are added; text after each prefix is verbatim source. '

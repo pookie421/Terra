@@ -4,24 +4,24 @@
 
 Build a global, on-demand terrain intelligence workbench that connects slope stability, triggering mechanisms, movement scenarios and source evidence in one inspectable workflow. A user should be able to search a place, inspect a slope, understand the locally relevant mechanisms, and compare a baseline against rain, earthquake, warming or burn scenarios without manually assembling environmental inputs.
 
-The intended audiences are researchers, meteorological analysts and, after independent validation, local emergency-management teams. The project began with a NASA Space Apps Challenge ambition. It is independently developed and does not imply NASA or WMO endorsement.
+The intended audiences are researchers, meteorological analysts and, after independent validation, local emergency-management teams. It is independently developed and does not imply NASA or WMO endorsement.
 
 The five mechanisms are hydro-meteorological, seismic/tectonic, cryospheric, post-wildfire/biotic and anthropogenic/fluvial. The long-term goal is useful decision support across these regimes—not a promise of exact failure probabilities, velocities or arrival times at every point on Earth.
 
 ## Current foundation — implemented
 
-The v6 backend provides H3 terrain, asynchronous public data feeds, local mechanical FS, constrained/group-calibrated XGBoost, raw-booster SHAP, provisional kinematics/runout, provenance, a CLI, FastAPI endpoints, a numeric-audited Qwen tool workflow and a portable GPU-training bundle. The [current evidence](docs/current_status.md) records what passed and what did not. No production frontend or target-PC GPU execution is claimed.
+The current backend provides H3 terrain, asynchronous public data feeds, local mechanical FS, constrained/group-calibrated XGBoost, raw-booster SHAP, provisional kinematics/runout, provenance, a CLI, FastAPI endpoints, a numeric-audited Qwen tool workflow and a portable GPU-training bundle. The [current evidence](docs/current_status.md) records what passed and what did not. Hourly 72-hour scenario projections now exist, but forecast-skill and warning-lead-time validation remain open. No production frontend or end-to-end GPU training validation is claimed.
 
-## Next: verify the RTX 5070 Ti workflow
+## Reproducible model training
 
 - Execute CUDA XGBoost/Optuna on the copied local dataset; record hardware, dependency versions, split IDs and artifact hashes.
-- Train the requested Qwen2.5 QLoRA adapter, retain export manifests, test GGUF loading and real tool-call behavior in Ollama.
+- Train a Qwen2.5 QLoRA adapter, retain export manifests, test GGUF loading and real tool-call behavior in Ollama.
 - Re-evaluate new weights on frozen evaluation sets; never reuse CPU baseline readiness to certify GPU artifacts.
 - Treat tuning CV as a development metric. Plan a fresh, untouched evaluation before drawing generalization conclusions.
 
-Completion evidence: reproducible target-host logs, usable model artifacts, explicit conversion outcomes and fresh artifact-matched audit reports.
+Completion evidence: reproducible environment and execution logs, usable model artifacts, explicit conversion outcomes and fresh artifact-matched audit reports.
 
-## Phase 4: build the terrain explorer
+## Interactive terrain explorer
 
 The proposed frontend stack is Next.js, MapLibre GL and deck.gl, subject to measured rendering and accessibility needs. This is planned work, not a shipped interface.
 

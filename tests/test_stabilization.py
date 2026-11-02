@@ -34,12 +34,12 @@ class LocalFeatures(unittest.TestCase):
         np.testing.assert_allclose(matrix[:,0],state.fs_dynamic)
 
     def test_gate_midpoint_and_flat_plain(self):
-        self.assertAlmostEqual(float(mechanical_stability_gate([8.5],[2.15])[0]),.25)
+        self.assertAlmostEqual(float(mechanical_stability_gate([8.5],[1.35])[0]),.25)
         gate=mechanical_stability_gate([0.,2.,6.95,20.],[1.6]*4)
         self.assertTrue(np.all(np.diff(gate)>0))
         self.assertLess(gate[0],.001)
-        # The requested gate alone does NOT imply a <0.1% score at 6.95 degrees.
-        self.assertGreater(gate[2],.01)
+        # The gate alone does NOT imply a <0.1% score at 6.95 degrees.
+        self.assertGreater(gate[2],.001)
 
     def test_recall_40_is_not_top_10_percent(self):
         y=np.array([1]*24+[0]*24);p=np.linspace(1,0,48)

@@ -54,7 +54,7 @@ def solve_kinematics(inputs: PhysicsInputs, state: PhysicsState) -> KinematicsSt
     pga = np.maximum(np.asarray(inputs.pga_g, dtype=np.float64), 0.0)
     tan_phi = np.tan(np.radians(state.friction_angle_deg))
 
-    rapid = (state.fs_dynamic <= 1.0) & (((state.fs_dynamic <= 1.0) & (state.local_saturation >= 0.68)) | ((burn >= 0.35) & (rain >= 25.0)))
+    rapid = ((state.fs_dynamic <= 1.05) & (state.local_saturation >= 0.68)) | ((state.p_failure_m1 >= 0.50) & (burn >= 0.35) & (rain >= 25.0))
     coseismic = (
         (~rapid) & (state.fs_dynamic <= 1.0)
         & (pga > state.critical_acceleration_g)
@@ -127,7 +127,7 @@ def solve_kinematics(inputs: PhysicsInputs, state: PhysicsState) -> KinematicsSt
 
 
 def select_runout_hotspots(state: PhysicsState, probability: Optional[np.ndarray] = None) -> np.ndarray:
-    """Indices meeting the requested FS or probability hotspot thresholds."""
+    """Indices meeting the defined FS or probability hotspot thresholds."""
     selected = state.fs_dynamic <= 1.05
     if probability is not None:
         probability = np.asarray(probability, dtype=np.float64)
@@ -151,7 +151,7 @@ def route_runout(
     """Route positive energy head over lower H3 neighbors.
 
     For each edge, Δs is supplied in ``delta_s_by_edge`` when available; otherwise
-    it is the current cell's dimensionless sin(slope) factor. The user-specified
+    it is the current cell's dimensionless sin(slope) factor. The project-defined
     Voellmy head change is applied exactly as ΔE = Δz - μb Δx - (v²/(g ξ)) Δs.
     Friction and ξ are required inputs because the prompt gives no calibrated values.
     """

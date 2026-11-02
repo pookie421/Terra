@@ -1,0 +1,6 @@
+# Install after configuring a compatible CUDA-enabled PyTorch environment.
+unsloth
+trl
+datasets
+peft
+transformers

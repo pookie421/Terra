@@ -54,3 +54,11 @@ Terra_Full_Archive_Backup/
 **/data/source_catalogs/audit_mapped_polygons.json
 # Raw third-party report text also stays local; publish source metadata separately.
 **/data/source_catalogs/audit_regime_reports.json
+
+**/artifacts/phase4_provider_snapshots.json
+
+# Local evaluation runs, source dumps, session transcripts and developer notes
+.local_development/
+**/artifacts/
+**/PRETRAINING_AUDIT.md
+**/data/*.metadata.json

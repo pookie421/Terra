@@ -51,6 +51,9 @@ async def get_scan(
     snowmelt_temp_surge_c: float = 0.0,
     burn_severity_override: float = 0.0,
     agency_mode: str = "LOCAL_EOC",
+    inject_forecast_storm_mm: Optional[float] = Query(None, ge=0),
+    storm_arrival_hour: int = Query(18, ge=0, le=71),
+    storm_duration_hours: int = Query(12, ge=1, le=72),
 ) -> Dict[str, Any]:
     try:
         return sanitize_json(await scan_service.scan(
@@ -63,6 +66,9 @@ async def get_scan(
             snowmelt_temp_surge_c=snowmelt_temp_surge_c,
             burn_severity_override=burn_severity_override,
             agency_mode=agency_mode,
+            inject_forecast_storm_mm=inject_forecast_storm_mm,
+            storm_arrival_hour=storm_arrival_hour,
+            storm_duration_hours=storm_duration_hours,
         ))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))

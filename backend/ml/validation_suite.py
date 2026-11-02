@@ -444,12 +444,11 @@ def run_kinematic_branch_controls(engine: Optional[MultiCausalEngine] = None) ->
         road_cut_distance_m=1000.0,
         river_distance_m=1000.0,
     )
-    # Modest rain removes some suction while saturation stays below rapid-flow onset.
+    # Saturated-yield branch fixture; separate forecast tests cover runoff over stable slabs.
     scenarios = [
-        ("Branch A rapid flow", "Rapid fluidized debris flow / avalanche", {"burn_severity": 0.50, "rain_24h_mm": 30.0}),
+        ("Branch A rapid flow", "Rapid fluidized debris flow / avalanche", {"soil_saturation_fraction": 0.99}),
         ("Branch B coseismic", "Coseismic rock avalanche / block slide", {"pga_g": 1.0}),
-        # v5 lateral resistance makes the former 5 mm fixture stable (FS=1.265).
-        # 10 mm gives FS=1.188, exercising the unchanged transitional slump branch.
+        # Transitional rain fixture exercises the cohesive slump branch.
         ("Branch C slump", "Cohesive slump / thaw slump / toe-cut wedge", {"rain_24h_mm": 10.0}),
         (
             "Branch D stable",
@@ -490,7 +489,7 @@ def monotonicity_sweep(
     baseline_features: Optional[np.ndarray] = None,
     steps: int = 21,
 ) -> StageResult:
-    """Check that model probability respects the four requested stress sweeps."""
+    """Check that model probability respects the four defined stress sweeps."""
     if model is None or model.model is None:
         return StageResult(
             "Stage 3: strict monotonicity sweep",

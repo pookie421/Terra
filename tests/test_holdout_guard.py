@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 import pyarrow as pa
 import pyarrow.parquet as pq
-from scripts import run_mac_baseline_and_verify as runner
+from scripts import train_baseline as runner
 
 class HoldoutGuard(unittest.TestCase):
     def test_incomplete_enrichment_does_not_fit_or_replace_model(self):

@@ -57,11 +57,36 @@ class NumbersThatMatterItem:
         return asdict(self)
 
 
+def group_shap_by_cause(shap_values, feature_names):
+    """Partition absolute raw-margin SHAP; shared stability features split equally.
+
+    This is an explicit display allocation, not identification of causal effects.
+    Every column is accounted for exactly once across the five groups.
+    """
+    shap = np.abs(np.asarray(shap_values, dtype=float))
+    if shap.ndim != 2 or shap.shape[1] != len(feature_names) or not np.isfinite(shap).all():
+        raise ValueError('SHAP values must match finite feature columns')
+    groups = {
+        'hydro_meteorological': ('psi_head_m','soil_saturation','rain_24h_mm','twi'),
+        'seismic_tectonic': ('pga_g','newmark_dn_cm'),
+        'cryospheric': ('snowmelt_mm_day','thaw_degradation'),
+        'post_wildfire_biotic': ('burn_severity',),
+        'anthropogenic_fluvial': ('toe_undercut_mult','profile_curvature'),
+    }
+    result = {cause: np.zeros(shap.shape[0]) for cause in CAUSES}
+    for column, name in enumerate(feature_names):
+        owners = [cause for cause, names in groups.items() if name in names] or list(CAUSES)
+        for cause in owners:
+            result[cause] += shap[:, column] / len(owners)
+    return result
+
+
 def explain_causes(
     inputs: PhysicsInputs,
     state: PhysicsState,
     shap_values: Optional[np.ndarray] = None,
     feature_names: Optional[List[str]] = None,
+    shap_by_cause: Optional[Mapping[str, np.ndarray]] = None,
 ) -> CausalBreakdown:
     """Return five physical shear reductions and optional absolute TreeSHAP shares.
 
@@ -80,7 +105,7 @@ def explain_causes(
     road_distance = np.broadcast_to(np.asarray(inputs.road_cut_distance_m, dtype=np.float64), (state.cell_count,))
     river_distance = np.broadcast_to(np.asarray(inputs.river_distance_m, dtype=np.float64), (state.cell_count,))
     field_capacity_saturation = np.clip(state.theta_33 / np.maximum(state.theta_s, 1e-6), 0.0, 0.95)
-    field_capacity_head = state.regolith_depth_m * field_capacity_saturation * slope_cos2
+    field_capacity_head = np.zeros(state.cell_count)  # positive head already excludes field-capacity storage
     excess_pore_pressure_head = np.maximum(0.0, state.pore_pressure_head_m - field_capacity_head)
     snowmelt_activation = np.clip(state.snowmelt_mm_day / 60.0, 0.0, 0.75)
     cryospheric_degradation = np.maximum(1.0 - state.thaw_factor, snowmelt_activation)
@@ -132,30 +157,17 @@ def explain_causes(
         ),
     }
     physical = _normalize(stress)
-    shap_by_cause = None
-    shap_pct = None
     if shap_values is not None:
-        shap = np.asarray(shap_values, dtype=np.float64)
-        if shap.ndim != 2 or shap.shape[0] != state.cell_count:
-            raise ValueError("shap_values must have shape (cell_count, feature_count)")
-        if feature_names is None or len(feature_names) != shap.shape[1]:
-            raise ValueError("feature_names matching shap_values columns are required")
-        index = {name: idx for idx, name in enumerate(feature_names)}
-        feature_groups = {
-            "hydro_meteorological": ("psi_head_m", "soil_saturation", "rain_24h_mm"),
-            "seismic_tectonic": ("pga_g", "newmark_dn_cm"),
-            "cryospheric": ("snowmelt_mm_day", "thaw_degradation"),
-            "post_wildfire_biotic": ("burn_severity",),
-            "anthropogenic_fluvial": ("toe_undercut_mult",),
-        }
-        shap_by_cause = {}
-        for cause, names in feature_groups.items():
-            columns = [index[name] for name in names if name in index]
-            shap_by_cause[cause] = (
-                np.abs(shap[:, columns]).sum(axis=1)
-                if columns
-                else np.zeros(state.cell_count, dtype=np.float64)
-            )
+        if shap_by_cause is not None or feature_names is None:
+            raise ValueError('Provide either grouped SHAP or SHAP columns and names')
+        shap_by_cause = group_shap_by_cause(shap_values, feature_names)
+    shap_pct = None
+    if shap_by_cause is not None:
+        if set(shap_by_cause) != set(CAUSES):
+            raise ValueError('SHAP groups must contain all five causes')
+        shap_by_cause = {k: np.asarray(v, dtype=float) for k,v in shap_by_cause.items()}
+        if any(v.shape != (state.cell_count,) or not np.isfinite(v).all() or np.any(v < 0) for v in shap_by_cause.values()):
+            raise ValueError('Grouped SHAP must be nonnegative per-cell arrays')
         shap_pct = _normalize(shap_by_cause)
 
     if shap_pct is None:

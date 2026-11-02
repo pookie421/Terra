@@ -16,12 +16,13 @@ import numpy as np
 
 from backend.api.reliability import reliability_report
 from backend.physics.alpine_weather import apply_alpine_weather, ALPINE_ASSUMPTION
-from backend.ml.global_xgb import GlobalMonotonicXGB, blend_failure_probability
-from backend.physics.causal_attribution import CAUSES, explain_causes, select_numbers_that_matter
+from backend.ml.global_xgb import GlobalMonotonicXGB, blend_failure_probability, FEATURE_NAMES
+from backend.physics.causal_attribution import CAUSES, explain_causes, select_numbers_that_matter, group_shap_by_cause
 from backend.physics.kinematics import route_runout, solve_kinematics
 from backend.physics.multi_causal_engine import MultiCausalEngine, PhysicsInputs
-from backend.realtime.global_ingestor import GlobalIngestor, GlobalScan
-from scripts.verify_5_global_causes import _feature_matrix, evaluate_live_physics
+from backend.realtime.global_ingestor import GlobalIngestor, GlobalScan, GeocodingError
+from backend.api.live_input_builder import evaluate_live_physics
+from backend.physics.features import physics_feature_matrix as _feature_matrix
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNOUT_MU_B = 0.10
@@ -44,7 +45,7 @@ KNOWN_LOCATION_COORDINATES = {
 def known_location_coordinates(query: str) -> Optional[Tuple[float, float]]:
     normalized = unicodedata.normalize("NFKD", str(query)).encode("ascii", "ignore").decode("ascii").lower()
     for name, coordinates in KNOWN_LOCATION_COORDINATES.items():
-        if name in normalized:
+        if name == normalized.split(',')[0].strip():
             return coordinates
     return None
 
@@ -78,17 +79,14 @@ def _finite(value: Any, default: float = 0.0) -> float:
 
 
 def _field_capacity_stress_mask(inputs: PhysicsInputs, state: Any) -> np.ndarray:
-    slope = np.radians(np.clip(np.asarray(inputs.slope_deg, dtype=np.float64), 0.0, 89.9))
-    field_capacity_saturation = np.clip(state.theta_33 / np.maximum(state.theta_s, 1e-6), 0.0, 0.95)
-    field_capacity_head = state.regolith_depth_m * field_capacity_saturation * np.cos(slope) ** 2
-    return state.pore_pressure_head_m > field_capacity_head
+    return state.pore_pressure_head_m > 0.0
 
 
 class GlobalScanService:
     """The shared application layer used by REST routes and agent tools."""
 
     def __init__(self, provider_timeout_s: Optional[float] = None) -> None:
-        self.provider_timeout_s = provider_timeout_s or float(os.getenv("TERRA_PROVIDER_TIMEOUT_S", "8"))
+        self.provider_timeout_s = provider_timeout_s or float(os.getenv("TERRA_PROVIDER_TIMEOUT_S", "15"))
         self.model = _load_model()
         self.engine = MultiCausalEngine()
         self._cell_contexts: Dict[str, Dict[str, Any]] = {}
@@ -107,7 +105,13 @@ class GlobalScanService:
         burn_severity_override: float = 0.0,
         agency_mode: str = "LOCAL_EOC",
         _snapshot=None,
+        inject_forecast_storm_mm: Optional[float] = None,
+        storm_arrival_hour: int = 18,
+        storm_duration_hours: int = 12,
     ) -> Dict[str, Any]:
+        if inject_forecast_storm_mm is not None:
+            from backend.physics.temporal_forecaster import validate_injection
+            validate_injection(inject_forecast_storm_mm, storm_arrival_hour, storm_duration_hours)
         if (lat is None) != (lon is None):
             raise ValueError("lat and lon must be provided together")
         if storm_duration_hr <= 0:
@@ -121,19 +125,22 @@ class GlobalScanService:
         if not 0.0 <= burn_severity_override <= 1.0:
             raise ValueError("burn_severity_override must be between 0 and 1")
         used_named_fallback = False
-        if lat is not None and lon is not None:
-            location: Union[str, Tuple[float, float]] = (lat, lon)
-        else:
-            known_coordinates = known_location_coordinates(location_query)
-            if known_coordinates is not None:
-                location = known_coordinates
-                used_named_fallback = True
-            else:
-                location = location_query
-
+        location = (lat, lon) if lat is not None else location_query
         if _snapshot is None:
             async with GlobalIngestor(provider_timeout_s=self.provider_timeout_s) as ingestor:
-                live_scan = await ingestor.scan(location, radius_km=3.5)
+                try:
+                    live_scan = await ingestor.scan(location, radius_km=3.5)
+                except GeocodingError as exc:
+                    coordinates = known_location_coordinates(location_query) if lat is None else None
+                    if coordinates is None:
+                        raise
+                    live_scan = await ingestor.scan(coordinates, radius_km=3.5)
+                    status = live_scan.sources['geocoding']
+                    status.available = False
+                    status.mode = 'FALLBACK'
+                    status.provider = 'Project coordinate fallback after live Open-Meteo lookup failure'
+                    status.error = str(exc)
+                    used_named_fallback = True
         else:
             live_scan = _snapshot
         base = evaluate_live_physics(live_scan, self.model)
@@ -165,7 +172,8 @@ class GlobalScanService:
         p_xgb = self.model.predict_proba(feature_rows) if self.model is not None else None
         probability = blend_failure_probability(p_xgb, state.p_failure_physical, inputs.slope_deg, state.fs_dynamic) if p_xgb is not None else state.p_failure_physical
         shap_values = self.model.shap_log_odds_contributions(feature_rows) if self.model is not None else None
-        breakdown = explain_causes(inputs, state)
+        shap_by_cause = group_shap_by_cause(shap_values, FEATURE_NAMES) if shap_values is not None else None
+        breakdown = explain_causes(inputs, state, shap_by_cause=shap_by_cause)
 
         cell_ids = list(base["cell_ids"])
         cells = base["cells"]
@@ -211,6 +219,11 @@ class GlobalScanService:
         else:
             intervals=np.tile([0.,1.],(count,1)); widths=np.ones(count)
             bivariate=np.where(probability>=.5,'HIGH_SUSCEPTIBILITY_HIGH_UNCERTAINTY','LOW_SUSCEPTIBILITY_HIGH_UNCERTAINTY')
+        from backend.physics.temporal_forecaster import fosm_probability_sigma, forecast_72h
+        epistemic = self.model.epistemic_probability_intervals(feature_rows, probability, fosm_probability_sigma(state)) if self.model is not None else np.tile([0.,1.],(count,1))
+        predictive = forecast_72h(inputs,state,base["profile_curvature"],self.model,
+            live_scan.weather.forecast_hourly_72h if live_scan.weather else [],live_scan.ensemble,live_scan.river,
+            inject_forecast_storm_mm,storm_arrival_hour,storm_duration_hours)
         geo_features = []
         serialized_cell_contexts: Dict[str, Dict[str, Any]] = {}
         for index, cell_id in enumerate(cell_ids):
@@ -241,6 +254,12 @@ class GlobalScanService:
                 "cryospheric_eligible": bool(state.cryospheric_eligible[index]),
                 "lateral_resistance_kpa": float(state.lateral_resistance_kpa[index]),
                 "conformal_interval_90": intervals[index].tolist(),
+                "conformal_binary_label_interval": intervals[index].tolist(),
+                "epistemic_interval_90": epistemic[index].tolist(),
+                "epistemic_interval_90_pct": (100*epistemic[index]).tolist(),
+                "epistemic_quality": "Normal fold-disagreement plus FOSM sensitivity proxy; no calibrated coverage guarantee",
+                "physical_cause_pct": {c: float(v[index]) for c,v in breakdown.physical_percentages.items()},
+                "shap_cause_pct": None if breakdown.shap_percentages is None else {c: float(v[index]) for c,v in breakdown.shap_percentages.items()},
                 "uncertainty_width": float(widths[index]),
                 "bivariate_class": str(bivariate[index]),
                 "conformal_target": "binary event label; not a confidence interval for true failure probability",
@@ -338,10 +357,13 @@ class GlobalScanService:
                 "longitude": live_scan.location.longitude,
                 "agency_mode": agency_mode,
                 "bedrock_lithology": live_scan.bedrock, "river_discharge": live_scan.river,
+                "forecast_weather_hourly_72h": live_scan.weather.forecast_hourly_72h if live_scan.weather else [],
+                "ensemble_forecast_quality": (live_scan.ensemble or {}).get("quality","FALLBACK"),
                 "nasa_telemetry": self._nasa_telemetry(live_scan),
                 "reliability_report": reliability_report(live_scan),
             },
             "summary": summary,
+            "predictive_forecast_72h": predictive,
             "h3_geojson": {"type": "FeatureCollection", "features": geo_features},
             "runout_geojson": {"type": "FeatureCollection", "features": routes},
             "source_status": {key: value.__dict__ for key, value in live_scan.sources.items()},
@@ -540,6 +562,7 @@ class GlobalScanService:
     def _empty_response(self, scan: GlobalScan, agency_mode: str) -> Dict[str, Any]:
         weather=scan.weather
         return {
+            "predictive_forecast_72h": {"status":"UNAVAILABLE","reason":"No terrain"},
             "location": {"query": scan.location.query, "display_name": scan.location.display_name, "latitude": scan.location.latitude, "longitude": scan.location.longitude, "agency_mode": agency_mode, "bedrock_lithology": scan.bedrock, "river_discharge": scan.river, "nasa_telemetry": self._nasa_telemetry(scan), "reliability_report": reliability_report(scan)},
             "summary": {
                 "wmo_alert_level": "UNAVAILABLE", "max_p_failure": None, "min_fs_dynamic": None,

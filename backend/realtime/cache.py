@@ -23,8 +23,31 @@ class AsyncTTLCache:
         self._waiters = {}
 
     async def get_or_create(
-        self, key: Hashable, ttl_seconds: float, factory: Callable[[], Awaitable[T]]
+        self, key: Hashable, ttl_seconds: float, factory: Callable[[], Awaitable[T]],
+        *, use_cache: bool = True, fallback_on_error: bool = False,
     ) -> T:
+        if not use_cache:
+            trace = CACHE_TRACE.get()
+            if trace is not None:
+                trace.append('LIVE')
+            try:
+                value = await factory()
+            except Exception as exc:
+                # Cancellation is deliberately not caught. No disk/stale replay.
+                async with self._lock:
+                    cached = self._values.get(key) if fallback_on_error else None
+                    if cached is None or cached[0] <= time.monotonic():
+                        raise
+                    self._values.move_to_end(key)
+                if trace is not None:
+                    trace.extend(['CACHED', 'FALLBACK: '+type(exc).__name__+': '+str(exc)])
+                return cached[1]
+            async with self._lock:
+                self._values[key] = (time.monotonic() + max(0., ttl_seconds), value)
+                self._values.move_to_end(key)
+                while len(self._values) > self.maxsize:
+                    self._values.popitem(last=False)
+            return value
         async with self._lock:
             cached = self._values.get(key)
             if cached is not None:
@@ -89,3 +112,18 @@ class AsyncTTLCache:
 
 
 DEFAULT_CACHE = AsyncTTLCache(maxsize=512)
+
+
+class PolicyCache:
+    """Per-ingestor read policy over the shared memory-only cache."""
+    def __init__(self, cache, use_cache=False, fallback_on_error=True):
+        self.cache = cache
+        self.use_cache = use_cache
+        self.fallback_on_error = fallback_on_error
+
+    async def get_or_create(self, key, ttl_seconds, factory):
+        return await self.cache.get_or_create(key, ttl_seconds, factory,
+            use_cache=self.use_cache, fallback_on_error=self.fallback_on_error)
+
+    async def clear(self):
+        await self.cache.clear()

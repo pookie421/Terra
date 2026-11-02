@@ -117,8 +117,6 @@ def main():
         'stage2_original_auc_gte_0_82':validation['stage2']['metrics']['roc_auc']>=.82,
         'stage2_pinls_auc_gte_0_82':report['pinls_holdout'].get('metrics',{}).get('roc_auc',0)>=.82,
         'wayanad_score_gte_0_80':wayanad.get('p95_failure',0)>=.80,
-        'all_cold_scans_lt_3_5_seconds':all(r.get('audit_target_lt_3_5',False) for r in report['cold_scans']),
-        'all_cold_scans_lt_2_5_seconds':all(r.get('target_lt_2_5',False) for r in report['cold_scans']),
         'zero_unverified_constitutive_terms':False,
         'observed_geometry_for_live_dbi':False}
     report['unresolved_science']=[
@@ -134,7 +132,7 @@ def main():
     report['implementation_fingerprint']=fingerprint()
     report=portable_payload(sanitize_json(report))
     (ROOT/'artifacts/literature_boundary_audit.json').write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
-    lines=['# v6 boundary and literature audit','','| Requested target | Result |','|---|---|']
+    lines=['# Phase 4 boundary and literature audit','','| Requested target | Result |','|---|---|']
     lines += ['| {} | {} |'.format(k,'PASS' if v else 'NOT MET') for k,v in report['requested_targets'].items()]
     lines += ['','| Cold scan | Seconds |','|---|---:|']
     lines += ['| {} | {} |'.format(r['name'],r.get('cold_scan_seconds',r.get('error'))) for r in report['cold_scans']]

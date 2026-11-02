@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 import httpx
 import numpy as np
 
-from .cache import AsyncTTLCache, DEFAULT_CACHE
+from .cache import AsyncTTLCache, DEFAULT_CACHE, PolicyCache
 from .dem_processor import DEMProcessor, TerrainScan
 from .natural_events import NaturalEvent, fetch_eonet_events
 from .satellite_processor import SatelliteCell, SatelliteProcessor
@@ -34,6 +34,10 @@ SOILGRIDS = "https://rest.isric.org/soilgrids/v2.0/properties/query"
 Location = Union[str, Tuple[float, float]]
 
 
+class GeocodingError(ValueError):
+    """A live place-name lookup failed; distinct from downstream scan failures."""
+
+
 @dataclass
 class SourceStatus:
     available: bool
@@ -41,6 +45,8 @@ class SourceStatus:
     fetched_at_utc: str
     error: Optional[str] = None
     mode: str = "UNASSESSED"
+    cache_policy: str = "UNSPECIFIED"
+    cache_trace: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -68,11 +74,13 @@ class WeatherSnapshot:
     soil_temperature_0_7cm_c: Optional[float]
     soil_temperature_28_100cm_c: Optional[float]
     freeze_thaw_cycles_7d: Optional[int]
+    forecast_hourly_72h: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
 class HydrologySnapshot:
     observed_date: Optional[str]
+    # Legacy names: these retain raw NASA dimensionless fractions (0..1).
     nasa_gwetroot_pct: Optional[float]
     nasa_gwetprof_pct: Optional[float]
     nasa_precipitation_mm_day: Optional[float]
@@ -133,6 +141,7 @@ class GlobalScan:
     satellite_cells: Dict[str, Dict[str, Any]]
     sources: Dict[str, SourceStatus]
     elapsed_seconds: float
+    ensemble: Optional[Dict[str, Any]] = None
     river: Optional[Dict[str, Any]] = None
     bedrock: Optional[Dict[str, Any]] = None
     coolr_nearby: Dict[str, Any] = field(default_factory=lambda: {"count":0,"quality":"not_queried"})
@@ -148,13 +157,17 @@ class GlobalIngestor:
         self,
         cache: Optional[AsyncTTLCache] = None,
         dem_processor: Optional[DEMProcessor] = None,
-        provider_timeout_s: float = 1.25,
+        provider_timeout_s: float = 15.0,
         user_agent: str = "TERRA-SHIELD/0.1 (research prototype; contact: terra-shield)",
+        use_cache: bool = False,
+        allow_cache_fallback: bool = True,
     ) -> None:
-        self.cache = cache or DEFAULT_CACHE
+        self.use_cache = use_cache
+        self.allow_cache_fallback = allow_cache_fallback
+        self.cache = PolicyCache(cache or DEFAULT_CACHE, use_cache, allow_cache_fallback)
         self.dem_processor = dem_processor or DEMProcessor(cache=self.cache)
         self.satellite_processor = SatelliteProcessor(cache=self.cache)
-        self.provider_timeout_s = max(0.5, provider_timeout_s)
+        self.provider_timeout_s = max(15.0, float(provider_timeout_s))
         self.user_agent = user_agent
         self._client: Optional[httpx.AsyncClient] = None
 
@@ -186,8 +199,8 @@ class GlobalIngestor:
                 limits=httpx.Limits(max_connections=32, max_keepalive_connections=16),
                 headers={"User-Agent": self.user_agent, "Accept": "application/json,image/png,*/*"},
             ) as client:
-                return await self._scan_with_client(location, radius_km, client, started, burn_override)
-        return await self._scan_with_client(location, radius_km, self._client, started, burn_override)
+                return await asyncio.wait_for(self._scan_with_client(location, radius_km, client, started, burn_override), timeout=60.0)
+        return await asyncio.wait_for(self._scan_with_client(location, radius_km, self._client, started, burn_override), timeout=60.0)
 
     async def _scan_with_client(
         self, location: Location, radius_km: float, client: httpx.AsyncClient, started: float,
@@ -197,9 +210,10 @@ class GlobalIngestor:
         latitude, longitude = location_info.latitude, location_info.longitude
         south, west, north, east = self._bbox(latitude, longitude, radius_km)
 
+        from .forecast_weather import ensemble_forecast
         from .ground_context import river_discharge, bedrock
         from .coolr import nearby_count
-        source_names = ["terrarium_dem", "open_meteo", "nasa_power", "soilgrids", "usgs", "overpass", "eonet_wildfires", "eonet_landslides", "coolr", "river", "bedrock"]
+        source_names = ["terrarium_dem", "open_meteo", "nasa_power", "soilgrids", "usgs", "overpass", "eonet_wildfires", "eonet_landslides", "coolr", "river", "bedrock", "ensemble"]
         results = await asyncio.gather(
             self._capture("terrarium_dem", "AWS Terrarium", self.dem_processor.process(latitude, longitude, radius_km, client)),
             self._capture("open_meteo", "Open-Meteo", self._get_weather(latitude, longitude, client)),
@@ -210,8 +224,9 @@ class GlobalIngestor:
             self._capture("eonet_wildfires", "NASA EONET wildfires", fetch_eonet_events(client, "wildfires", max(10.0, self.provider_timeout_s), self.cache)),
             self._capture("eonet_landslides", "NASA EONET landslides", fetch_eonet_events(client, "landslides", max(6.0, self.provider_timeout_s), self.cache)),
             self._capture("coolr", "NASA COOLR", nearby_count(client,latitude,longitude,self.cache)),
-            self._capture("river", "Open-Meteo GloFAS", river_discharge(client,latitude,longitude)),
-            self._capture("bedrock", "Macrostrat", bedrock(client,latitude,longitude)),
+            self._capture("river", "Open-Meteo GloFAS", self.cache.get_or_create(('river',latitude,longitude),3600,lambda:river_discharge(client,latitude,longitude))),
+            self._capture("bedrock", "Macrostrat", self.cache.get_or_create(('bedrock',latitude,longitude),86400,lambda:bedrock(client,latitude,longitude))),
+            self._capture("ensemble", "Open-Meteo ensemble", self.cache.get_or_create(('ensemble',latitude,longitude),600,lambda:ensemble_forecast(client,latitude,longitude))),
             return_exceptions=False,
         )
         payloads: Dict[str, Any] = {}
@@ -266,7 +281,7 @@ class GlobalIngestor:
             hydrology=hydrology,
             seismic=payloads["usgs"],
             infrastructure=payloads["overpass"],
-            coolr_nearby=coolr_count, river=payloads["river"], bedrock=payloads["bedrock"],
+            coolr_nearby=coolr_count, ensemble=payloads["ensemble"], river=payloads["river"], bedrock=payloads["bedrock"],
             eonet_events=[event.to_dict() for event in event_values],
             satellite_cells={key: asdict(value) for key, value in satellite_cells.items()},
             sources=statuses,
@@ -277,12 +292,17 @@ class GlobalIngestor:
         from .cache import CACHE_TRACE
         trace=[];token=CACHE_TRACE.set(trace)
         fetched_at = datetime.now(timezone.utc).isoformat()
+        policy = 'CACHE_ALLOWED' if getattr(self,'use_cache',False) else ('LIVE_FIRST_CACHE_ON_ERROR' if getattr(self,'allow_cache_fallback',True) else 'LIVE_ONLY')
         try:
-            deadline = 2.2
+            deadline = max(float(getattr(self, "provider_timeout_s", 15.0)), 15.0)
             payload = await asyncio.wait_for(awaitable, timeout=deadline)
-            return payload, SourceStatus(True, provider, fetched_at, mode="CACHED" if trace and all(x=="CACHED" for x in trace) else "LIVE")
+            fallback_errors = [x for x in trace if x.startswith('FALLBACK:')]
+            return payload, SourceStatus(True, provider, fetched_at,
+                error='; '.join(fallback_errors) or None,
+                mode="CACHED" if any(x=="CACHED" for x in trace) else "LIVE",
+                cache_policy=policy, cache_trace=trace)
         except Exception as exc:
-            return None, SourceStatus(False, provider, fetched_at, "{}: {}".format(type(exc).__name__, exc), "FALLBACK")
+            return None, SourceStatus(False, provider, fetched_at, "{}: {}".format(type(exc).__name__, exc), "FALLBACK", policy, trace)
         finally:
             CACHE_TRACE.reset(token)
 
@@ -292,24 +312,31 @@ class GlobalIngestor:
             query = location.strip()
             if not query:
                 raise ValueError("place name cannot be empty")
-            key = ("geocode", query.casefold())
-
             async def load() -> Dict[str, Any]:
-                response = await client.get(
-                    OPEN_METEO_GEOCODING,
-                    params={"name": query, "count": 1, "language": "en", "format": "json"},
-                    timeout=self.provider_timeout_s,
-                )
-                response.raise_for_status()
-                return response.json()
+                # Generic comma-qualified place retry, not a city-specific alias.
+                variants = list(dict.fromkeys([query, query.split(',')[0].strip()]))
+                for candidate in variants:
+                    response = await client.get(OPEN_METEO_GEOCODING,
+                        params={"name": candidate, "count": 10, "language": "en", "format": "json"},
+                        timeout=self.provider_timeout_s)
+                    response.raise_for_status()
+                    data = response.json()
+                    results = data.get('results') or []
+                    qualifier = query.partition(',')[2].strip().casefold()
+                    if qualifier:
+                        results = [r for r in results if qualifier in ' '.join(str(r.get(k,'')) for k in ('admin1','admin2','admin3','country')).casefold()]
+                    if results:
+                        return {**data, 'results': results}
+                return {'results': []}
 
-            data, status = await self._capture('geocoding', 'Open-Meteo Geocoding',
-                self.cache.get_or_create(key, 30 * 24 * 3600, load))
+            # Place names always go to the network, even with --use-cache.
+            data, status = await self._capture('geocoding', 'Open-Meteo Geocoding', load())
+            status.cache_policy = 'LIVE_ONLY'
             if data is None:
-                raise ValueError('Geocoding unavailable: '+str(status.error))
+                raise GeocodingError('Geocoding unavailable: '+str(status.error))
             results = data.get("results") or []
             if not results:
-                raise ValueError("Open-Meteo geocoding found no result for {!r}".format(query))
+                raise GeocodingError("Open-Meteo geocoding found no result for {!r}".format(query))
             result = results[0]
             lat, lon = float(result["latitude"]), float(result["longitude"])
             self._validate_coordinate(lat, lon)
@@ -335,11 +362,12 @@ class GlobalIngestor:
             "longitude": longitude,
             "timezone": "UTC",
             "past_days": 7,
-            "forecast_days": 3,
+            "forecast_days": 5,
             "hourly": ",".join(
                 [
                     "precipitation",
                     "rain",
+                    "showers",
                     "snowfall",
                     "snow_depth",
                     "temperature_2m",
@@ -361,7 +389,8 @@ class GlobalIngestor:
         now = datetime.now(timezone.utc)
         datetimes = [self._parse_provider_time(value) for value in times]
         precipitation = self._float_values(hourly.get("precipitation"), len(times))
-        rain = self._float_values(hourly.get("rain"), len(times))
+        from .forecast_weather import liquid_rain, future_hours
+        rain = [liquid_rain(hourly, i) for i in range(len(times))]
         current = [idx for idx, dt in enumerate(datetimes) if dt is not None and dt <= now]
         recent_24 = [idx for idx in current if datetimes[idx] >= now - timedelta(hours=24)]
         rain_24 = self._sum_present(rain[idx] for idx in recent_24)
@@ -448,6 +477,7 @@ class GlobalIngestor:
             soil_temperature_0_7cm_c=soil_temp_surface,
             soil_temperature_28_100cm_c=soil_temp_deep,
             freeze_thaw_cycles_7d=cycles if last_week else None,
+            forecast_hourly_72h=future_hours(hourly,now),
         )
 
     async def _get_power(self, latitude: float, longitude: float, client: httpx.AsyncClient) -> Dict[str, Any]:
@@ -480,12 +510,12 @@ class GlobalIngestor:
 
         async def load() -> Dict[str, Any]:
             try:
-                response = await client.get(SOILGRIDS, params=params, timeout=min(1.0, self.provider_timeout_s))
+                response = await client.get(SOILGRIDS, params=params, timeout=self.provider_timeout_s / 2)
                 response.raise_for_status()
                 return response.json()
             except Exception as rest_error:
                 try:
-                    wcs = await fetch_soilgrids_wcs(client, latitude, longitude, timeout_s=min(2.0, self.provider_timeout_s))
+                    wcs = await fetch_soilgrids_wcs(client, latitude, longitude, timeout_s=self.provider_timeout_s / 2)
                     return {**wcs, "properties": wcs}
                 except Exception as wcs_error:
                     raise RuntimeError("SoilGrids REST failed ({}); WCS failed ({})".format(rest_error, wcs_error))
@@ -569,7 +599,7 @@ out geom;
 
             async def load() -> Dict[str, Any]:
                 last_error: Optional[Exception] = None
-                endpoint_timeout = min(self.provider_timeout_s, 2.0)
+                endpoint_timeout = self.provider_timeout_s / len(OVERPASS_FALLBACKS)
                 for endpoint in OVERPASS_FALLBACKS:
                     try:
                         response = await client.post(
@@ -684,7 +714,7 @@ out geom;
                 twi = float(np.mean([cell.twi for cell in cells]))
             else:
                 slope, curvature, twi = 15.0, 0.0, 6.0
-            moisture_regime = gwetroot if gwetroot is not None else (moisture * 100.0 if moisture is not None else None)
+            moisture_regime = gwetroot * 100.0 if gwetroot is not None else (moisture * 100.0 if moisture is not None else None)
             estimate = estimate_pedotransfer(slope, curvature, twi, moisture_regime)
             for key in ("bdod_kg_m3", "clay_g_kg", "sand_g_kg", "soc_g_kg"):
                 if props.get(key) is None:
@@ -720,7 +750,7 @@ out geom;
             wetness_values.append(float(np.clip(moisture * 100.0, 0.0, 100.0)))
             sources.append("Open-Meteo volumetric moisture (relative proxy; porosity unavailable)")
         if gwetroot is not None:
-            wetness_values.append(float(np.clip(gwetroot, 0.0, 100.0)))
+            wetness_values.append(float(np.clip(gwetroot * 100.0, 0.0, 100.0)))
             sources.append("NASA POWER GWETROOT")
         blended = sum(wetness_values) / len(wetness_values) if wetness_values else None
         return HydrologySnapshot(
