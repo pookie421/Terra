@@ -3,7 +3,7 @@ import * as maplibregl from 'maplibre-gl';
 import type {ExpressionSpecification,GeoJSONSource,StyleSpecification} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
-import {AlertTriangle,Compass,Globe2,Mountain} from 'lucide-react';
+import {AlertTriangle,Compass,Maximize} from 'lucide-react';
 import type {FeatureCollection,Geometry,Position} from 'geojson';
 import type {Scan,Cell,Runout} from '../types';
 
@@ -28,10 +28,10 @@ interface Props {
 }
 
 const LAYER_META:Record<MapLayer,{label:string;left:string;right:string;gradient:string}>={
-  score:{label:'Physics-Informed ML score',left:'0',right:'1',gradient:'linear-gradient(90deg,#10B981,#38BDF8,#F59E0B,#EF4444)'},
-  fs:{label:'Factor of safety · FS mid',left:'≤ 0.5',right:'≥ 3',gradient:'linear-gradient(90deg,#EF4444,#F59E0B,#10B981,#38BDF8)'},
-  slope:{label:'Corrected slope angle',left:'0°',right:'60°+',gradient:'linear-gradient(90deg,#38BDF8,#10B981,#F59E0B,#EF4444)'},
-  pressure:{label:'Pore-pressure head',left:'0 m',right:'3 m+',gradient:'linear-gradient(90deg,#38BDF8,#10B981,#F59E0B,#EF4444)'},
+  score:{label:'Initiation score',left:'0',right:'1',gradient:'linear-gradient(90deg,#699886,#b9b285,#ce9b66,#bd6966)'},
+  fs:{label:'Factor of safety',left:'≤ 0.5',right:'≥ 3',gradient:'linear-gradient(90deg,#bd6966,#ce9b66,#9ca783,#699886)'},
+  slope:{label:'Slope',left:'0°',right:'60°+',gradient:'linear-gradient(90deg,#7392a6,#809e90,#c1a574,#bc7770)'},
+  pressure:{label:'Pore-pressure head',left:'0 m',right:'3 m+',gradient:'linear-gradient(90deg,#7392a6,#809e90,#c1a574,#bc7770)'},
 };
 
 function longitude(value:number):number{return ((value+180)%360+360)%360-180;}
@@ -42,14 +42,14 @@ function valueFor(layer:MapLayer):ExpressionSpecification {
 function colorFor(layer:MapLayer):ExpressionSpecification {
   const value=valueFor(layer);
   const ramp:ExpressionSpecification=layer==='fs'
-    ?['interpolate',['linear'],value,0,'#EF4444',1,'#F59E0B',1.5,'#10B981',3,'#38BDF8']
+    ?['interpolate',['linear'],value,0,'#bd6966',1,'#ce9b66',1.5,'#9ca783',3,'#699886']
     :layer==='slope'
-      ?['interpolate',['linear'],value,0,'#38BDF8',15,'#10B981',35,'#F59E0B',60,'#EF4444']
+      ?['interpolate',['linear'],value,0,'#7392a6',15,'#809e90',35,'#c1a574',60,'#bc7770']
       :layer==='pressure'
-        ?['interpolate',['linear'],value,0,'#38BDF8',.5,'#10B981',1.5,'#F59E0B',3,'#EF4444']
-        :['interpolate',['linear'],value,0,'#10B981',.3,'#38BDF8',.65,'#F59E0B',1,'#EF4444'];
+        ?['interpolate',['linear'],value,0,'#7392a6',.5,'#809e90',1.5,'#c1a574',3,'#bc7770']
+        :['interpolate',['linear'],value,0,'#699886',.3,'#b9b285',.65,'#ce9b66',1,'#bd6966'];
   // Missing evidence has its own neutral color. It is never rendered as zero hazard.
-  return ['case',['<',value,0],'#64748B',ramp];
+  return ['case',['<',value,0],'#737c8a',ramp];
 }
 function coordinates(geometry:Geometry):Position[] {
   switch(geometry.type){
@@ -73,21 +73,21 @@ function localGeometry(geometry:Geometry,anchor:number):Geometry {
   }
 }
 
-export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handle,runout,layer,onCenterChange,busy=false}:Props){
+export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handle,runout,layer,onCenterChange}:Props){
   const host=useRef<HTMLDivElement>(null),map=useRef<maplibregl.Map|null>(null),reticle=useRef<maplibregl.Marker|null>(null);
   const callbacks=useRef({onSelect,onScanCoordinate,onCenterChange});
   const current=useRef({scan,selected,runout,layer});
   const previousScan=useRef<string|null>(null);
-  const [error,setError]=useState(''),[ready,setReady]=useState(false),[mapCenter,setMapCenter]=useState({latitude:20,longitude:0});
+  const [error,setError]=useState(''),[ready,setReady]=useState(false);
   callbacks.current={onSelect,onScanCoordinate,onCenterChange};
   current.current={scan,selected,runout,layer};
 
   function markTarget(latitude:number,lon:number){
     const m=map.current;if(!m)return;
     if(!reticle.current){
-      const target=document.createElement('div');target.className='target-reticle';
-      target.setAttribute('aria-label','Scan target');
-      target.style.cssText='width:30px;height:30px;border:1px solid #38BDF8;border-radius:50%;box-shadow:0 0 0 7px rgba(56,189,248,.12),0 0 25px rgba(56,189,248,.35);pointer-events:none;background:radial-gradient(circle,#38BDF8 0 2px,transparent 3px);';
+      const target=document.createElement('div');target.className='scan-marker';
+      target.setAttribute('aria-label','Scan location');
+      target.style.cssText='width:12px;height:12px;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.3);pointer-events:none;background:#6d879e;';
       reticle.current=new maplibregl.Marker({element:target,anchor:'center'}).setLngLat([lon,latitude]).addTo(m);
     }else reticle.current.setLngLat([lon,latitude]);
   }
@@ -106,8 +106,8 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
       bounds.extend([anchor+longitude(lon-anchor),lat]);
     }
     const width=m.getContainer().clientWidth;
-    const desktop=width>=1150;
-    m.fitBounds(bounds,{padding:desktop?{top:190,bottom:85,left:390,right:430}:width>=760?{top:170,bottom:120,left:55,right:55}:{top:180,bottom:230,left:30,right:30},maxZoom:14.6,pitch:55,bearing:-18,duration:1400,essential:false});
+    const desktop=width>1150;
+    m.fitBounds(bounds,{padding:desktop?{top:150,bottom:80,left:360,right:400}:{top:150,bottom:110,left:40,right:40},maxZoom:14.6,pitch:55,bearing:-18,duration:1400,essential:false});
     markTarget(s.location.latitude,s.location.longitude);
   }
   function updateLayers(){
@@ -138,15 +138,15 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
         cells:{type:'geojson',data:EMPTY},selected:{type:'geojson',data:EMPTY},runout:{type:'geojson',data:EMPTY},corridor:{type:'geojson',data:EMPTY},
       },
       terrain:{source:'terrain',exaggeration:1.35},
-      sky:{'sky-color':'#060A12','horizon-color':'#13243A','fog-color':'#060A12','sky-horizon-blend':.7,'horizon-fog-blend':.7,'fog-ground-blend':.8},
+      sky:{'sky-color':'#14181d','horizon-color':'#30383e','fog-color':'#14181d','sky-horizon-blend':.7,'horizon-fog-blend':.7,'fog-ground-blend':.8},
       layers:[
-        {id:'background',type:'background',paint:{'background-color':'#060A12'}},
-        {id:'satellite',type:'raster',source:'imagery',paint:{'raster-saturation':-.24,'raster-brightness-max':.83,'raster-contrast':.06}},
-        {id:'corridor-fill',type:'fill',source:'corridor',paint:{'fill-color':'#F59E0B','fill-opacity':.16}},
+        {id:'background',type:'background',paint:{'background-color':'#14181d'}},
+        {id:'satellite',type:'raster',source:'imagery',paint:{'raster-saturation':-.12,'raster-brightness-max':.92,'raster-contrast':.02}},
+        {id:'corridor-fill',type:'fill',source:'corridor',paint:{'fill-color':'#c6a16b','fill-opacity':.16}},
         {id:'hexagons',type:'fill-extrusion',source:'cells',paint:{'fill-extrusion-color':colorFor(current.current.layer),'fill-extrusion-height':['+',12,['*',180,['max',0,valueFor('score')]]],'fill-extrusion-base':0,'fill-extrusion-opacity':.58}},
-        {id:'hex-edges',type:'line',source:'cells',paint:{'line-color':'#7DD3FC','line-width':.7,'line-opacity':.46}},
-        {id:'runout-lines',type:'line',source:'runout',paint:{'line-color':['match',['get','scenario'],0,'#FBBF24',1,'#FB923C',2,'#FDE68A','#F59E0B'],'line-width':3,'line-opacity':.95,'line-dasharray':[2,1]}},
-        {id:'selected-outline',type:'line',source:'selected',paint:{'line-color':'#E0F2FE','line-width':3,'line-opacity':1}},
+        {id:'hex-edges',type:'line',source:'cells',paint:{'line-color':'#b4bfc6','line-width':.6,'line-opacity':.3}},
+        {id:'runout-lines',type:'line',source:'runout',paint:{'line-color':['match',['get','scenario'],0,'#d5b47e',1,'#c99a70',2,'#e4cd9c','#c6a16b'],'line-width':2.5,'line-opacity':.95,'line-dasharray':[2,1]}},
+        {id:'selected-outline',type:'line',source:'selected',paint:{'line-color':'#f3f4f6','line-width':2,'line-opacity':1}},
       ],
     };
     let m:maplibregl.Map;
@@ -158,7 +158,7 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
     map.current=m;
     m.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'bottom-right');
     m.addControl(new maplibregl.ScaleControl({unit:'metric'}),'bottom-left');
-    const notifyCenter=()=>{const c=m.getCenter();const next={latitude:c.lat,longitude:longitude(c.lng)};setMapCenter(next);callbacks.current.onCenterChange?.(next.latitude,next.longitude);};
+    const notifyCenter=()=>{const c=m.getCenter();callbacks.current.onCenterChange?.(c.lat,longitude(c.lng));};
     m.on('load',()=>{setReady(true);setError('');updateLayers();notifyCenter();if(current.current.scan)fitCurrent();});
     m.on('moveend',notifyCenter);
     m.on('click',event=>{
@@ -170,7 +170,7 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
     });
     m.on('mousemove',event=>{
       const hits=m.getLayer('hexagons')?m.queryRenderedFeatures(event.point,{layers:['hexagons']}):[];
-      m.getCanvas().style.cursor=hits.length?'pointer':'crosshair';
+      m.getCanvas().style.cursor=hits.length?'pointer':'';
     });
     m.on('error',event=>{
       const message=event.error?.message??'Map source error';
@@ -196,10 +196,8 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
   const legend=LAYER_META[layer];
   return <section className="map-world" style={{position:'fixed',inset:0,zIndex:0}} aria-label="Live global satellite and 3D terrain map">
     <div ref={host} className="map-canvas" style={{position:'absolute',inset:0}}/>
-    <div className="world-map-coordinate" aria-live="polite"><Globe2 size={13}/><span>{mapCenter.latitude.toFixed(4)}, {mapCenter.longitude.toFixed(4)}</span><span className="map-coordinate-note">{busy?'ACQUIRING LIVE SECTOR':'CLICK TERRAIN TO SCAN'}</span></div>
-    <div className="world-map-tools"><button onClick={()=>map.current?.easeTo({pitch:55,bearing:0})} aria-label="Reset world map orientation" title="Reset map orientation"><Compass size={17}/></button>{scan&&<button onClick={fitCurrent} aria-label="Fit scanned sector" title="Fit scanned sector"><Globe2 size={17}/></button>}</div>
+    <div className="world-map-tools"><button onClick={()=>map.current?.easeTo({pitch:55,bearing:0})} aria-label="Reset map orientation" title="Reset map orientation"><Compass size={17}/></button>{scan&&<button onClick={fitCurrent} aria-label="Fit scan to map" title="Fit scan to map"><Maximize size={17}/></button>}</div>
     {error&&<div className="map-notice" role="status"><AlertTriangle size={14}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss map notice">×</button></div>}
-    <div className="world-map-legend"><span>{legend.label}</span><div style={{height:4,background:legend.gradient}}/><div className="legend-extents"><span>{legend.left}</span><span>{legend.right}</span></div><small>Gray = unavailable evidence</small></div>
-    <div className="world-map-attribution"><Mountain size={12}/><span>ONLINE SATELLITE · TERRARIUM DEM · 1.35× RELIEF<small>Compiled elevation, native resolution varies · Conditional release corridors</small></span></div>
+    {scan&&<div className="world-map-legend"><span>{legend.label}</span><div style={{height:4,background:legend.gradient}}/><div className="legend-extents"><span>{legend.left}</span><span>{legend.right}</span></div><small>Gray: data unavailable</small></div>}
   </section>;
 }

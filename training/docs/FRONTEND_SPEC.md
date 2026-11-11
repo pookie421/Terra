@@ -1,29 +1,42 @@
-# TERRA-SHIELD: AUTONOMOUS GLOBAL 3D LANDSLIDE PREDICTION PLATFORM SPEC
+# Frontend specification
 
-## 1. CORE PRODUCT MANDATE (NO PROTOTYPE GIMMICKS)
-TERRA-SHIELD is a live, autonomous global landslide prediction and 72-hour forecasting platform powered by our Physics-Informed ML engine and state-grounded Qwen2.5 Co-Pilot.
-- **NO MANUAL SLIDERS OR FABRICATED "WHAT-IF" INPUTS:** Delete all manual perturbation sliders (`Additional rainfall`, `Storm duration`, `PGA override`, `Warming increment`, `Burn scenario`). Users do NOT manually invent weather. The platform predicts landslides **automatically** from real-time satellite/meteorological APIs (`NOW / T+0h`) and live incoming 72-hour numerical weather forecasts (`T+24h`, `T+48h`, `T+72h`).
-- **NO FIXED LOCATIONS OR OFFLINE REPLAY SHELLS:** Never boot into a static `"RETAINED REPLAY"` mode or lock the user to a hardcoded dropdown of cities. The user must be able to pan/zoom across a **3D World Globe & Terrain Map** and **click ANY coordinate on Earth** (including unnamed mountains, remote valleys, or any `(lat, lon)` coordinate) or search any place name to trigger a live, automatic H3 grid scan via `POST /api/v1/scan`.
-- **NO LIGHT MODE / NO BEIGE / NO SERIF FONTS / NO BLANK BASEMAPS:** The 3D MapLibre GL world map (`Esri World Imagery` satellite tiles draped over `AWS Terrarium` 30m 3D DEM) must fill `100vw x 100vh` immediately on load. Use an Obsidian dark tactical telemetry HUD (`#060A12` / `rgba(10, 15, 26, 0.84)` with `backdrop-filter: blur(16px)`), crisp sans-serif UI labels (`Inter`), and `tabular-nums` monospace (`JetBrains Mono`) for all telemetry.
+## Product and visual direction
 
-## 2. INTERACTIVE 3D WORLD MAP & CLICK-TO-SCAN H3 GRID (`100vw x 100vh`)
-1. **Global 3D Satellite + Elevation Canvas (`MapCanvas.tsx`):**
-   - Full-viewport (`position: fixed; inset: 0`) `maplibre-gl` canvas with **Esri World Imagery** satellite tiles and **AWS Terrarium** 3D terrain (`exaggeration: 1.35`, `pitch: 55`).
-   - **Click-Anywhere Global Scanning:** Clicking anywhere on the 3D map (when not clicking an existing H3 hexagon) places a target reticle at that `(lat, lon)` and immediately calls `POST /api/v1/scan` (`{ latitude, longitude }`) to generate the live H3 Resolution-9 hexagonal grid around that exact coordinate, fetch all 14 live data feeds, and run the Physics + ML engine.
-   - **3D H3 Hexagon Rendering:** Renders the scanned H3 grid (`h3_geojson`) directly over the 3D mountain relief as extruded/draped hexagons colored smoothly by the active telemetry layer (`Physics-Informed ML Probability`, `Factor of Safety FS_mid`, `Pore Pressure Head`, or `Slope Angle`), plus automatic Voellmy runout paths (`runout_geojson`) from unstable steep cells.
-   - Clicking any H3 hexagon inspects that exact cell (`GET /api/v1/inspect/{scan_id}/{h3_index}`) and updates the telemetry panels and Qwen2.5 Co-Pilot context.
+The interface is a professional global landslide analysis workspace. The map and the user's analysis take priority over branding or system decoration.
 
-## 3. AUTONOMOUS TELEMETRY HUD LAYOUT
-1. **Top Command Bar:**
-   - Brand & live connection status (`LIVE ENGINE ACTIVE` vs. backend connection error).
-   - Coordinate & Location Search Bar (accepts any place name OR raw `lat, lon` coordinates, plus a `"Scan Current Map Center"` button so unnamed regions can be scanned with one click).
-   - Live 14-Feed Provenance Strip showing real-time fetch status (`LIVE`, `CACHED`, `FALLBACK`, `UNAVAILABLE`) and latency for `Terrarium DEM`, `Open-Meteo`, `Open-Meteo 72h Ensemble`, `NASA POWER`, `ISRIC SoilGrids WCS`, `USGS Seismic`, `NASA COOLR`, `NASA EONET`, `GloFAS River`, `Macrostrat Bedrock`, `Overpass`, and `Esri Satellite`.
-2. **Left Autonomous Prediction & 72-Hour Forecast Rail (`w-[350px]`):**
-   - **Sector Hazard Summary:** Scanned center `(lat, lon)`, grid cell count, elevation/slope range, peak **Physics-Informed ML** initiation probability across the grid, minimum **`[FS_low, FS_mid, FS_high]`** cell, and a button to fly directly to the highest-risk H3 cell.
-   - **Live Autonomous Forcing Telemetry (Read-Only from Live APIs):** Observed 24h Rain (`mm`), Preceding 6-Day Antecedent Rain (`mm`), Live Surface Soil Moisture (`m³/m³`), SoilGrids WCS 0–30cm composition (`Clay %`, `Sand %`, `Bulk Density`, `Organic Carbon`), Recent USGS PGA (`g`), and GloFAS River Discharge.
-   - **Automatic 72-Hour Forecast Horizon (`predictive_forecast_72h`):** Displays the automatic hourly/windowed forecast trajectory driven by live Open-Meteo 72h forecast & ensemble precipitation—allowing the user to switch the map view between **`NOW (Observed T+0h)`** and the **automatic forecasted states (`Peak 72h Forecast` / `T+24h` / `T+48h` / `T+72h`)** computed from real incoming weather!
-   - **4-Model Diagnostic Comparison (Selected Cell):** Clean read-only comparison bars for the selected H3 cell showing `Physics-Informed ML` (primary), `Physics-Only (FOSM)`, `Weather+Terrain ML`, and `Rainfall-Only`.
-3. **Right Cell Mechanics, Runout & Custom Qwen2.5 Co-Pilot Rail (`w-[390px]`):**
-   - **Selected H3 Cell Physical Column:** H3 ID, exact `(lat, lon)`, elevation, corrected slope (`deg`), specific TWI, uncapped Factor of Safety interval **`[FS_low, FS_mid, FS_high]`**, joint variance **`JΣJᵀ`** breakdown (slope, cohesion, friction, depth, pore pressure sensitivities), basal pore-pressure head (`m`), critical rain deficit (`mm`), and mechanical admissibility.
-   - **Automatic Conditional Voellmy Runout (`runout_geojson`):** Peak velocity (`m/s`), travel distance/corridor cells, and 3-rheology envelope (`mu`, `xi`, `depth`).
-   - **Custom Qwen2.5 Geospatial Co-Pilot (`POST /api/v1/chat`):** Full multi-turn chat interface wired directly to the backend LLM service (ready for our custom QLoRA fine-tuned Qwen2.5 weights via Ollama/local model server, with automatic fallback to `VERIFIED_TEMPLATE` only when the local LLM server isn't running). Displays verification badge (`VERIFIED_LLM_PROSE` / `VERIFIED_TEMPLATE`), bound numeric telemetry citations, and executes map actions (`fly_to_cell`, `inspect_cell`).
+- Use a restrained neutral dark interface, readable Inter sans-serif text, sentence-case labels, clear spacing, and subtle borders. Use tabular numbers where comparisons benefit from alignment; do not use monospace microtext throughout the interface.
+- Remove logos, product wordmarks, promotional taglines, engine-active slogans, glowing indicators, target-style decoration, and other science-fiction styling. Use color sparingly for selection, meaningful hazard values, warnings, and errors.
+- Keep search and the main map actions easy to find. Show connection errors when they affect use; a permanent healthy-engine banner is unnecessary.
+- Show essential results first. Put technical diagnostics, source timing, identifiers, and model details in clearly named expandable sections. Avoid repeated coordinates, raw internal status strings, excessive decimal precision, and placeholder-filled panels before a scan.
+- Keep the interface usable on smaller screens, with readable controls and accessible focus states. Retain provider attribution required by the map sources.
+
+## Live global map and scanning
+
+- Load a full-viewport MapLibre globe and terrain map immediately. Use online Esri World Imagery and AWS Terrarium elevation tiles, with Terrarium encoding, terrain exaggeration 1.35, and an initial pitch of 55 degrees. Native elevation resolution varies by upstream source.
+- Start with an explorable world map and a brief instruction to search or select a location. Do not boot into a replay, a fixed location, or a location preset selector.
+- Accept any place name or raw `latitude, longitude`. Clicking terrain outside an existing result grid, or choosing **Scan current view**, starts `POST /api/v1/scan` for the exact coordinate. Unnamed mountains and valleys must work without a place name.
+- Render the returned H3 resolution-9 grid (`h3_geojson`) over the terrain, together with conditional runout paths (`runout_geojson`). Provide layers for the physics-informed initiation score, factor of safety, slope, and pore-pressure head. Use a useful legend once results are present; missing evidence must remain visually distinct from a zero score.
+- Select the critical initiation cell after a scan. Clicking another result cell inspects that exact cell and updates the physical column, runout, model comparison, and assistant context. Preserve the ability to focus the map on the selected or critical cell.
+
+## Results and automatic forecast
+
+- Present a concise area overview: the peak conditional initiation score, the minimum factor-of-safety column with `[FS_low, FS_mid, FS_high]`, and a way to inspect the critical cell. Scores are experimental initiation scores, not established calibrated probabilities.
+- Show the current location and analysis time where they help interpretation. Grid counts, full H3 IDs, scan/state IDs, terrain ranges, and duplicate coordinate readouts belong in analysis details or export rather than permanent map chrome.
+- Keep observed forcing read-only. Make 24-hour rain, preceding six-day rain, surface moisture, SoilGrids composition, USGS seismic context, and modeled GloFAS river discharge available with units and source context. Secondary soil and provider diagnostics may be collapsed.
+- Fetch the automatic 72-hour forecast (`predictive_forecast_72h`) for the scanned location. Allow switching between Now, 24, 48, and 72 hours and the peak mechanical forecast, with the returned forecast trajectory and valid time available. State changes must update both the displayed map and inspected results.
+- Do not add manual rainfall, storm-duration, PGA, warming, burn, or other fabricated forcing controls. Preserve source missingness and ensemble-availability explanations rather than inventing future inputs.
+
+## Cell inspection and supporting detail
+
+- Keep the selected cell's slope, elevation, factor-of-safety envelope, basal pressure head, and critical rain deficit understandable at a glance. Retain a short, honest cue that the physical column uses reference assumptions when it does.
+- Make the complete physical column available through progressive disclosure: exact coordinates and H3 ID, specific TWI, provenance, mechanical admissibility, learned trigger score, Newmark applicability, joint variance `JΣJᵀ`, sensitivity allocations, Jacobian, and covariance matrix. Do not remove the underlying uncertainty or provenance to simplify the default view.
+- Keep the four-model comparison available for the selected cell: Physics-Informed ML, Physics-Only (FOSM), Weather+Terrain ML, and Rainfall-Only. It may be a collapsed diagnostic section.
+- Keep conditional Voellmy runout available on the map and in inspection. Present useful corridor and velocity results first; place the three rheology/depth scenarios, coefficients, stop reasons, and truncation information in details. Preserve the explanation that routing assumes release.
+- Offer a Sources view for per-provider availability, live/cache/fallback status, errors, fetch timing, and provenance. Replace the permanent fourteen-feed status strip with this on-demand view; do not hide source failures or relabel modeled or assumed values as observations.
+
+## Assistant and API integration
+
+- Use a simple **Assistant** entry point and a multi-turn interface wired to `POST /api/v1/chat`. Model branding and implementation details do not need to dominate the conversation.
+- Preserve verified prose/template status, source-bound numeric citations, model-service errors, and `ui_action` map commands. Verification details and exact identifiers can be disclosed on demand; the interface must not imply that template output came from a running language model.
+- Bind the displayed map, inspected cell, forecast state, and assistant conversation to exact scan/state/cell IDs internally. Reject stale responses after a selection or forecast change even when those IDs are not permanently visible.
+- Keep `/api` proxied to the local FastAPI backend at `http://127.0.0.1:8000`. Preserve arbitrary-coordinate scan, inspection, forecast, and chat integration. Validate the frontend with a production build and TypeScript checking; distinguish browser integration checks from scientific validation.

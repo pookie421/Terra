@@ -35,7 +35,7 @@ export interface BoundClaim {name:string;path:string;value:number}
 export interface ChatReply {scan_id:string;scenario_id:string;clean_markdown:string;briefing_guard:string;bound_claims?:BoundClaim[];model_error?:string;ui_action?:{actions:Action[]};updated_scan_data?:Scan}
 export interface Health {status?:string;engine?:string;model_ready?:boolean;model_version?:string;[key:string]:unknown}
 export const SOURCES=['geocoding','terrarium_dem','open_meteo','nasa_power','soilgrids','usgs','overpass','eonet_wildfires','eonet_landslides','coolr','river','bedrock','ensemble','satellite'];
-export const SOURCE_LABELS:Record<string,string>={geocoding:'GEOCODE',terrarium_dem:'TERRAIN',open_meteo:'WEATHER',nasa_power:'POWER',soilgrids:'SOILGRIDS',usgs:'USGS',overpass:'OVERPASS',eonet_wildfires:'FIRE',eonet_landslides:'SLIDES',coolr:'COOLR',river:'GLOFAS',bedrock:'GEOLOGY',ensemble:'ENSEMBLE',satellite:'IMAGERY'};
+export const SOURCE_LABELS:Record<string,string>={geocoding:'Location',terrarium_dem:'Terrain',open_meteo:'Weather',nasa_power:'NASA POWER',soilgrids:'SoilGrids',usgs:'USGS seismic',overpass:'OpenStreetMap',eonet_wildfires:'EONET fires',eonet_landslides:'EONET landslides',coolr:'NASA COOLR',river:'GloFAS rivers',bedrock:'Bedrock geology',ensemble:'Weather ensemble',satellite:'Satellite imagery'};
 export function cellIn(scan:Scan,id:string):Cell|undefined {
   const physical=scan.physical_assessment.cells.find(c=>c.h3_index===id);
   const learned=scan.physics_informed_assessment?.cells.find(c=>c.h3_index===id);
@@ -43,4 +43,4 @@ export function cellIn(scan:Scan,id:string):Cell|undefined {
 }
 export const fmt=(v:unknown,digits=2):string=>typeof v==='number'&&Number.isFinite(v)?(v!==0&&Math.abs(v)<.001?v.toExponential(2):v.toLocaleString('en-US',{maximumFractionDigits:digits})):'—';
 export function coord(latitude:number,longitude:number){return `${Math.abs(latitude).toFixed(4)}° ${latitude<0?'S':'N'}, ${Math.abs(longitude).toFixed(4)}° ${longitude<0?'W':'E'}`;}
-export const HORIZONS:{key:HorizonKey;label:string;sub:string}[]=[{key:'now',label:'NOW',sub:'Observed'},{key:'t24',label:'+24H',sub:'Forecast'},{key:'t48',label:'+48H',sub:'Forecast'},{key:'t72',label:'+72H',sub:'Forecast'},{key:'peak',label:'PEAK',sub:'72h mechanical'}];
+export const HORIZONS:{key:HorizonKey;label:string;sub:string}[]=[{key:'now',label:'Now',sub:'Observed'},{key:'t24',label:'+24h',sub:'Forecast'},{key:'t48',label:'+48h',sub:'Forecast'},{key:'t72',label:'+72h',sub:'Forecast'},{key:'peak',label:'Peak',sub:'72h mechanical'}];
