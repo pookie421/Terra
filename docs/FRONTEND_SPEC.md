@@ -1,0 +1,29 @@
+# TERRA-SHIELD: AUTONOMOUS GLOBAL 3D LANDSLIDE PREDICTION PLATFORM SPEC
+
+## 1. CORE PRODUCT MANDATE (NO PROTOTYPE GIMMICKS)
+TERRA-SHIELD is a live, autonomous global landslide prediction and 72-hour forecasting platform powered by our Physics-Informed ML engine and state-grounded Qwen2.5 Co-Pilot.
+- **NO MANUAL SLIDERS OR FABRICATED "WHAT-IF" INPUTS:** Delete all manual perturbation sliders (`Additional rainfall`, `Storm duration`, `PGA override`, `Warming increment`, `Burn scenario`). Users do NOT manually invent weather. The platform predicts landslides **automatically** from real-time satellite/meteorological APIs (`NOW / T+0h`) and live incoming 72-hour numerical weather forecasts (`T+24h`, `T+48h`, `T+72h`).
+- **NO FIXED LOCATIONS OR OFFLINE REPLAY SHELLS:** Never boot into a static `"RETAINED REPLAY"` mode or lock the user to a hardcoded dropdown of cities. The user must be able to pan/zoom across a **3D World Globe & Terrain Map** and **click ANY coordinate on Earth** (including unnamed mountains, remote valleys, or any `(lat, lon)` coordinate) or search any place name to trigger a live, automatic H3 grid scan via `POST /api/v1/scan`.
+- **NO LIGHT MODE / NO BEIGE / NO SERIF FONTS / NO BLANK BASEMAPS:** The 3D MapLibre GL world map (`Esri World Imagery` satellite tiles draped over `AWS Terrarium` 30m 3D DEM) must fill `100vw x 100vh` immediately on load. Use an Obsidian dark tactical telemetry HUD (`#060A12` / `rgba(10, 15, 26, 0.84)` with `backdrop-filter: blur(16px)`), crisp sans-serif UI labels (`Inter`), and `tabular-nums` monospace (`JetBrains Mono`) for all telemetry.
+
+## 2. INTERACTIVE 3D WORLD MAP & CLICK-TO-SCAN H3 GRID (`100vw x 100vh`)
+1. **Global 3D Satellite + Elevation Canvas (`MapCanvas.tsx`):**
+   - Full-viewport (`position: fixed; inset: 0`) `maplibre-gl` canvas with **Esri World Imagery** satellite tiles and **AWS Terrarium** 3D terrain (`exaggeration: 1.35`, `pitch: 55`).
+   - **Click-Anywhere Global Scanning:** Clicking anywhere on the 3D map (when not clicking an existing H3 hexagon) places a target reticle at that `(lat, lon)` and immediately calls `POST /api/v1/scan` (`{ latitude, longitude }`) to generate the live H3 Resolution-9 hexagonal grid around that exact coordinate, fetch all 14 live data feeds, and run the Physics + ML engine.
+   - **3D H3 Hexagon Rendering:** Renders the scanned H3 grid (`h3_geojson`) directly over the 3D mountain relief as extruded/draped hexagons colored smoothly by the active telemetry layer (`Physics-Informed ML Probability`, `Factor of Safety FS_mid`, `Pore Pressure Head`, or `Slope Angle`), plus automatic Voellmy runout paths (`runout_geojson`) from unstable steep cells.
+   - Clicking any H3 hexagon inspects that exact cell (`GET /api/v1/inspect/{scan_id}/{h3_index}`) and updates the telemetry panels and Qwen2.5 Co-Pilot context.
+
+## 3. AUTONOMOUS TELEMETRY HUD LAYOUT
+1. **Top Command Bar:**
+   - Brand & live connection status (`LIVE ENGINE ACTIVE` vs. backend connection error).
+   - Coordinate & Location Search Bar (accepts any place name OR raw `lat, lon` coordinates, plus a `"Scan Current Map Center"` button so unnamed regions can be scanned with one click).
+   - Live 14-Feed Provenance Strip showing real-time fetch status (`LIVE`, `CACHED`, `FALLBACK`, `UNAVAILABLE`) and latency for `Terrarium DEM`, `Open-Meteo`, `Open-Meteo 72h Ensemble`, `NASA POWER`, `ISRIC SoilGrids WCS`, `USGS Seismic`, `NASA COOLR`, `NASA EONET`, `GloFAS River`, `Macrostrat Bedrock`, `Overpass`, and `Esri Satellite`.
+2. **Left Autonomous Prediction & 72-Hour Forecast Rail (`w-[350px]`):**
+   - **Sector Hazard Summary:** Scanned center `(lat, lon)`, grid cell count, elevation/slope range, peak **Physics-Informed ML** initiation probability across the grid, minimum **`[FS_low, FS_mid, FS_high]`** cell, and a button to fly directly to the highest-risk H3 cell.
+   - **Live Autonomous Forcing Telemetry (Read-Only from Live APIs):** Observed 24h Rain (`mm`), Preceding 6-Day Antecedent Rain (`mm`), Live Surface Soil Moisture (`m³/m³`), SoilGrids WCS 0–30cm composition (`Clay %`, `Sand %`, `Bulk Density`, `Organic Carbon`), Recent USGS PGA (`g`), and GloFAS River Discharge.
+   - **Automatic 72-Hour Forecast Horizon (`predictive_forecast_72h`):** Displays the automatic hourly/windowed forecast trajectory driven by live Open-Meteo 72h forecast & ensemble precipitation—allowing the user to switch the map view between **`NOW (Observed T+0h)`** and the **automatic forecasted states (`Peak 72h Forecast` / `T+24h` / `T+48h` / `T+72h`)** computed from real incoming weather!
+   - **4-Model Diagnostic Comparison (Selected Cell):** Clean read-only comparison bars for the selected H3 cell showing `Physics-Informed ML` (primary), `Physics-Only (FOSM)`, `Weather+Terrain ML`, and `Rainfall-Only`.
+3. **Right Cell Mechanics, Runout & Custom Qwen2.5 Co-Pilot Rail (`w-[390px]`):**
+   - **Selected H3 Cell Physical Column:** H3 ID, exact `(lat, lon)`, elevation, corrected slope (`deg`), specific TWI, uncapped Factor of Safety interval **`[FS_low, FS_mid, FS_high]`**, joint variance **`JΣJᵀ`** breakdown (slope, cohesion, friction, depth, pore pressure sensitivities), basal pore-pressure head (`m`), critical rain deficit (`mm`), and mechanical admissibility.
+   - **Automatic Conditional Voellmy Runout (`runout_geojson`):** Peak velocity (`m/s`), travel distance/corridor cells, and 3-rheology envelope (`mu`, `xi`, `depth`).
+   - **Custom Qwen2.5 Geospatial Co-Pilot (`POST /api/v1/chat`):** Full multi-turn chat interface wired directly to the backend LLM service (ready for our custom QLoRA fine-tuned Qwen2.5 weights via Ollama/local model server, with automatic fallback to `VERIFIED_TEMPLATE` only when the local LLM server isn't running). Displays verification badge (`VERIFIED_LLM_PROSE` / `VERIFIED_TEMPLATE`), bound numeric telemetry citations, and executes map actions (`fly_to_cell`, `inspect_cell`).

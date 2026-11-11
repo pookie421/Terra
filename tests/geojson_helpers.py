@@ -28,4 +28,3 @@ def check_geojson(payload: Dict[str, Any]) -> None:
     for feature in routes.get("features", []):
         assert feature.get("geometry", {}).get("type") == "LineString"
         assert len(feature.get("geometry", {}).get("coordinates", [])) >= 2
-

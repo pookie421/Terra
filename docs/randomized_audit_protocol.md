@@ -10,6 +10,6 @@ Causal controls require the injected trigger to appear in telemetry and an eligi
 
 The agent is forced to its deterministic fallback for repeatable tool/numeric-parity checks. This does not validate a newly trained Qwen model. Road-cut archetypes receive random trigger tests and existing toe-distance physics checks, but no claim of observed excavation geometry is made when OSM is unavailable.
 
-This is a property-based scenario audit over a named pool, not a blind labeled prediction experiment. Full-system, randomized, boundary and forecast engineering audits must pass on identical implementation/model/data fingerprints for combined readiness. Empirical benchmark scores are reported separately, including low scores and wide uncertainty intervals.
+This is a property-based scenario audit over a named pool, not a blind labeled prediction experiment. Full-system, randomized, boundary, forecast and surgical-regression engineering audits must pass on identical implementation/model/data fingerprints for combined readiness. Empirical benchmark scores are reported separately, including low scores and wide uncertainty intervals.
 
 The protocol restricts randomized burning to rain/vegetated-fire archetypes with median RGB vegetation proxy >=.20 and warming to cryospheric archetypes. It separately tests the warm Blue Mountains +8 C counterexample, so restricting random draws cannot hide that boundary regression. Random samples are scenario tests, not evidence of historical failures.

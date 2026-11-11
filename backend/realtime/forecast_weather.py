@@ -98,6 +98,6 @@ def precipitation_paths(hours, ensemble):
             p90.append(max(0.,spread['precip_p90_mm']*fraction))
             modes.append('ENSEMBLE_WITH_TEMPERATURE_PHASE_PROXY')
         else:
-            p50.append(liquid); p90.append(1.5*liquid)
-            modes.append('FALLBACK_SCENARIO_1_5X_NOT_EMPIRICAL_P90')
+            p50.append(liquid); p90.append(liquid)
+            modes.append('DETERMINISTIC_ONLY_ENSEMBLE_QUANTILES_UNAVAILABLE')
     return np.asarray(p50),np.asarray(p90),modes

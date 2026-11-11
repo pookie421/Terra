@@ -1,0 +1,2085 @@
+{
+  "snapshot": {
+    "location": {
+      "query": "43.737180, 7.421450",
+      "latitude": 43.73718,
+      "longitude": 7.42145,
+      "display_name": null,
+      "country": null
+    },
+    "radius_km": 3.5,
+    "generated_at_utc": "2026-11-06T06:55:15.677576+00:00",
+    "terrain": {
+      "center_latitude": 43.73718,
+      "center_longitude": 7.42145,
+      "radius_km": 3.5,
+      "resolution": 9,
+      "zoom": 13,
+      "pixel_spacing_x_m": 13.80679502040083,
+      "pixel_spacing_y_m": 19.109257071495055,
+      "tile_count": 9,
+      "tile_ids": [
+        "13/4263/2986",
+        "13/4264/2986",
+        "13/4265/2986",
+        "13/4263/2987",
+        "13/4264/2987",
+        "13/4265/2987",
+        "13/4263/2988",
+        "13/4264/2988",
+        "13/4265/2988"
+      ],
+      "h3_cell_count": 2,
+      "min_elevation_m": 0.8716517857142857,
+      "max_elevation_m": 1098.154296875,
+      "slope_p95_deg": 30.9374879019601,
+      "max_twi": 18.171078022090324,
+      "interpolated_pixels": 0,
+      "cells": {
+        "893969a6a5bffff": {
+          "cell_id": "893969a6a5bffff",
+          "latitude": 43.74792328862241,
+          "longitude": 7.440200545988129,
+          "elevation_m": 1.3722098214285714,
+          "slope_deg": 3.698151741709028,
+          "aspect_deg": 249.40099771562237,
+          "profile_curvature": 0.0004085496596043673,
+          "contributing_area_m2": 5035756.174768686,
+          "twi": 18.171078022090324,
+          "downslope_neighbors": []
+        },
+        "893969a4607ffff": {
+          "cell_id": "893969a4607ffff",
+          "latitude": 43.72791424302731,
+          "longitude": 7.3834620683945165,
+          "elevation_m": 157.87388392857142,
+          "slope_deg": 10.919534410749163,
+          "aspect_deg": 5.88505970595658,
+          "profile_curvature": -0.0008571653535390007,
+          "contributing_area_m2": 2883866.2298550946,
+          "twi": 16.520105212541633,
+          "downslope_neighbors": [
+            "893969a460fffff"
+          ]
+        }
+      },
+      "warnings": [
+        "Filtered 241 H3 cells with mean elevation <= 0.5 m as ocean/bathymetry",
+        "241 H3 cover cells had no raster samples inside fetched tiles"
+      ]
+    },
+    "weather": {
+      "observed_at_utc": "2026-11-06T06:00:00+00:00",
+      "rain_24h_mm": 6.9,
+      "peak_rain_3h_mm": 4.0,
+      "forecast_rain_next_24h_mm": 0.0,
+      "forecast_rain_24_48h_mm": 0.0,
+      "ari_7d_mm": 11.25225,
+      "ari_days_available": 7,
+      "soil_moisture_0_100cm_m3m3": 0.1782,
+      "soil_moisture_layers_m3m3": {
+        "soil_moisture_0_to_7cm": 0.36,
+        "soil_moisture_7_to_28cm": 0.228,
+        "soil_moisture_28_to_100cm": 0.146
+      },
+      "snow_depth_m": 0.0,
+      "air_temperature_c": 14.6,
+      "soil_temperature_0_7cm_c": 11.3,
+      "soil_temperature_28_100cm_c": 21.0,
+      "freeze_thaw_cycles_7d": 0,
+      "forecast_hourly_72h": [
+        {
+          "time": "2026-11-06T07:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.7,
+          "soil_temperature_0_to_7cm": 11.3,
+          "soil_moisture_0_to_7cm": 0.356,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T08:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 15.0,
+          "soil_temperature_0_to_7cm": 12.0,
+          "soil_moisture_0_to_7cm": 0.353,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T09:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 15.7,
+          "soil_temperature_0_to_7cm": 13.3,
+          "soil_moisture_0_to_7cm": 0.35,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T10:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 16.0,
+          "soil_temperature_0_to_7cm": 14.4,
+          "soil_moisture_0_to_7cm": 0.346,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T11:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 16.1,
+          "soil_temperature_0_to_7cm": 15.4,
+          "soil_moisture_0_to_7cm": 0.342,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T12:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 16.0,
+          "soil_temperature_0_to_7cm": 16.3,
+          "soil_moisture_0_to_7cm": 0.338,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T13:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 16.0,
+          "soil_temperature_0_to_7cm": 16.6,
+          "soil_moisture_0_to_7cm": 0.334,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T14:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 16.0,
+          "soil_temperature_0_to_7cm": 16.5,
+          "soil_moisture_0_to_7cm": 0.332,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T15:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 16.0,
+          "soil_temperature_0_to_7cm": 15.8,
+          "soil_moisture_0_to_7cm": 0.35,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T16:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 15.8,
+          "soil_temperature_0_to_7cm": 14.9,
+          "soil_moisture_0_to_7cm": 0.357,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T17:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 15.1,
+          "soil_temperature_0_to_7cm": 14.3,
+          "soil_moisture_0_to_7cm": 0.354,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T18:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.8,
+          "soil_temperature_0_to_7cm": 13.7,
+          "soil_moisture_0_to_7cm": 0.352,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T19:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.7,
+          "soil_temperature_0_to_7cm": 13.4,
+          "soil_moisture_0_to_7cm": 0.35,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T20:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.6,
+          "soil_temperature_0_to_7cm": 13.1,
+          "soil_moisture_0_to_7cm": 0.348,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T21:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.9,
+          "soil_temperature_0_to_7cm": 12.9,
+          "soil_moisture_0_to_7cm": 0.347,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T22:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.8,
+          "soil_temperature_0_to_7cm": 12.5,
+          "soil_moisture_0_to_7cm": 0.345,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-06T23:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.9,
+          "soil_temperature_0_to_7cm": 12.3,
+          "soil_moisture_0_to_7cm": 0.343,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T00:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.6,
+          "soil_temperature_0_to_7cm": 11.9,
+          "soil_moisture_0_to_7cm": 0.341,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T01:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.4,
+          "soil_temperature_0_to_7cm": 11.6,
+          "soil_moisture_0_to_7cm": 0.339,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T02:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.3,
+          "soil_temperature_0_to_7cm": 11.4,
+          "soil_moisture_0_to_7cm": 0.337,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T03:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.3,
+          "soil_temperature_0_to_7cm": 11.2,
+          "soil_moisture_0_to_7cm": 0.336,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T04:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.2,
+          "soil_temperature_0_to_7cm": 10.9,
+          "soil_moisture_0_to_7cm": 0.334,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T05:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.1,
+          "soil_temperature_0_to_7cm": 10.9,
+          "soil_moisture_0_to_7cm": 0.333,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T06:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.2,
+          "soil_temperature_0_to_7cm": 10.9,
+          "soil_moisture_0_to_7cm": 0.332,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T07:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.5,
+          "soil_temperature_0_to_7cm": 11.1,
+          "soil_moisture_0_to_7cm": 0.333,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T08:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.8,
+          "soil_temperature_0_to_7cm": 11.7,
+          "soil_moisture_0_to_7cm": 0.334,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T09:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.1,
+          "soil_temperature_0_to_7cm": 12.6,
+          "soil_moisture_0_to_7cm": 0.334,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T10:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.6,
+          "soil_temperature_0_to_7cm": 13.9,
+          "soil_moisture_0_to_7cm": 0.332,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T11:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.7,
+          "soil_temperature_0_to_7cm": 15.0,
+          "soil_moisture_0_to_7cm": 0.331,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T12:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.7,
+          "soil_temperature_0_to_7cm": 15.9,
+          "soil_moisture_0_to_7cm": 0.33,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T13:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.8,
+          "soil_temperature_0_to_7cm": 16.3,
+          "soil_moisture_0_to_7cm": 0.328,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T14:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.7,
+          "soil_temperature_0_to_7cm": 16.3,
+          "soil_moisture_0_to_7cm": 0.326,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T15:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.4,
+          "soil_temperature_0_to_7cm": 15.9,
+          "soil_moisture_0_to_7cm": 0.328,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T16:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.1,
+          "soil_temperature_0_to_7cm": 15.0,
+          "soil_moisture_0_to_7cm": 0.329,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T17:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.1,
+          "soil_temperature_0_to_7cm": 14.1,
+          "soil_moisture_0_to_7cm": 0.328,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T18:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.0,
+          "soil_temperature_0_to_7cm": 13.5,
+          "soil_moisture_0_to_7cm": 0.328,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T19:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.0,
+          "soil_temperature_0_to_7cm": 13.3,
+          "soil_moisture_0_to_7cm": 0.327,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T20:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.8,
+          "soil_temperature_0_to_7cm": 13.1,
+          "soil_moisture_0_to_7cm": 0.326,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T21:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.8,
+          "soil_temperature_0_to_7cm": 12.9,
+          "soil_moisture_0_to_7cm": 0.325,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T22:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.7,
+          "soil_temperature_0_to_7cm": 12.5,
+          "soil_moisture_0_to_7cm": 0.324,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-07T23:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.7,
+          "soil_temperature_0_to_7cm": 12.1,
+          "soil_moisture_0_to_7cm": 0.323,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T00:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.5,
+          "soil_temperature_0_to_7cm": 11.9,
+          "soil_moisture_0_to_7cm": 0.322,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T01:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 12.9,
+          "soil_temperature_0_to_7cm": 11.8,
+          "soil_moisture_0_to_7cm": 0.321,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T02:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 12.4,
+          "soil_temperature_0_to_7cm": 11.3,
+          "soil_moisture_0_to_7cm": 0.32,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T03:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 12.1,
+          "soil_temperature_0_to_7cm": 11.0,
+          "soil_moisture_0_to_7cm": 0.319,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T04:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 11.7,
+          "soil_temperature_0_to_7cm": 10.7,
+          "soil_moisture_0_to_7cm": 0.318,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T05:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 11.6,
+          "soil_temperature_0_to_7cm": 10.4,
+          "soil_moisture_0_to_7cm": 0.318,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T06:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 11.6,
+          "soil_temperature_0_to_7cm": 10.3,
+          "soil_moisture_0_to_7cm": 0.317,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T07:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 11.9,
+          "soil_temperature_0_to_7cm": 10.3,
+          "soil_moisture_0_to_7cm": 0.316,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T08:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 12.9,
+          "soil_temperature_0_to_7cm": 11.0,
+          "soil_moisture_0_to_7cm": 0.315,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T09:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.1,
+          "soil_temperature_0_to_7cm": 12.5,
+          "soil_moisture_0_to_7cm": 0.313,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T10:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.8,
+          "soil_temperature_0_to_7cm": 13.9,
+          "soil_moisture_0_to_7cm": 0.311,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T11:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 15.3,
+          "soil_temperature_0_to_7cm": 14.9,
+          "soil_moisture_0_to_7cm": 0.309,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T12:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.9,
+          "soil_temperature_0_to_7cm": 15.4,
+          "soil_moisture_0_to_7cm": 0.307,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T13:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.4,
+          "soil_temperature_0_to_7cm": 15.9,
+          "soil_moisture_0_to_7cm": 0.304,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T14:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.3,
+          "soil_temperature_0_to_7cm": 15.9,
+          "soil_moisture_0_to_7cm": 0.303,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T15:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.5,
+          "soil_temperature_0_to_7cm": 15.5,
+          "soil_moisture_0_to_7cm": 0.301,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T16:00:00+00:00",
+          "liquid_rain_mm": 0.1,
+          "precipitation": 0.1,
+          "rain": 0.0,
+          "showers": 0.1,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.3,
+          "soil_temperature_0_to_7cm": 14.9,
+          "soil_moisture_0_to_7cm": 0.301,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T17:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.2,
+          "soil_temperature_0_to_7cm": 14.3,
+          "soil_moisture_0_to_7cm": 0.3,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T18:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.2,
+          "soil_temperature_0_to_7cm": 13.7,
+          "soil_moisture_0_to_7cm": 0.3,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T19:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 14.1,
+          "soil_temperature_0_to_7cm": 13.1,
+          "soil_moisture_0_to_7cm": 0.299,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T20:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.9,
+          "soil_temperature_0_to_7cm": 12.7,
+          "soil_moisture_0_to_7cm": 0.299,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T21:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.7,
+          "soil_temperature_0_to_7cm": 12.5,
+          "soil_moisture_0_to_7cm": 0.298,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T22:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.6,
+          "soil_temperature_0_to_7cm": 12.5,
+          "soil_moisture_0_to_7cm": 0.298,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-08T23:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.5,
+          "soil_temperature_0_to_7cm": 12.6,
+          "soil_moisture_0_to_7cm": 0.297,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-09T00:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.4,
+          "soil_temperature_0_to_7cm": 12.3,
+          "soil_moisture_0_to_7cm": 0.297,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-09T01:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.5,
+          "soil_temperature_0_to_7cm": 12.3,
+          "soil_moisture_0_to_7cm": 0.296,
+          "soil_moisture_28_to_100cm": 0.146
+        },
+        {
+          "time": "2026-11-09T02:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.4,
+          "soil_temperature_0_to_7cm": 12.4,
+          "soil_moisture_0_to_7cm": 0.296,
+          "soil_moisture_28_to_100cm": 0.147
+        },
+        {
+          "time": "2026-11-09T03:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.2,
+          "soil_temperature_0_to_7cm": 12.6,
+          "soil_moisture_0_to_7cm": 0.297,
+          "soil_moisture_28_to_100cm": 0.147
+        },
+        {
+          "time": "2026-11-09T04:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.2,
+          "soil_temperature_0_to_7cm": 12.5,
+          "soil_moisture_0_to_7cm": 0.296,
+          "soil_moisture_28_to_100cm": 0.147
+        },
+        {
+          "time": "2026-11-09T05:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.2,
+          "soil_temperature_0_to_7cm": 12.4,
+          "soil_moisture_0_to_7cm": 0.296,
+          "soil_moisture_28_to_100cm": 0.147
+        },
+        {
+          "time": "2026-11-09T06:00:00+00:00",
+          "liquid_rain_mm": 0.0,
+          "precipitation": 0.0,
+          "rain": 0.0,
+          "showers": 0.0,
+          "snowfall": 0.0,
+          "snow_depth": 0.0,
+          "temperature_2m": 13.3,
+          "soil_temperature_0_to_7cm": 12.4,
+          "soil_moisture_0_to_7cm": 0.296,
+          "soil_moisture_28_to_100cm": 0.147
+        }
+      ],
+      "rainfall_source_window": {
+        "version": "rainfall_source_windows_v2",
+        "cutoff_utc": "2026-11-06T06:00:00+00:00",
+        "status": "AVAILABLE",
+        "reason": null,
+        "product": "forecast",
+        "rain_definition": "forecast rain + showers",
+        "rain_24h_mm": 6.9,
+        "rain_prior_6d_mm": 6.6000000000000005,
+        "soil_moisture_0_7cm_mean_m3m3": 0.3365416666666667,
+        "moisture_quality": "raw_provider_volumetric_0_to_7cm_not_saturation",
+        "window": "Preceding-hour stamps in (cutoff-168h, cutoff]; latest 24h rain and nonoverlapping preceding 144h rain",
+        "water_state_scope": "No division by estimated porosity; not groundwater or absolute saturation"
+      }
+    },
+    "hydrology": {
+      "observed_date": "20261103",
+      "nasa_gwetroot_pct": 0.54,
+      "nasa_gwetprof_pct": 0.55,
+      "nasa_precipitation_mm_day": 0.13,
+      "open_meteo_soil_moisture_m3m3": 0.1782,
+      "soil_porosity_estimate": 0.4540029906386257,
+      "soil_saturation_pct": 39.25084276412674,
+      "blended_relative_wetness_pct": 54.0,
+      "source_mix": [
+        "Open-Meteo volumetric moisture / selected soil porosity",
+        "NASA POWER GWETROOT relative wetness index; not saturation"
+      ],
+      "soil_properties": {
+        "bdod_kg_m3": 1446.8920748076416,
+        "clay_g_kg": 368.73437054102493,
+        "sand_g_kg": 375.95191094368136,
+        "soc_g_kg": 26.488618763751035,
+        "property_sources": {
+          "bdod_kg_m3": "static_topographic_soil_prior_at_scan_center",
+          "clay_g_kg": "static_topographic_soil_prior_at_scan_center",
+          "sand_g_kg": "static_topographic_soil_prior_at_scan_center",
+          "soc_g_kg": "static_topographic_soil_prior_at_scan_center"
+        },
+        "source": "static_topographic_soil_prior_at_scan_center",
+        "quality": "estimated_not_measured",
+        "sand_fraction": 0.37595191094368136,
+        "clay_fraction": 0.3687343705410249,
+        "silt_fraction": 0.2553137185152938,
+        "organic_matter_fraction": 0.045666378748706785,
+        "bulk_density_g_cm3": 1.4468920748076417,
+        "porosity_fraction": 0.4540029906386257
+      },
+      "soil_property_source": "static_topographic_soil_prior_at_scan_center",
+      "soil_property_quality": "estimated_not_measured",
+      "moisture_compatibility": "compatible_modeled_moisture_not_observed_groundwater"
+    },
+    "seismic": {
+      "event_count": 0,
+      "max_pga_g": 0.0,
+      "events": []
+    },
+    "infrastructure": null,
+    "eonet_events": [],
+    "satellite_cells": {
+      "893969a6a5bffff": {
+        "cell_id": "893969a6a5bffff",
+        "red": 6,
+        "green": 27,
+        "blue": 44,
+        "vdvi": 0.0380952380952381,
+        "vegetation_index_norm_proxy": 0.3068783068783069,
+        "bare_char_spectral_proxy": 0.0,
+        "wildfire_distance_km": null,
+        "burn_severity_proxy": 0.0,
+        "burn_override_applied": false,
+        "imagery_provider": "Esri World Imagery RGB z13",
+        "index_note": "Visible-band VDVI transform; not true NIR NDVI",
+        "burn_proxy_quality": "not_assessed_no_nearby_eonet_fire_evidence",
+        "burn_proxy_note": "No EONET wildfire geometry within 25 km; zero is no signal, not verified absence of burn."
+      },
+      "893969a4607ffff": {
+        "cell_id": "893969a4607ffff",
+        "red": 92,
+        "green": 100,
+        "blue": 76,
+        "vdvi": 0.08672086720867209,
+        "vegetation_index_norm_proxy": 0.41493526046371576,
+        "bare_char_spectral_proxy": 0.0,
+        "wildfire_distance_km": null,
+        "burn_severity_proxy": 0.0,
+        "burn_override_applied": false,
+        "imagery_provider": "Esri World Imagery RGB z13",
+        "index_note": "Visible-band VDVI transform; not true NIR NDVI",
+        "burn_proxy_quality": "not_assessed_no_nearby_eonet_fire_evidence",
+        "burn_proxy_note": "No EONET wildfire geometry within 25 km; zero is no signal, not verified absence of burn."
+      }
+    },
+    "sources": {
+      "geocoding": {
+        "available": true,
+        "provider": "Provided coordinates",
+        "fetched_at_utc": "2026-11-06T06:55:00.341469+00:00",
+        "error": null,
+        "mode": "PROVIDED",
+        "cache_policy": "UNSPECIFIED",
+        "cache_trace": []
+      },
+      "terrarium_dem": {
+        "available": true,
+        "provider": "AWS Terrarium",
+        "fetched_at_utc": "2026-11-06T06:55:00.342246+00:00",
+        "error": null,
+        "mode": "LIVE",
+        "cache_policy": "LIVE_FIRST_CACHE_ON_ERROR",
+        "cache_trace": [
+          "LIVE",
+          "LIVE",
+          "LIVE",
+          "LIVE",
+          "LIVE",
+          "LIVE",
+          "LIVE",
+          "LIVE",
+          "LIVE"
+        ]
+      },
+      "open_meteo": {
+        "available": true,
+        "provider": "Open-Meteo",
+        "fetched_at_utc": "2026-11-06T06:55:00.342258+00:00",
+        "error": null,
+        "mode": "LIVE",
+        "cache_policy": "LIVE_FIRST_CACHE_ON_ERROR",
+        "cache_trace": [
+          "LIVE"
+        ]
+      },
+      "nasa_power": {
+        "available": true,
+        "provider": "NASA POWER",
+        "fetched_at_utc": "2026-11-06T06:55:00.342264+00:00",
+        "error": null,
+        "mode": "LIVE",
+        "cache_policy": "LIVE_FIRST_CACHE_ON_ERROR",
+        "cache_trace": [
+          "LIVE"
+        ]
+      },
+      "soilgrids": {
+        "available": false,
+        "provider": "ISRIC SoilGrids",
+        "fetched_at_utc": "2026-11-06T06:55:00.342271+00:00",
+        "error": "RuntimeError: SoilGrids REST failed (); WCS failed (SoilGrids WCS decoding requires optional pyproj and rasterio)",
+        "mode": "FALLBACK",
+        "cache_policy": "LIVE_FIRST_CACHE_ON_ERROR",
+        "cache_trace": [
+          "LIVE"
+        ]
+      },
+      "usgs": {
+        "available": true,
+        "provider": "USGS Earthquake Catalog",
+        "fetched_at_utc": "2026-11-06T06:55:00.342277+00:00",
+        "error": null,
+        "mode": "LIVE",
+        "cache_policy": "LIVE_FIRST_CACHE_ON_ERROR",
+        "cache_trace": [
+          "LIVE"
+        ]
+      },
+      "overpass": {
+        "available": false,
+        "provider": "OpenStreetMap Overpass",
+        "fetched_at_utc": "2026-11-06T06:55:00.342283+00:00",
+        "error": "ConnectError: [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failure (_ssl.c:1129)",
+        "mode": "FALLBACK",
+        "cache_policy": "LIVE_FIRST_CACHE_ON_ERROR",
+        "cache_trace": [
+          "LIVE"
+        ]
+      },
+      "eonet_wildfires": {
+        "available": false,
+        "provider": "NASA EONET wildfires",
+        "fetched_at_utc": "2026-11-06T06:55:00.342328+00:00",
+        "error": "TimeoutError: ",
+        "mode": "FALLBACK",
+        "cache_policy": "LIVE_FIRST_CACHE_ON_ERROR",
+        "cache_trace": [
+          "LIVE"
+        ]
+      },
+      "eonet_landslides": {
+        "available": true,
+        "provider": "NASA EONET landslides",
+        "fetched_at_utc": "2026-11-06T06:55:00.342334+00:00",
+        "error": null,
+        "mode": "LIVE",
+        "cache_policy": "LIVE_FIRST_CACHE_ON_ERROR",
+        "cache_trace": [
+          "LIVE"
+        ]
+      },
+      "coolr": {
+        "available": true,
+        "provider": "NASA COOLR",
+        "fetched_at_utc": "2026-11-06T06:55:00.342340+00:00",
+        "error": null,
+        "mode": "LIVE",
+        "cache_policy": "LIVE_FIRST_CACHE_ON_ERROR",
+        "cache_trace": [
+          "LIVE"
+        ]
+      },
+      "river": {
+        "available": false,
+        "provider": "Open-Meteo GloFAS",
+        "fetched_at_utc": "2026-11-06T06:55:00.342349+00:00",
+        "error": "ValueError: Missing discharge or available past-week history",
+        "mode": "FALLBACK",
+        "cache_policy": "LIVE_FIRST_CACHE_ON_ERROR",
+        "cache_trace": [
+          "LIVE"
+        ]
+      },
+      "bedrock": {
+        "available": true,
+        "provider": "Macrostrat",
+        "fetched_at_utc": "2026-11-06T06:55:00.342355+00:00",
+        "error": null,
+        "mode": "LIVE",
+        "cache_policy": "LIVE_FIRST_CACHE_ON_ERROR",
+        "cache_trace": [
+          "LIVE"
+        ]
+      },
+      "ensemble": {
+        "available": true,
+        "provider": "Open-Meteo ensemble",
+        "fetched_at_utc": "2026-11-06T06:55:00.342360+00:00",
+        "error": null,
+        "mode": "LIVE",
+        "cache_policy": "LIVE_FIRST_CACHE_ON_ERROR",
+        "cache_trace": [
+          "LIVE"
+        ]
+      },
+      "satellite": {
+        "available": true,
+        "provider": "Esri World Imagery RGB z13",
+        "fetched_at_utc": "2026-11-06T06:55:15.343651+00:00",
+        "error": null,
+        "mode": "LIVE",
+        "cache_policy": "LIVE_FIRST_CACHE_ON_ERROR",
+        "cache_trace": [
+          "LIVE",
+          "LIVE",
+          "LIVE",
+          "LIVE",
+          "LIVE",
+          "LIVE"
+        ]
+      }
+    },
+    "elapsed_seconds": 15.342297083,
+    "ensemble": {
+      "hours": {
+        "2026-11-06T00:00": {
+          "precip_p50_mm": 0.6,
+          "precip_p90_mm": 2.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.1
+        },
+        "2026-11-06T01:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.4,
+          "member_count": 71,
+          "temperature_p50_c": 14.1
+        },
+        "2026-11-06T02:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 14.2
+        },
+        "2026-11-06T03:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.0
+        },
+        "2026-11-06T04:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 13.8
+        },
+        "2026-11-06T05:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 13.5
+        },
+        "2026-11-06T06:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.0,
+          "member_count": 71,
+          "temperature_p50_c": 13.4
+        },
+        "2026-11-06T07:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.0,
+          "member_count": 71,
+          "temperature_p50_c": 13.4
+        },
+        "2026-11-06T08:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.0,
+          "member_count": 71,
+          "temperature_p50_c": 14.2
+        },
+        "2026-11-06T09:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.0,
+          "member_count": 71,
+          "temperature_p50_c": 14.7
+        },
+        "2026-11-06T10:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.0,
+          "member_count": 71,
+          "temperature_p50_c": 14.9
+        },
+        "2026-11-06T11:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.0,
+          "member_count": 71,
+          "temperature_p50_c": 15.1
+        },
+        "2026-11-06T12:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.0,
+          "member_count": 71,
+          "temperature_p50_c": 15.2
+        },
+        "2026-11-06T13:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.2,
+          "member_count": 71,
+          "temperature_p50_c": 15.1
+        },
+        "2026-11-06T14:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 14.9
+        },
+        "2026-11-06T15:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 14.7
+        },
+        "2026-11-06T16:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 0.7,
+          "member_count": 71,
+          "temperature_p50_c": 14.3
+        },
+        "2026-11-06T17:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 0.7,
+          "member_count": 71,
+          "temperature_p50_c": 13.8
+        },
+        "2026-11-06T18:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 0.7,
+          "member_count": 71,
+          "temperature_p50_c": 13.5
+        },
+        "2026-11-06T19:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 0.7,
+          "member_count": 71,
+          "temperature_p50_c": 13.3
+        },
+        "2026-11-06T20:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 0.5,
+          "member_count": 71,
+          "temperature_p50_c": 13.4
+        },
+        "2026-11-06T21:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 0.4,
+          "member_count": 71,
+          "temperature_p50_c": 13.4
+        },
+        "2026-11-06T22:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 0.2,
+          "member_count": 71,
+          "temperature_p50_c": 13.4
+        },
+        "2026-11-06T23:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.2,
+          "member_count": 71,
+          "temperature_p50_c": 13.2
+        },
+        "2026-11-07T00:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.2,
+          "member_count": 71,
+          "temperature_p50_c": 12.9
+        },
+        "2026-11-07T01:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 12.6
+        },
+        "2026-11-07T02:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 12.4
+        },
+        "2026-11-07T03:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 12.1
+        },
+        "2026-11-07T04:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.2,
+          "member_count": 71,
+          "temperature_p50_c": 12.0
+        },
+        "2026-11-07T05:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.2,
+          "member_count": 71,
+          "temperature_p50_c": 11.9
+        },
+        "2026-11-07T06:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.2,
+          "member_count": 71,
+          "temperature_p50_c": 11.9
+        },
+        "2026-11-07T07:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 12.3
+        },
+        "2026-11-07T08:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 13.6
+        },
+        "2026-11-07T09:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.1
+        },
+        "2026-11-07T10:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.0,
+          "member_count": 71,
+          "temperature_p50_c": 14.4
+        },
+        "2026-11-07T11:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.7
+        },
+        "2026-11-07T12:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.0,
+          "member_count": 71,
+          "temperature_p50_c": 14.9
+        },
+        "2026-11-07T13:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.8
+        },
+        "2026-11-07T14:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.6
+        },
+        "2026-11-07T15:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.3
+        },
+        "2026-11-07T16:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.0
+        },
+        "2026-11-07T17:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 13.7
+        },
+        "2026-11-07T18:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 0.2,
+          "member_count": 71,
+          "temperature_p50_c": 13.5
+        },
+        "2026-11-07T19:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 13.3
+        },
+        "2026-11-07T20:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 13.2
+        },
+        "2026-11-07T21:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 13.0
+        },
+        "2026-11-07T22:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 12.8
+        },
+        "2026-11-07T23:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 12.6
+        },
+        "2026-11-08T00:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 12.5
+        },
+        "2026-11-08T01:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 12.4
+        },
+        "2026-11-08T02:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 12.4
+        },
+        "2026-11-08T03:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 12.3
+        },
+        "2026-11-08T04:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.0,
+          "member_count": 71,
+          "temperature_p50_c": 12.2
+        },
+        "2026-11-08T05:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.0,
+          "member_count": 71,
+          "temperature_p50_c": 11.9
+        },
+        "2026-11-08T06:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.0,
+          "member_count": 71,
+          "temperature_p50_c": 12.0
+        },
+        "2026-11-08T07:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 12.5
+        },
+        "2026-11-08T08:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 13.2
+        },
+        "2026-11-08T09:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 13.7
+        },
+        "2026-11-08T10:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.0
+        },
+        "2026-11-08T11:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.3
+        },
+        "2026-11-08T12:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.4
+        },
+        "2026-11-08T13:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.3
+        },
+        "2026-11-08T14:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.1
+        },
+        "2026-11-08T15:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 13.7
+        },
+        "2026-11-08T16:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.2,
+          "member_count": 71,
+          "temperature_p50_c": 13.6
+        },
+        "2026-11-08T17:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.2,
+          "member_count": 71,
+          "temperature_p50_c": 13.4
+        },
+        "2026-11-08T18:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.2,
+          "member_count": 71,
+          "temperature_p50_c": 13.1
+        },
+        "2026-11-08T19:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 13.0
+        },
+        "2026-11-08T20:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 13.0
+        },
+        "2026-11-08T21:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 13.1
+        },
+        "2026-11-08T22:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 13.0
+        },
+        "2026-11-08T23:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 13.0
+        },
+        "2026-11-09T00:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 12.9
+        },
+        "2026-11-09T01:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 12.8
+        },
+        "2026-11-09T02:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 12.9
+        },
+        "2026-11-09T03:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.1,
+          "member_count": 71,
+          "temperature_p50_c": 12.8
+        },
+        "2026-11-09T04:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 12.9
+        },
+        "2026-11-09T05:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 12.9
+        },
+        "2026-11-09T06:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 13.0
+        },
+        "2026-11-09T07:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.4,
+          "member_count": 71,
+          "temperature_p50_c": 13.2
+        },
+        "2026-11-09T08:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.4,
+          "member_count": 71,
+          "temperature_p50_c": 13.8
+        },
+        "2026-11-09T09:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.4,
+          "member_count": 71,
+          "temperature_p50_c": 14.0
+        },
+        "2026-11-09T10:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.4,
+          "member_count": 71,
+          "temperature_p50_c": 14.2
+        },
+        "2026-11-09T11:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.4,
+          "member_count": 71,
+          "temperature_p50_c": 14.3
+        },
+        "2026-11-09T12:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.4,
+          "member_count": 71,
+          "temperature_p50_c": 14.4
+        },
+        "2026-11-09T13:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.5,
+          "member_count": 71,
+          "temperature_p50_c": 14.4
+        },
+        "2026-11-09T14:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.5,
+          "member_count": 71,
+          "temperature_p50_c": 14.5
+        },
+        "2026-11-09T15:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.5,
+          "member_count": 71,
+          "temperature_p50_c": 14.4
+        },
+        "2026-11-09T16:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.6,
+          "member_count": 71,
+          "temperature_p50_c": 14.2
+        },
+        "2026-11-09T17:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.6,
+          "member_count": 71,
+          "temperature_p50_c": 14.1
+        },
+        "2026-11-09T18:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.6,
+          "member_count": 71,
+          "temperature_p50_c": 14.1
+        },
+        "2026-11-09T19:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 1.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.1
+        },
+        "2026-11-09T20:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 1.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.2
+        },
+        "2026-11-09T21:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 1.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.2
+        },
+        "2026-11-09T22:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 1.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.2
+        },
+        "2026-11-09T23:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 1.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.2
+        },
+        "2026-11-10T00:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 1.1,
+          "member_count": 71,
+          "temperature_p50_c": 14.2
+        },
+        "2026-11-10T01:00": {
+          "precip_p50_mm": 0.2,
+          "precip_p90_mm": 1.2,
+          "member_count": 71,
+          "temperature_p50_c": 14.1
+        },
+        "2026-11-10T02:00": {
+          "precip_p50_mm": 0.2,
+          "precip_p90_mm": 1.2,
+          "member_count": 71,
+          "temperature_p50_c": 14.1
+        },
+        "2026-11-10T03:00": {
+          "precip_p50_mm": 0.2,
+          "precip_p90_mm": 1.2,
+          "member_count": 71,
+          "temperature_p50_c": 14.1
+        },
+        "2026-11-10T04:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 1.2,
+          "member_count": 71,
+          "temperature_p50_c": 14.1
+        },
+        "2026-11-10T05:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 1.2,
+          "member_count": 71,
+          "temperature_p50_c": 14.2
+        },
+        "2026-11-10T06:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 1.2,
+          "member_count": 71,
+          "temperature_p50_c": 14.3
+        },
+        "2026-11-10T07:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 1.2,
+          "member_count": 71,
+          "temperature_p50_c": 14.3
+        },
+        "2026-11-10T08:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 1.2,
+          "member_count": 71,
+          "temperature_p50_c": 14.5
+        },
+        "2026-11-10T09:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 1.2,
+          "member_count": 71,
+          "temperature_p50_c": 14.8
+        },
+        "2026-11-10T10:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 1.2,
+          "member_count": 71,
+          "temperature_p50_c": 15.1
+        },
+        "2026-11-10T11:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 1.2,
+          "member_count": 71,
+          "temperature_p50_c": 15.3
+        },
+        "2026-11-10T12:00": {
+          "precip_p50_mm": 0.1,
+          "precip_p90_mm": 1.2,
+          "member_count": 71,
+          "temperature_p50_c": 15.4
+        },
+        "2026-11-10T13:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.4,
+          "member_count": 71,
+          "temperature_p50_c": 15.4
+        },
+        "2026-11-10T14:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.4,
+          "member_count": 71,
+          "temperature_p50_c": 15.3
+        },
+        "2026-11-10T15:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.4,
+          "member_count": 71,
+          "temperature_p50_c": 15.1
+        },
+        "2026-11-10T16:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 15.0
+        },
+        "2026-11-10T17:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 14.9
+        },
+        "2026-11-10T18:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 14.8
+        },
+        "2026-11-10T19:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.5,
+          "member_count": 71,
+          "temperature_p50_c": 14.8
+        },
+        "2026-11-10T20:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.5,
+          "member_count": 71,
+          "temperature_p50_c": 14.9
+        },
+        "2026-11-10T21:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.5,
+          "member_count": 71,
+          "temperature_p50_c": 14.9
+        },
+        "2026-11-10T22:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 14.9
+        },
+        "2026-11-10T23:00": {
+          "precip_p50_mm": 0.0,
+          "precip_p90_mm": 0.3,
+          "member_count": 71,
+          "temperature_p50_c": 15.0
+        }
+      },
+      "models": "icon_seamless,gfs_seamless",
+      "source_url": "https://ensemble-api.open-meteo.com/v1/ensemble",
+      "quality": "Pooled hourly member quantiles; P90 is not a coherent member or a worst-case probability"
+    },
+    "river": null,
+    "bedrock": {
+      "name": "Impure carbonate sedimentary rock, Upper Jurassic",
+      "lithology": "impure carbonate sedimentary rock",
+      "age": {
+        "early": 143.1,
+        "late": 161.5
+      },
+      "source_url": "https://macrostrat.org/api/v2/geologic_units/map",
+      "quality": "Descriptive mapped bedrock context only; no regolith strength adjustment",
+      "raw_unit": {
+        "map_id": 4278055,
+        "source_id": 1056,
+        "name": "Impure carbonate sedimentary rock, Upper Jurassic",
+        "strat_name": "",
+        "lith": "impure carbonate sedimentary rock",
+        "descrip": "",
+        "comments": "",
+        "macro_units": [],
+        "strat_names": [],
+        "liths": [
+          18,
+          111
+        ],
+        "t_int_id": 49,
+        "t_int_age": 143.1,
+        "t_int_name": "Late Jurassic",
+        "b_int_id": 49,
+        "b_int_age": 161.5,
+        "b_int_name": "Late Jurassic",
+        "color": "#B3E3EE",
+        "t_age": 143.1,
+        "b_age": 161.5,
+        "best_int_name": "Late Jurassic",
+        "scale": "medium"
+      }
+    },
+    "coolr_nearby": {
+      "count": 0,
+      "quality": "NASA_live_query_or_TTL_cache",
+      "source_url": "https://gis.earthdata.nasa.gov/portal/rest/services/Landslides/COOLR_Events_Points/FeatureServer/0/query?where=1%3D1&geometry=6.97145%2C43.28718%2C7.87145%2C44.187180000000005&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
+      "fetched_at_utc": "2026-11-06T06:55:01.970362+00:00",
+      "geometry": "plus/minus 0.45 degree envelope; not an exact 50 km circle",
+      "query": {
+        "where": "1=1",
+        "geometry": "6.97145,43.28718,7.87145,44.187180000000005",
+        "geometryType": "esriGeometryEnvelope",
+        "inSR": 4326,
+        "spatialRel": "esriSpatialRelIntersects",
+        "returnCountOnly": "true",
+        "f": "json"
+      },
+      "raw_count_response": {
+        "count": 0
+      },
+      "nasa_coolr_regional_count_100km": 0,
+      "nearest_coolr_event_km": 363.6483218274002,
+      "cached_count_50km": 0,
+      "cached_unique_source_records": 327,
+      "local_catalog_quality": "partial_local_catalog",
+      "local_distance_basis": "Haversine to cached point/cell coordinates; buffer proxies deduplicated by source ID",
+      "complete_global_catalog": false
+    }
+  },
+  "provenance": {
+    "scope": "Two-cell excerpt of the live Monaco snapshot; cells chosen from the user screenshot, no synthetic terrain/weather",
+    "original_snapshot_sha256": "4145297b26dedc6af7985d15e8edd2df51914ecd95b9a70be14f479d4c51af66",
+    "original_terrain_cells": 277
+  }
+}

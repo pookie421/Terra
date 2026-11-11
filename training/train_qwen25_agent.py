@@ -3,15 +3,33 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import platform
 import shutil
+from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, Dict, List, Mapping
 
-ROOT = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve()
+ROOT = HERE.parents[1] if HERE.parent.name == 'scripts' else HERE.parent
 
 
-def validate_chatml(path: Path, expected_rows: int = 600) -> int:
+def preserve_previous(path: Path, output_dir: Path) -> str:
+    """Retain an existing export by rename before replacing it; do not re-read weights."""
+    archive = output_dir / "previous_exports"
+    archive.mkdir(parents=True, exist_ok=True)
+    destination = archive / path.name
+    counter = 0
+    while destination.exists():
+        counter += 1
+        destination = archive / (path.name + ".previous-" + str(counter))
+    path.rename(destination)
+    return str(destination.relative_to(output_dir))
+
+
+def validate_chatml(path: Path, expected_rows: int = None) -> int:
     if not path.exists():
         raise FileNotFoundError("source-linked ChatML trajectory file is missing: {}".format(path))
     seen = set()
@@ -31,8 +49,9 @@ def validate_chatml(path: Path, expected_rows: int = 600) -> int:
                 raise ValueError("ChatML row {} does not contain a source observation tool result".format(line_number))
             seen.add(source_id)
             count += 1
-    if count != expected_rows:
+    if expected_rows is not None and count != expected_rows:
         raise ValueError("expected {} distinct trajectories, found {}".format(expected_rows, count))
+    if count==0:raise ValueError('Empty instruction corpus')
     return count
 
 
@@ -40,9 +59,13 @@ def export_trained_model(model: Any, tokenizer: Any, output_dir: Path, gguf_path
     """Preserve trained weights before optional conversions; record actual outputs."""
     output_dir.mkdir(parents=True, exist_ok=True)
     adapter = output_dir / "adapter"
+    preserved = {}
+    for previous in (adapter, output_dir / "merged_16bit", output_dir / 'export_manifest.json'):
+        if previous.exists():preserved[previous.name] = preserve_previous(previous, output_dir)
     model.save_pretrained(str(adapter))
     tokenizer.save_pretrained(str(adapter))
     manifest = {"adapter": {"status": "saved", "path": "adapter"}}
+    if preserved:manifest['previous_exports_preserved'] = preserved
     for kind in ("merged_16bit", "gguf"):
         try:
             if kind == "merged_16bit":
@@ -57,6 +80,8 @@ def export_trained_model(model: Any, tokenizer: Any, output_dir: Path, gguf_path
                     exports = [p for p in Path(temporary).glob("*.gguf") if "q4_k_m" in p.name.lower()]
                     if not exports:
                         raise RuntimeError("No Q4_K_M GGUF produced")
+                    if gguf_path.exists():
+                        manifest.setdefault('previous_exports_preserved',{})['gguf'] = preserve_previous(gguf_path, output_dir)
                     shutil.move(str(exports[0]), str(gguf_path))
                 (gguf_path.parent / "Modelfile").write_text("FROM ./{}\nPARAMETER temperature 0.2\n".format(gguf_path.name), encoding="utf-8")
                 manifest[kind] = {"status": "saved", "path": gguf_path.name}
@@ -72,16 +97,18 @@ def train_qwen25(dataset_path: Path, output_dir: Path, gguf_path: Path) -> Dict[
 
     if not torch.cuda.is_available():
         raise RuntimeError("Qwen2.5 QLoRA training requires a visible CUDA GPU; use the Windows RTX trainer.")
-    validate_chatml(dataset_path)
+    dataset_digest=hashlib.sha256(dataset_path.read_bytes()).hexdigest()
+    row_count = validate_chatml(dataset_path)
 
+    # Unsloth patches Hugging Face libraries; import it before TRL/Transformers.
+    from unsloth import FastLanguageModel
     from datasets import load_dataset
     from trl import SFTConfig, SFTTrainer
-    from unsloth import FastLanguageModel
 
     dataset = load_dataset("json", data_files={"train": str(dataset_path)}, split="train")
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name="unsloth/Qwen2.5-7B-Instruct",
-        max_seq_length=2048,
+        max_seq_length=8192,
         load_in_4bit=True,
     )
     model = FastLanguageModel.get_peft_model(
@@ -98,7 +125,30 @@ def train_qwen25(dataset_path: Path, output_dir: Path, gguf_path: Path) -> Dict[
         return {"text": tokenizer.apply_chat_template(example["messages"], tokenize=False, add_generation_prompt=False)}
 
     dataset = dataset.map(render, num_proc=1)
+    lengths=[len(tokenizer(text,add_special_tokens=False)['input_ids']) for text in dataset['text']]
+    if max(lengths)>8192:raise ValueError('An instruction trace exceeds the declared 8192-token context; refusing silent truncation')
+    if hashlib.sha256(dataset_path.read_bytes()).hexdigest()!=dataset_digest:
+        raise ValueError('Instruction corpus changed during tokenizer preflight')
     output_dir.mkdir(parents=True, exist_ok=True)
+    packages = {}
+    for package in ('torch','unsloth','trl','datasets','peft','transformers','bitsandbytes'):
+        try:packages[package] = version(package)
+        except PackageNotFoundError:packages[package] = None
+    metadata = {'started_at_utc':datetime.now(timezone.utc).isoformat(),
+        'status':'training','dataset':dataset_path.name,'dataset_rows':row_count,
+        'dataset_sha256':dataset_digest,
+        'base_model':'unsloth/Qwen2.5-7B-Instruct',
+        'base_model_revision':getattr(model.config,'_commit_hash',None),
+        'python':platform.python_version(),'platform':platform.system(),'packages':packages,
+        'cuda_runtime':torch.version.cuda,'gpu':torch.cuda.get_device_name(0),
+        'max_seq_length':8192,'maximum_example_tokens':max(lengths),
+        'scope':'Actual target training provenance; not an independent assistant evaluation or warning-skill certification'}
+    fusion = dataset_path.parent.parent / 'artifacts/physics_informed_models.pkl'
+    if fusion.exists():metadata['fusion_model_sha256'] = hashlib.sha256(fusion.read_bytes()).hexdigest()
+    metadata_path = output_dir / 'training_run.json'
+    if metadata_path.exists():preserve_previous(metadata_path,output_dir)
+    def save_metadata():metadata_path.write_text(json.dumps(metadata,indent=2)+'\n',encoding='utf-8')
+    save_metadata()
     config = SFTConfig(
         output_dir=str(output_dir),
         per_device_train_batch_size=1,
@@ -113,7 +163,7 @@ def train_qwen25(dataset_path: Path, output_dir: Path, gguf_path: Path) -> Dict[
         seed=3407,
         bf16=bool(torch.cuda.is_bf16_supported()),
         fp16=not bool(torch.cuda.is_bf16_supported()),
-        max_length=2048,
+        max_length=8192,
         dataset_text_field="text",
         dataset_num_proc=1,
         dataloader_num_workers=0,
@@ -121,14 +171,24 @@ def train_qwen25(dataset_path: Path, output_dir: Path, gguf_path: Path) -> Dict[
         report_to="none",
     )
     trainer = SFTTrainer(model=model, processing_class=tokenizer, train_dataset=dataset, args=config)
-    trainer.train()
-
-    return export_trained_model(model, tokenizer, output_dir, gguf_path)
+    try:
+        trainer.train()
+        metadata.update(status='trained',finished_at_utc=datetime.now(timezone.utc).isoformat(),
+                        global_steps=trainer.state.global_step)
+        save_metadata()
+        exported=export_trained_model(model, tokenizer, output_dir, gguf_path)
+        metadata['exports']=exported
+        save_metadata()
+        return exported
+    except BaseException as exc:
+        metadata.update(status='failed',error_type=type(exc).__name__)
+        save_metadata()
+        raise
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset", default=str(ROOT / "data" / "chatml_trajectories.jsonl"))
+    parser.add_argument("--dataset", default=str(ROOT / "data" / "sft_context_trajectories.jsonl"))
     parser.add_argument("--output-dir", default=str(ROOT / "artifacts" / "qwen2_5_7b_lora"))
     parser.add_argument("--gguf", default=str(ROOT / "artifacts" / "terra-shield-qwen-q4_k_m.gguf"))
     args = parser.parse_args()
@@ -138,4 +198,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

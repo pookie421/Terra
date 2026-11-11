@@ -26,8 +26,9 @@ class Phase4Physics(unittest.TestCase):
         s=MultiCausalEngine().compute(b)
         self.assertLess(s.local_saturation[0],s.theta_33[0]/s.theta_s[0])
         np.testing.assert_array_equal(s.pore_pressure_head_m,0)
-        self.assertGreater(s.suction_cohesion_kpa[0],0)
-        wet=MultiCausalEngine().compute(replace(b,soil_saturation_fraction=.95))
+        self.assertEqual(s.suction_cohesion_kpa[0],0)
+        # Explicit antecedent head survives dry-day storage gating.
+        wet=MultiCausalEngine().compute(replace(b,soil_saturation_fraction=.95,antecedent_pressure_head_m=.1))
         self.assertGreater(wet.pore_pressure_head_m[0],0)
 
     def test_small_vg_n_remains_finite(self):
@@ -43,7 +44,7 @@ class Phase4Physics(unittest.TestCase):
         dry=MultiCausalEngine().compute(a)
         np.testing.assert_array_equal(dry.thaw_factor,1.)
         scenario=apply_alpine_weather(b,[2500.,3000.],8.)
-        self.assertTrue(np.all(scenario.snow_depth_m>0))
+        np.testing.assert_array_equal(scenario.snow_depth_m,0)
 
     def test_shap_mass_conserved_and_used(self):
         shap=np.arange(14,dtype=float)[None,:]
@@ -54,28 +55,27 @@ class Phase4Physics(unittest.TestCase):
         self.assertIsNotNone(b.shap_percentages)
         self.assertAlmostEqual(sum(v[0] for v in b.combined_percentages.values()),100.)
 
-    def test_surface_flow_can_move_above_stable_slab(self):
+    def test_cell_burn_proxy_cannot_invent_basin_probability_or_motion(self):
         b=replace(BASE,burn_severity=.85,rain_24h_mm=65.,slope_deg=35.,ndvi_norm=.8)
-        s=MultiCausalEngine().compute(b);s.fs_dynamic[:]=2.
-        self.assertGreater(s.p_failure_m1[0],.5)
-        self.assertGreater(solve_kinematics(b,s).peak_velocity_m_s[0],5.)
-        b=replace(b,burn_severity=0.);s=MultiCausalEngine().compute(b);s.fs_dynamic[:]=2.
+        s=MultiCausalEngine().compute(b)
+        self.assertFalse(s.postfire_basin_inputs_available[0])
         self.assertEqual(solve_kinematics(b,s).peak_velocity_m_s[0],0.)
 
-    def test_geology_and_river_inputs_affect_physics(self):
+    def test_geology_is_context_only_and_river_input_affects_toe(self):
         b=replace(BASE,twi=18.,river_distance_m=0.)
         e=MultiCausalEngine();s=e.compute(b)
         rock=e.compute(replace(b,geology_friction_adjustment_deg=1.5,geology_cohesion_adjustment_kpa=1.5))
-        self.assertGreater(rock.fs_dynamic[0],s.fs_dynamic[0])
+        np.testing.assert_array_equal(rock.fs_dynamic,s.fs_dynamic)
+        np.testing.assert_array_equal(rock.p_failure_physical,s.p_failure_physical)
         flood=e.compute(replace(b,river_surge_ratio=4.))
-        self.assertGreater(flood.toe_undercut_multiplier[0],s.toe_undercut_multiplier[0])
+        self.assertEqual(flood.toe_undercut_multiplier[0],s.toe_undercut_multiplier[0])
 
 
 class ForecastMath(unittest.TestCase):
     def test_constant_pulse_telescopes_to_single_storm(self):
         k,d,z=1e-5,2e-5,1.5
         flux=np.full((12,1),k/2)
-        expected=z*.5*response_function(np.array([d*12*3600/z**2]))
+        expected=z*.5*response_function(np.array([4*d*12*3600/z**2]))
         np.testing.assert_allclose(superposed_head(flux,k,d,z),expected,rtol=1e-12)
         np.testing.assert_array_equal(response_function(np.array([0.])),0)
         np.testing.assert_array_equal(superposed_head(flux*0,k,d,z),0)
@@ -103,13 +103,13 @@ class ForecastMath(unittest.TestCase):
         self.assertIsNone(forecast_creep_failure_hour(np.ones(5),t))
         with self.assertRaises(ValueError):forecast_creep_failure_hour([1,0,2],[0,1,2])
 
-    def test_showers_and_explicit_ensemble_fallback(self):
+    def test_showers_and_deterministic_only_ensemble_fallback(self):
         self.assertEqual(liquid_rain({'rain':[2.],'showers':[8.]},0),10.)
         self.assertAlmostEqual(liquid_rain({'precipitation':[10.],'snowfall':[7.]},0),0.)
         self.assertIsNone(liquid_rain({'rain':[2.]},0))
         a,b,modes=precipitation_paths(weather(2.),None)
-        np.testing.assert_allclose(a,2);np.testing.assert_allclose(b,3)
-        self.assertIn('FALLBACK',modes[0])
+        np.testing.assert_allclose(a,2);np.testing.assert_allclose(b,2)
+        self.assertEqual(modes[0],'DETERMINISTIC_ONLY_ENSEMBLE_QUANTILES_UNAVAILABLE')
 
     def test_epistemic_formula_not_binary_label_interval(self):
         class Fold:
@@ -130,7 +130,7 @@ class ProviderUnits(unittest.TestCase):
         power={'properties':{'parameter':{'GWETROOT':{'20260101':.8}}}}
         with patch('backend.realtime.global_ingestor.estimate_pedotransfer',wraps=estimate_pedotransfer) as estimate:
             h=GlobalIngestor.__new__(GlobalIngestor)._combine_hydrology(None,power,None)
-        self.assertEqual(estimate.call_args.args[3],80.)
+        estimate.assert_called_once_with(15.0,0.0,6.0)
         self.assertEqual(h.blended_relative_wetness_pct,80.)
         self.assertEqual(h.nasa_gwetroot_pct,.8)
 

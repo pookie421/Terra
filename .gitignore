@@ -9,6 +9,7 @@ venv/
 .DS_Store
 Thumbs.db
 node_modules/
+frontend/dist/
 .next/
 .pytest_cache/
 .mypy_cache/
@@ -59,6 +60,20 @@ Terra_Full_Archive_Backup/
 
 # Local evaluation runs, source dumps, session transcripts and developer notes
 .local_development/
+/Brief.rtf
 **/artifacts/
 **/PRETRAINING_AUDIT.md
 **/data/*.metadata.json
+
+# Local compatibility training copies
+/windows_*_trainer/
+
+**/data/source_catalogs/historical_weather_*/
+**/data/source_catalogs/control_search_*/
+**/data/source_catalogs/seismic_archive/
+**/data/control_search_*_report.json
+**/data/rainfall_source_training.json
+**/data/physics_informed_training.json
+**/data/source_catalogs/terrain_metric_v1/
+**/data/source_catalogs/terrarium_tiles/
+**/data/replays/

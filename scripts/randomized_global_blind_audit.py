@@ -74,17 +74,17 @@ async def acquire(indices,timeout):
   async with sem:
    start=time.perf_counter()
    try:
-    async with GlobalIngestor(provider_timeout_s=timeout) as ingestor:
+    async with GlobalIngestor(provider_timeout_s=timeout,use_cache=False,allow_cache_fallback=False) as ingestor:
      scan=await ingestor.scan((POOL[i][2],POOL[i][3]),radius_km=3.5)
     return i,(scan,time.perf_counter()-start)
    except Exception as e:return i,(None,str(e))
  return dict(await asyncio.gather(*(one(i) for i in indices)))
 
 def main():
- parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--seed',type=int,default=20261031);parser.add_argument('--provider-timeout',type=float,default=20);parser.add_argument('--replay-report',type=Path);parser.add_argument('--replay-snapshots',type=Path);args=parser.parse_args()
+ parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--seed',type=int,default=20261031);parser.add_argument('--second-seed',type=int,help='Repeat the recorded second selection while fetching fresh inputs');parser.add_argument('--provider-timeout',type=float,default=20);parser.add_argument('--replay-report',type=Path);parser.add_argument('--replay-snapshots',type=Path);args=parser.parse_args()
  if bool(args.replay_report)!=bool(args.replay_snapshots):parser.error('Both replay paths are required')
  previous=json.loads(args.replay_report.read_text()) if args.replay_report else None
- fresh=secrets.randbits(32);seeds=previous['seeds'] if previous else [args.seed,fresh]
+ fresh=args.second_seed if args.second_seed is not None else secrets.randbits(32);seeds=previous['seeds'] if previous else [args.seed,fresh]
  selections=[selection(seed) for seed in seeds]
  report={'generated_at_utc':datetime.now(timezone.utc).isoformat(),'seeds':seeds,'selections':[[POOL[i][1] for i in s] for s in selections],
   'pool_size':len(POOL),'protocol':'Two stratified 12-location draws; all five named flat controls added each sweep. Paired perturbations share frozen live telemetry. Randomness does not imply independent observational validation.',

@@ -1,67 +1,64 @@
-# Evaluation and research status
+# Current status — 11 November 2026
 
-Reference evaluation: **2 November 2026**, CPU baseline with `live_first_storm_wetting_v8` features. These are recorded development results, not certification of future weights or an operational deployment.
+TERRA-SHIELD targets a global, autonomous landslide hazard and forecast platform competitive with LHASA 2.0. The current development implementation combines a live-first global map, source ingestion, prior-based physics, feature-based ML, automatic forecast states and a selected-cell co-pilot. Independent global forecasting skill and sustained operational coverage remain open. [The roadmap](../ROADMAP.md) and [source audit](global_source_audit.md) define that evidence program.
 
-## Model evaluation
+## Active contracts
 
-The training partition contained 546 rows: 304 positive and 242 negative, including 40 training-only synthetic anchors. Those anchors were excluded from calibration and scoring. The original holdout contained 48 rows from 24 event groups.
+| Area | Current behavior | Evidence gap |
+|---|---|---|
+| Frontend | Full-screen satellite/terrain map, obsidian HUD, coordinate/place/map-click scans, read-only forcing, automatic forecast horizons and cell inspection | End-to-end checks establish integration at tested locations, not uniform global coverage or predictive validity |
+| Terrain | Metric Mercator spacing on both axes; corrected aspect; no mechanical slope floor; specific-area TWI with bounded 1 km contributing paths | Compiled DEM accuracy, bounded drainage support, provisional elevation land mask, polar coverage and independent GIS comparison |
+| Physics | `pedotransfer_reference_column_v1`, antecedent storage, transient response, uncapped FS, sensitivity envelope and joint FOSM | Strength/depth/state/covariance priors and structural error need independent validation |
+| ML | `physics_informed_initiation_v2_features`; ordinary prevalence initialization, source/mechanical/interaction features, grouped inner selection/calibration | Sample selection, uncertain labels and conditional coupling still limit interpretation |
+| Runout | Conditional Voellmy release, three scenarios, corridors, unique asset intersections and boundary flags | Coarse routing without entrainment or mass conservation; no independent motion validation |
+| Forecast | Automatic source-driven 72-hour column/ML projections and selectable horizon states | Forecast-as-issued skill, uncertainty coverage and useful warning lead time remain unverified |
+| Co-pilot | Active scan/scenario/cell evidence, multi-turn chat, verified numeric bindings and map actions | Real fine-tuned Qwen weights and semantic/tool evaluation remain open |
+| Training | Canonical source and a complete Windows CUDA/XGBoost/Qwen path | Actual Windows/RTX 5070 Ti/QLoRA execution is not certified by this Mac CPU host |
 
-| Metric | Result |
-|---|---:|
-| Spatial CV ROC-AUC | 0.8428706 |
-| Spatial CV PR-AUC | 0.8925781 |
-| Spatial CV Brier score | 0.1601865 |
-| Event-holdout ROC-AUC | 0.6979167 |
-| Event-holdout PR-AUC | 0.7363478 |
-| Event-holdout Brier score | 0.2001038 |
-| Holdout Recall@40 | 0.8750 |
-| Monotonicity violations | 0 / 80 |
-| Kinematics branch controls | 4 / 4 passed |
-| Deterministic unit tests | 64 passed |
+The frontend follows [FRONTEND_SPEC.md](FRONTEND_SPEC.md): no manual perturbation sliders, fixed-city dropdown or replay-first boot. Legacy analyst/replay APIs and fixtures remain reproducibility tools; they do not drive the live product by default.
 
-Spatial CV measures raw-booster out-of-fold scores. Holdout evaluation measures calibrated event-buffer scores. Neither validates the final live gated blend. Recall@40 selects most of this small holdout. Repeated development against the holdout limits independence; a new untouched external evaluation is needed.
+Missing boreholes select exposed reference priors, preserving physical columns, uncertainty and conditional routing. Site records override compatible fields at their own cell. Missing model weights, incomplete future forcing, invalid site records and unsupported mechanism inputs have specific statuses. They do not erase otherwise available analysis.
 
-## Live scenario checks
+## Benchmark A: unchanged matched temporal evaluation
 
-The evaluation used nine fresh acquisitions with TTL cache reads disabled. Paired scenarios shared each freshly acquired baseline. All five perturbed regions produced complete 72-hour projections. This is a preselected scenario experiment, not blind labeled prediction validation.
+All **1,611 retained observations** have reference context. The initiation experiment preserves **93 manual-point proxies and 93 matched temporal-absence controls**, **ten components**, the same five outer folds and the original **sixteen-row development holdout**. The **71 unresolved footprint positives** remain preserved outside initiation supervision.
 
-| Scenario | Critical FS | Critical score | Hotspot speed, m/s | Hotspot Newmark, cm | Benchmark result |
-|---|---:|---:|---:|---:|---|
-| Wayanad, +180 mm | 1.0121 | 73.12% | 14.348 | 0 | Missed FS and score thresholds |
-| Kaikōura, +0.35 g | 1.0021 | 75.42% | 7.180 | 18.773 | Missed FS, score and speed thresholds |
-| Zermatt, +8°C | 0.3615 | 99.31% | 7.217 | 0 | Passed defined scenario thresholds |
-| Malibu, 85% burn and +65 mm | 1.3212 | 96.08% | 8.592 | 0 | Passed defined scenario thresholds |
-| New Delhi, +300 mm | 3.8256 | 2.0237% | 0 | 0 | Missed stable-ground score threshold |
+| Component CV | ROC-AUC | Brier |
+|---|---:|---:|
+| Rainfall-Only | 0.8952 | 0.0864 |
+| Physics-Only (FOSM) | 0.5931 | 0.4413 |
+| Weather+Terrain ML | 0.9043 | 0.0911 |
+| Feature fusion: learned trigger score | 0.8940 | 0.0965 |
+| Physics-Informed ML: conditional coupling | 0.9026 | 0.1183 |
 
-The Wayanad targets were FS <.95, score ≥85% and speed >10 m/s; Kaikōura used FS <.65, score ≥95%, displacement ≥10 cm and speed >10 m/s. Zermatt used FS <.85 and score ≥85%; Malibu used score ≥90%, speed ≥5 m/s and available forecasting. Delhi required score <.01% and zero motion. These scenario cutoffs are regression criteria, not observational ground truth.
+The v1 fixed-offset AUC/Brier **0.6662/0.3451** is an archived architecture result. Thirty-four of 186 rows started with logistic Hessian below 1e-7; the probability clip limited initial logits to approximately **−27.63**, rather than the raw −57.5 example. The new classifier learns from features with ordinary fold-prevalence initialization. Its improvement supports the optimization diagnosis; it does not demonstrate that physical priors are already accurate or that fusion beats rainfall-only in Brier.
 
-| Additional location | Critical FS | Score | Evaluation |
-|---|---:|---:|---|
-| Grand Canyon, Arizona | 1.4364 | 23.39% | Exceeded 15% stable-context threshold |
-| Ooty, Tamil Nadu | 1.6176 | 8.97% | Descriptive result |
-| Palakkad, Kerala | 5.0000 | 0.095% | Below 5% threshold |
-| Chooralmala, Wayanad | 1.2819 | 16.79% | Descriptive result |
+Temporal pairs share coordinates, so static terrain cannot by itself discriminate their labels. Quiet-weather control selection, report-point uncertainty, retrospective forcing that may follow failure, ten components and an inspected holdout further limit interpretation. These are development metrics, not annual/global event probabilities or a reproduced LHASA benchmark.
 
-Chooralmala had no live geocoder match and used explicitly disclosed fallback coordinates. SoilGrids and Overpass failures were retained in provenance.
+## Benchmark B: multi-regime proxy evaluation and spatial diagnostics
 
-The zero-trigger Wayanad control scored 11.04% but had FS 1.3109, below its >1.35 target. The Zermatt control passed with FS 1.9557 and score 10.16%. An injected 220 mm storm beginning at T+18 over 12 hours started from a synthetic 10.44% score and reached 65% at T+29, outside the evaluated T+20–28 interval.
+The full context corpus retains rainfall, coseismic, cryosphere, post-fire, anthropogenic and unclassified event regimes. A secondary report/extent-versus-inventory-absence experiment fits **510 eligible rows in 34 components**, retaining original holdout/legacy/calibration embargoes.
 
-## Interpretation
+| Multi-regime proxy component CV | ROC-AUC | Brier |
+|---|---:|---:|
+| Rainfall-Only | 0.7842 | 0.1772 |
+| Physics-Only (FOSM) | 0.4795 | 0.4960 |
+| Weather+Terrain ML | 0.7713 | 0.1816 |
+| Feature fusion: learned trigger score | 0.7767 | 0.1847 |
+| Physics-Informed ML: conditional coupling | 0.6866 | 0.2451 |
 
-Stable-ground false alarms remain, including Delhi and Grand Canyon. The mechanical gate can remain partly open despite high mechanical FS. Probabilities, causal shares, intervals and movement estimates require further calibration and independent validation. Some uncertainty intervals remain broad.
+This broadens development evidence without converting report footprints into surveyed initiation labels. It still favors rainfall-only on aggregate. Small non-rainfall regimes and unclassified triggers prevent strong mechanism-specific conclusions. The full multi-causal architecture remains in scope; equivalent mechanism validation is not claimed.
 
-Combined engineering/pretraining readiness is **false**. Complete fingerprint-matched integration audits have not been re-established after subsequent source changes. A passing unit suite does not establish scientific validity. End-to-end GPU training, model conversion, forecast skill and operational warning use remain unverified.
+Twelve retained Monaco/Wayanad storm-grid cases are **unlabeled consistency diagnostics**. No neighboring terrain cells become invented non-failure labels, and no AUC/FPR is calculated from presumed stable flats. The retained Monaco calculation reduced the old 0.822 flat-cell behavior substantially, but the latest diagnostic sweep still misses the requested showcase targets: the flat cell reaches about 0.03 and the cliff about 0.80 under high added rain. These gaps remain disclosed rather than fitted away with geographic exceptions.
 
-## Reproduction
+## Verification and remaining work
 
-Run `python -m unittest discover -s tests -v` for deterministic checks. With locally acquired data and fitted weights, use the scripts below to generate reports under `artifacts/`:
+Deterministic tests cover equations, extreme-prior optimizer behavior, provider contracts, grouping, state immutability, Newmark applicability and mocked co-pilot responses. Two learned-artifact tests explicitly skip when local assets are absent. Full verification additionally checks feature/model/data hashes, unchanged source labels/manifests, fold isolation, metrics and **594 distinct source cell/date instruction traces**. The instruction corpus is not an independent assistant evaluation.
 
-- `scripts/train_baseline.py`: model fitting and empirical evaluation.
-- `scripts/check_training_artifacts.py`: feature, formula and split-isolation checks.
-- `scripts/phase4_forecast_audit.py`: fresh region, control and forecast scenarios.
-- `scripts/full_system_bug_audit.py`: integration invariants and live API checks.
-- `scripts/randomized_global_blind_audit.py`: property-based scenario sampling; replay must be explicitly identified.
-- `scripts/literature_boundary_audit.py`: mechanism boundary checks.
-- `scripts/finalize_readiness.py`: combines fingerprint-matched audit evidence.
+A live arbitrary-coordinate backend check at **30.2357, 78.3429**, without a place-name query, returned **489 H3 cells**, reference physical columns, the actual v2 feature model and automatic 72-hour projected states. The check took approximately **16.9 seconds**; eleven provider channels were live, supplied coordinates were labeled separately, and Overpass TLS / EONET wildfire timeout failures were disclosed. A projected T+24h state and exact-cell inspection also returned successfully. This is one integration/availability check, not a global coverage or forecast-skill result.
 
-Raw provider snapshots, generated reports and weights are local outputs. Fresh acquisition can differ from this reference run. See [scientific assumptions](physics_sources.md) and [audit protocol](randomized_audit_protocol.md).
+Frontend build/type checks, live endpoint availability, CPU engineering consistency, target-device execution and predictive skill are separate results. The root completion report should identify their actual outcomes. Source-only Git excludes raw corpora, model weights and generated reports; prepared local bundles carry source-reviewed training materials separately.
+
+[Feature-fusion/Phase 3 details](feature_fusion_phase3.md), [training workflow](training_workflow.md), [physical methods](physics_sources.md) and [original Monaco investigation](monaco_input_audit.md) provide context. The latter records a historical defect and superseded measurement-only response.
+
+Historical results remain in [earlier status](archive/current_status_2026_11_06.md), [physical description](archive/physics_sources_2026_11_06.md), [source model](archive/source_model_status_2026_11_06.md) and the [v1 experiment record](phase1_phase2_implementation.md). Do not mix their contracts or cohort sizes with the active experiment.

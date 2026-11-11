@@ -1,5 +1,5 @@
-# Optional training and spatial validation stack. XGBoost selects CUDA when
-# nvidia-smi exposes a GPU; Apple MPS and CPU hosts use the CPU tree method.
+# ML/runtime dependencies. The trainer accepts an explicit device and verifies
+# requested CUDA execution; default-device selection also supports CPU hosts.
 xgboost>=2.0,<4
 scikit-learn>=1.4,<2
 pyarrow>=14,<24

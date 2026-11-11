@@ -33,13 +33,8 @@ class LocalFeatures(unittest.TestCase):
         np.testing.assert_allclose(matrix[:,4],[2.,40.])
         np.testing.assert_allclose(matrix[:,0],state.fs_dynamic)
 
-    def test_gate_midpoint_and_flat_plain(self):
-        self.assertAlmostEqual(float(mechanical_stability_gate([8.5],[1.35])[0]),.25)
-        gate=mechanical_stability_gate([0.,2.,6.95,20.],[1.6]*4)
-        self.assertTrue(np.all(np.diff(gate)>0))
-        self.assertLess(gate[0],.001)
-        # The gate alone does NOT imply a <0.1% score at 6.95 degrees.
-        self.assertGreater(gate[2],.001)
+    def test_legacy_gate_does_not_transform_calibrated_scores(self):
+        np.testing.assert_array_equal(mechanical_stability_gate([0.,2.,8.5,35.],[5.,2.,1.16,.8]),1.)
 
     def test_recall_40_is_not_top_10_percent(self):
         y=np.array([1]*24+[0]*24);p=np.linspace(1,0,48)
@@ -124,7 +119,7 @@ class Reliability(unittest.TestCase):
         self.assertEqual(report['soil_source'],'PEDOTRANSFER_TOPOGRAPHIC_ESTIMATE')
         self.assertEqual(report['weather_source'],'LIVE_OR_CACHED_OPEN_METEO_BEST_MATCH')
         self.assertEqual(report['seismic_source'],'UNAVAILABLE')
-        self.assertEqual(report['operational_confidence_tier'],'TIER_2_PARTIAL_PROXY')
+        self.assertEqual(report['operational_confidence_tier'],'UNVALIDATED')
 
     def test_successful_http_does_not_hide_soil_fallback(self):
         scan=SimpleNamespace(sources={'soilgrids':SimpleNamespace(available=True)},hydrology=SimpleNamespace(soil_property_source='topographic_climatic_pedotransfer_estimate',soil_property_quality='estimated_not_measured'),terrain=True,coolr_nearby={'count':0})

@@ -28,7 +28,7 @@ class PhysicalBoundaries(unittest.TestCase):
   b=replace(BASE,ndvi_norm=0,rain_24h_mm=100)
   e=MultiCausalEngine();a=e.compute(b);burn=e.compute(replace(b,burn_severity=1))
   np.testing.assert_allclose(a.fs_dynamic,burn.fs_dynamic)
-  np.testing.assert_array_equal(burn.effective_burn_severity,0)
+  np.testing.assert_array_equal(burn.effective_burn_severity,1)
   np.testing.assert_array_equal(burn.p_failure_m1,0)
  def test_lateral_width_limit_and_hollow_factor(self):
   e=MultiCausalEngine();small=e.compute(BASE);wide=e.compute(replace(BASE,block_width_m=1e12));hollow=e.compute(replace(BASE,hollow_confinement_ratio=2))
@@ -41,7 +41,7 @@ class PhysicalBoundaries(unittest.TestCase):
  def test_pinls_selection_does_not_rewrite_features(self):
   rows=[dict(event_id=str(i),label=y,fs_static_prior=fs,slope_max_deg=25) for i,(y,fs) in enumerate([(0,1.1),(0,1.21),(1,.8)])]
   selected,report=pinls_filter(rows)
-  self.assertEqual([r['event_id'] for r in selected],['1','2']);self.assertEqual(rows[0]['fs_static_prior'],1.1)
+  self.assertEqual([r['event_id'] for r in selected],['0','1','2']);self.assertEqual(rows[0]['fs_static_prior'],1.1)
  def test_conformal_rank_and_group_isolation(self):
   m=GlobalMonotonicXGB();p=np.arange(10)/10;y=np.zeros(10);groups=list(map(str,range(10)))
   result=m.calibrate_conformal(p,y,groups,['training'])

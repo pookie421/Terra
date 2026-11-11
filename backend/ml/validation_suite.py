@@ -1,12 +1,14 @@
 """Spatial, historical-hindcast, counterfactual, and monotonicity validation."""
 
 from __future__ import annotations
+from backend.ml.global_xgb import row_component_groups
 
 import csv
 import os
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from backend.ml.global_xgb import training_sample_weights
 import numpy as np
 from backend.ml.global_xgb import make_base_estimator
 import h3
@@ -79,7 +81,7 @@ def load_labeled_training_csv(path: str) -> Tuple[np.ndarray, np.ndarray, np.nda
     rows = []
     with open(path, "r", newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
-        required = set(FEATURE_NAMES) | {"label", "region_block"}
+        required = set(FEATURE_NAMES) | {"label", "region_block", "event_group_id"}
         missing = sorted(required - set(reader.fieldnames or []))
         if missing:
             raise ValueError("training CSV is missing columns: {}".format(", ".join(missing)))
@@ -89,7 +91,7 @@ def load_labeled_training_csv(path: str) -> Tuple[np.ndarray, np.ndarray, np.nda
         raise ValueError("training CSV contains no labeled rows")
     X = np.asarray([[float(row[name]) for name in FEATURE_NAMES] for row in rows], dtype=np.float32)
     y = np.asarray([int(row["label"]) for row in rows], dtype=np.int8)
-    groups = np.asarray([row["region_block"] for row in rows])
+    groups = row_component_groups(rows)
     if not np.isfinite(X).all():
         raise ValueError("training CSV contains missing/non-finite feature values")
     return X, y, groups
@@ -103,17 +105,17 @@ def load_labeled_training_data(path: str) -> Tuple[np.ndarray, np.ndarray, np.nd
         except ImportError as exc:
             raise RuntimeError("Parquet validation requires pyarrow") from exc
         table = pq.read_table(path)
-        required = set(FEATURE_NAMES) | {"label", "region_block"}
+        required = set(FEATURE_NAMES) | {"label", "region_block", "event_group_id"}
         missing = required - set(table.column_names)
         if missing:
             raise ValueError("training Parquet is missing columns: {}".format(", ".join(sorted(missing))))
-        rows = table.select(list(required)).to_pylist()
+        rows = table.to_pylist()
         rows = [row for row in rows if row.get("label") in (0, 1) and all(row.get(name) is not None for name in FEATURE_NAMES)]
         if not rows:
             raise ValueError("Parquet has no rows with verified binary labels and complete model features")
         X = np.asarray([[float(row[name]) for name in FEATURE_NAMES] for row in rows], dtype=np.float32)
         y = np.asarray([int(row["label"]) for row in rows], dtype=np.int8)
-        groups = np.asarray([row["region_block"] for row in rows])
+        groups = row_component_groups(rows)
         if not np.isfinite(X).all():
             raise ValueError("training Parquet contains non-finite feature values")
         return X, y, groups
@@ -204,7 +206,7 @@ def spatial_block_cross_validation(
         except RuntimeError as exc:
             return StageResult("Stage 1: spatial block CV", "not_run", details=[str(exc)])
         try:
-            weights = np.asarray([0.25 if str(g).startswith("synthetic:") else 1.0 for g in groups[train_idx]])
+            weights = training_sample_weights(groups[train_idx])
             estimator.fit(matrix[train_idx], labels[train_idx], sample_weight=weights)
             probability = np.asarray(estimator.predict_proba(matrix[test_idx])[:, 1], dtype=np.float64)
         except Exception as exc:
@@ -239,8 +241,9 @@ def spatial_block_cross_validation(
             "pr_auc": float(average_precision_score(labels[seen],oof[seen])),
             "brier_score": float(np.mean((labels[seen]-oof[seen])**2)),
             "brier_skill_score": float(np.nanmean(scores[:, 3])),
+            **{k:v for k,v in run_lhasa_benchmark_suite(labels[seen],oof[seen]).items() if k in ("tss","csi","fnr","tpr","fpr")},
         },
-        ["Pooled out-of-fold predictions from {} spatial holdout folds; simulated mechanical negatives enter training only and are excluded from evaluation and calibration holdouts. Metrics here describe the raw constrained XGBoost score; Stage 2 describes the ungated isotonic event-buffer score, a different estimand from live gated scores.".format(n_splits)],
+        ["Pooled out-of-fold predictions from {} spatial holdout folds; simulated regime anchors enter training only and are excluded from evaluation and calibration holdouts. Metrics here describe the raw constrained XGBoost score; Stage 2 describes the ungated prior-adjusted sigmoid event-buffer score, a different estimand from live gated scores.".format(n_splits)],
         confidence_intervals=intervals,
     )
 
@@ -279,6 +282,7 @@ def historical_hindcast_metrics(
             "pr_auc": float(average_precision_score(y,p)),
             "brier_score": brier,
             "threshold_0_5_accuracy": hit_rate,
+            **{k:v for k,v in run_lhasa_benchmark_suite(y,p).items() if k in ("tss","csi","fnr","tpr","fpr")},
             "recall_at_k": recall_at_k,
             "recall_at_40": float(np.sum(y[np.argsort(-p, kind="stable")[:min(40,len(y))]] == 1) / np.sum(y == 1)),
             "recall_at_40_k": float(min(40,len(y))),
@@ -449,7 +453,7 @@ def run_kinematic_branch_controls(engine: Optional[MultiCausalEngine] = None) ->
         ("Branch A rapid flow", "Rapid fluidized debris flow / avalanche", {"soil_saturation_fraction": 0.99}),
         ("Branch B coseismic", "Coseismic rock avalanche / block slide", {"pga_g": 1.0}),
         # Transitional rain fixture exercises the cohesive slump branch.
-        ("Branch C slump", "Cohesive slump / thaw slump / toe-cut wedge", {"rain_24h_mm": 10.0}),
+        ("Branch C slump", "Cohesive slump / thaw slump / toe-cut wedge", {"rain_24h_mm": 25.0}),
         (
             "Branch D stable",
             "Stable / sub-perception creep",
@@ -544,7 +548,7 @@ def build_validation_report(
             if model is not None:
                 factory = lambda: make_base_estimator(n_estimators=model.n_estimators,
                     max_depth=model.max_depth, learning_rate=model.learning_rate,
-                    min_child_weight=getattr(model, "min_child_weight", 1.0), device=model.device)
+                    min_child_weight=getattr(model, "min_child_weight", 2.5), device=model.device)
             stage1 = spatial_block_cross_validation(X, y, regions, n_splits=folds, model_factory=factory)
     except (FileNotFoundError, ValueError) as exc:
         stage1 = StageResult(
@@ -561,3 +565,101 @@ def build_validation_report(
     causal_controls = run_causal_regime_controls()
     monotonic = monotonicity_sweep(model)
     return ValidationReport(stage1, stage2, controls, causal_controls, monotonic)
+
+
+def evaluate_holdout_score_variants(model, rows):
+    """Score identical frozen cases using calibrated ML and the deployed blend."""
+    from .global_xgb import blend_failure_probability
+    matrix=np.asarray([[r[k] for k in FEATURE_NAMES] for r in rows],dtype=np.float32)
+    labels=np.asarray([r['label'] for r in rows])
+    groups=[r['event_group_id'] for r in rows]
+    calibrated=model.predict_proba(matrix)
+    physical=np.asarray([r['p_failure_physical'] for r in rows])
+    blended=blend_failure_probability(calibrated,physical,matrix[:,4],matrix[:,0])
+    raw=model.predict_calibration_population_proba(matrix)
+    out={'threshold':.12,'assumed_field_prevalence':getattr(model,'field_prevalence',None),
+         'scope':'Same cases, no threshold tuning; calibrated means prior-adjusted sigmoid ensemble; .15 prevalence is assumed, not operationally measured'}
+    for name,p in [('calibrated',calibrated),('live_gated_blend',blended),('uncorrected_calibration_population',raw)]:
+        result=historical_hindcast_metrics(p,labels,groups).to_dict()
+        m=result['metrics']
+        result['targets']={'auc_gte_0_80':m['roc_auc']>=.80,'fpr_lte_0_25':m['fpr']<=.25,'tss_gte_0_55':m['tss']>=.55}
+        out[name]=result
+    out['all_targets_passed']=all(all(out[k]['targets'].values()) for k in ('calibrated','live_gated_blend'))
+    return out
+
+
+def holdout_pair_diagnostics(original, revised):
+    from .pinls import quiescent_control
+    old={r['event_id']:r for r in original};new={r['event_id']:r for r in revised};pairs=[]
+    for positive in original:
+        if positive['label']!=1:continue
+        key=positive['event_id']+':tminus60';negative=old[key];replacement=new[key]
+        pairs.append({'positive_id':positive['event_id'],'event_date':positive['event_date'],
+            'representative_terrain_cell':positive.get('representative_terrain_cell_id'),
+            'positive_fs':positive['fs_dynamic'],'positive_slope':positive['slope_max_deg'],
+            'original_control_date':negative['event_date'],'original_control_rain':negative['rain_24h_mm'],
+            'original_control_fs':negative['fs_dynamic'],'original_control_quiescent':quiescent_control(negative),
+            'revised_control_date':replacement['event_date'],'revised_control_fs':replacement['fs_dynamic'],
+            'revised_control_rain':replacement['rain_24h_mm'],'revised_control_quiescent':quiescent_control(replacement),
+            'date_changed':negative['event_date']!=replacement['event_date'],
+            'same_representative_cell':positive.get('representative_terrain_cell_id')==negative.get('representative_terrain_cell_id')==replacement.get('representative_terrain_cell_id')})
+    return {'pairs':pairs,'changed_controls':sum(r['date_changed'] for r in pairs),
+            'all_pairs_share_terrain':all(r['same_representative_cell'] for r in pairs),
+            'all_revised_controls_quiescent':all(r['revised_control_quiescent'] for r in pairs),
+            'scope':'Revised controls change the evaluation population; original benchmark retained separately'}
+
+
+def ranking_metrics(labels, probabilities):
+    """Attainable empirical operating points; no test-set deployment tuning.
+
+    AP depends on background prevalence. Ties remain tied; no ROC interpolation.
+    """
+    from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve
+    y, p = np.asarray(labels), np.asarray(probabilities, float)
+    if y.ndim != 1 or y.shape != p.shape or not len(y) or not np.isin(y, [0,1]).all() or not np.isfinite(p).all() or np.any((p < 0) | (p > 1)):
+        raise ValueError('Expected binary labels and finite probabilities')
+    result = {'rows':int(len(y)), 'positive_rows':int(np.count_nonzero(y == 1)), 'negative_rows':int(np.count_nonzero(y == 0)),
+              'sample_prevalence':float(np.mean(y)), 'brier_score':float(np.mean((p-y)**2))}
+    if len(np.unique(y)) != 2:
+        return {**result, 'status':'unavailable_single_class', 'roc_auc':None, 'average_precision':None}
+    fpr, tpr, thresholds = roc_curve(y, p, drop_intermediate=False)
+    result.update(status='scored', roc_auc=float(roc_auc_score(y,p)), average_precision=float(average_precision_score(y,p)),
+                  empirical_fpr_step=1./sum(y == 0),
+                  zero_false_positive_one_sided_95_upper=1.-.05**(1./sum(y == 0)))
+    result['operating_points'] = {}
+    for target in (.01, .05, .10):
+        candidates = np.flatnonzero(fpr <= target)
+        best = candidates[np.argmax(tpr[candidates])]
+        result['operating_points'][str(target)] = {'tpr':float(tpr[best]), 'achieved_fpr':float(fpr[best]),
+            'threshold':float(thresholds[best]) if np.isfinite(thresholds[best]) else None}
+    result['scope'] = 'Descriptive empirical ROC points; thresholds are not approved deployment thresholds. AP and Brier describe this sampled population.'
+    return result
+
+
+def run_lhasa_benchmark_suite(labels=None, probabilities=None, scenarios=None, threshold=.12):
+    """LHASA-inspired metrics on TERRA data, not a reproduction of NASA validation.
+
+    The 0.12 threshold is fixed before scoring; no holdout threshold optimization.
+    Scenarios are deliberately constructed tests, not observed catchment outcomes.
+    """
+    result={'threshold':threshold,'scope':'TERRA descriptive evaluation; no scenario acceptance targets or NASA certification'}
+    if labels is not None or probabilities is not None:
+        y=np.asarray(labels);p=np.asarray(probabilities,float)
+        if y.ndim!=1 or y.shape!=p.shape or not len(y) or not np.isin(y,[0,1]).all() or not np.isfinite(p).all() or np.any((p<0)|(p>1)):
+            raise ValueError('Expected matching binary labels and finite probability vectors')
+        if len(np.unique(y))!=2:raise ValueError('Both classes required for TSS/FNR')
+        hit=p>=threshold
+        tp=int(np.sum(hit&(y==1)));fn=int(np.sum(~hit&(y==1)))
+        fp=int(np.sum(hit&(y==0)));tn=int(np.sum(~hit&(y==0)))
+        tpr=tp/(tp+fn);fpr=fp/(fp+tn)
+        result.update(tp=tp,fn=fn,fp=fp,tn=tn,tpr=tpr,fpr=fpr,fnr=1-tpr,tss=tpr-fpr,csi=tp/(tp+fn+fp))
+        result['ranking_metrics']=ranking_metrics(y,p)
+    if scenarios is not None:
+        active=[r for r in scenarios if r['expected_active']];calm=[r for r in scenarios if not r['expected_active']]
+        if not active or not calm:raise ValueError('Both active and calm scenarios required')
+        scores=np.asarray([r['score'] for r in scenarios],float)
+        if not np.isfinite(scores).all() or np.any((scores<0)|(scores>1)):raise ValueError('Invalid scenario score')
+        result['scenarios']=scenarios
+        result['scenario_tss']=sum(r['score']>=.85 for r in active)/len(active)-sum(r['score']>=.85 for r in calm)/len(calm)
+        result['scenario_scope']='Constructed diagnostics only; no predictive acceptance gate'
+    return result

@@ -4,7 +4,7 @@ import math
 
 async def river_discharge(client,lat,lon):
     url='https://flood-api.open-meteo.com/v1/flood'
-    response=await client.get(url,params=dict(latitude=lat,longitude=lon,daily='river_discharge,river_discharge_max',past_days=7,forecast_days=7,timezone='UTC'))
+    response=await client.get(url,params=dict(latitude=lat,longitude=lon,daily='river_discharge,river_discharge_max',past_days=7,forecast_days=7,timezone='UTC',cell_selection='land'))
     response.raise_for_status();data=response.json();daily=data['daily']
     today=datetime.now(timezone.utc).date().isoformat();dates=daily['time'];i=dates.index(today)
     q=daily['river_discharge'][i];past=[v for v in daily['river_discharge'][max(0,i-7):i] if v is not None and math.isfinite(v)]
@@ -18,6 +18,4 @@ async def bedrock(client,lat,lon):
     records=response.json().get('success',{}).get('data',[])
     if not records:raise ValueError('No mapped geology returned')
     unit=records[0];lith=unit.get('lith') or unit.get('lithology') or ''
-    text=str(lith).lower();weak=any(k in text for k in ('shale','mudstone','phyllite','tuff'));strong=any(k in text for k in ('granite','basalt'))
-    adjustment=-1.5 if weak and not strong else 1.5 if strong and not weak else 0.
-    return dict(name=unit.get('name'),lithology=lith,age=unit.get('age') or {'early':unit.get('t_age'),'late':unit.get('b_age')},source_url=url,friction_adjustment_deg=adjustment,cohesion_adjustment_kpa=adjustment,quality='Mapped unit; assumed strength adjustment is an uncalibrated scenario proxy',raw_unit=unit)
+    return dict(name=unit.get('name'),lithology=lith,age=unit.get('age') or {'early':unit.get('t_age'),'late':unit.get('b_age')},source_url=url,quality='Descriptive mapped bedrock context only; no regolith strength adjustment',raw_unit=unit)

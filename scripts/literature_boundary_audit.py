@@ -66,7 +66,7 @@ async def cold_and_blue():
         row={'name':name,'passed':False}
         started=time.perf_counter()
         try:
-            async with GlobalIngestor(cache=AsyncTTLCache(),provider_timeout_s=12) as ingestor:
+            async with GlobalIngestor(cache=AsyncTTLCache(),provider_timeout_s=12,use_cache=False,allow_cache_fallback=False) as ingestor:
                 raw=await ingestor.scan((lat,lon),radius_km=3.5)
             fetched=time.perf_counter()-started
             base=await service.scan(location_query=name,lat=lat,lon=lon,_snapshot=raw)
@@ -123,7 +123,7 @@ def main():
         'Unverified lateral resistance and probability-derived FS terms have been removed; mechanical FS is Mohr-Coulomb.',
         'FS prior >1.20 is the requested negative selection rule; the cited Do 2026 primary full text was not verified.',
         'Mamot strength law is used within its calibrated temperature range; the soil-to-joint temperature mapping is an unvalidated proxy. M1 probability remains separate from mechanical FS.',
-        'RGB vegetation is not pre-fire NDVI. Snow floors, hollow factor, and mapped-geology strength adjustments are scenario assumptions. River discharge is modeled, not gauged.',
+        'RGB vegetation is not pre-fire NDVI. Snow floors, basal-root decay and head-dependent cohesion softening are scenario assumptions; geology is context only. River discharge is modeled, not gauged.',
         'Ensemble-scaled conformal intervals target binary labels and assume cell exchangeability; spatial dependence prevents a nominal coverage guarantee. They are not true-probability confidence intervals.',
         'Dam height, deposited dam volume and full upstream catchment are unavailable. DBI is null rather than fabricated.']
     report['engineering_ready']=bool(report['isolation']['passed'] and all(r['passed'] for r in report['cold_scans']))

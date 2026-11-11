@@ -36,11 +36,11 @@ from backend.ml.validation_suite import load_labeled_training_data, run_kinemati
 
 BASE=PhysicsInputs(.45,.2,.03,1.45,35.,8.,.3,0.,24.,0.,10.,8.,0.,0.,.5,0.,9999.,9999.)
 CASES=[
- ('Wayanad',dict(lat=11.548,lon=76.134,rain_delta_mm=180.),.95,.80,'hydro_meteorological'),
- ('Kaikoura',dict(lat=-42.260,lon=173.620,pga_override_g=.35),.80,.85,'seismic_tectonic'),
- ('Zermatt',dict(lat=46.020,lon=7.749,snowmelt_temp_surge_c=8.),.98,.65,'cryospheric'),
- ('Malibu',dict(lat=34.07022,lon=-118.54453,burn_severity_override=.85,rain_delta_mm=65.),.95,.75,'post_wildfire_biotic'),
- ('New Delhi',dict(lat=28.6139,lon=77.2090,rain_delta_mm=300.),1.50,.001,None),
+ ('Wayanad',dict(lat=11.548,lon=76.134,rain_delta_mm=180.),.95,.85,'hydro_meteorological'),
+ ('Kaikoura',dict(lat=-42.260,lon=173.620,pga_override_g=.35),.65,.95,'seismic_tectonic'),
+ ('Zermatt',dict(lat=46.020,lon=7.749,snowmelt_temp_surge_c=8.),.85,.85,'cryospheric'),
+ ('Malibu',dict(lat=34.07022,lon=-118.54453,burn_severity_override=.85,rain_delta_mm=65.),.95,.90,'post_wildfire_biotic'),
+ ('New Delhi',dict(lat=28.6139,lon=77.2090,rain_delta_mm=300.),1.50,.0001,None),
 ]
 
 def check_cards(container):
@@ -69,7 +69,7 @@ def formula_and_kinematics():
     assert np.all(kin.peak_velocity_m_s > 5)  # surface M1 runoff can move over a stable slab
     clean=replace(inp,burn_severity=0.,rain_24h_mm=0.,pga_g=0.,soil_saturation_fraction=.15)
     clean_state=engine.compute(clean);clean_state.fs_dynamic=fs
-    assert np.all(solve_kinematics(clean,clean_state).peak_velocity_m_s[fs>1.25]==0)
+    assert np.all(solve_kinematics(clean,clean_state).peak_velocity_m_s[fs>=1.0]==0)
     actual=run_kinematic_branch_controls();assert len(actual)==4 and all(x.passed for x in actual)
     return {'branch_controls':[x.__dict__ for x in actual],'stable_rapid_contradictions':0,'boundary_cases':len(fs)}
 
@@ -134,21 +134,27 @@ def feature_contract():
 def dataset_isolation():
     import pyarrow.parquet as pq
     rows=pq.read_table(ROOT/'data/real_global_landslide_observations.parquet').to_pylist()
-    synthetic=[r for r in rows if r.get('is_synthetic')];assert len(synthetic)==40
+    synthetic=[r for r in rows if r.get('is_synthetic')];assert len(synthetic)==440
     assert sum(r['name']=='high_rain_flat' for r in synthetic)==25
     assert sum(r['name']=='dry_steep' for r in synthetic)==15
+    anchors=[r for r in synthetic if r.get('event_record_type')=='simulated_regime_anchor']
+    assert len(anchors)==400 and sum(r['label']==1 for r in anchors)==200
+    from backend.ml.global_xgb import training_sample_weights
+    np.testing.assert_allclose(training_sample_weights([r['region_block'] for r in synthetic]),[r['sample_weight'] for r in synthetic])
     restored=[r for r in rows if r.get('label')==1 and r.get('regime')=='trigger_unclassified']
     assert len(restored)==125 and all(r.get('event_date') and r.get('citation') for r in restored)
     X,y,g=load_labeled_training_data(str(ROOT/'data/model_training.parquet'))
     for tr,te in spatial_group_splits(y,g,5):
         assert not set(g[tr])&set(g[te])
         assert not any(str(v).startswith('synthetic:') for v in g[te])
-        assert sum(str(v).startswith('synthetic:') for v in g[tr])==40
+        assert sum(str(v).startswith('synthetic:') for v in g[tr])==len(synthetic)
     train=pq.read_table(ROOT/'data/model_training.parquet').to_pylist()
     hold=pq.read_table(ROOT/'data/historical_hindcast_candidates.parquet').to_pylist()
     assert not {r.get('event_group_id') for r in train}&{r.get('event_group_id') for r in hold}
     from collections import Counter
     counts=Counter(r['regime'] for r in train if r.get('label')==1)
+    observational_positive=sum(r.get('label')==1 and not r.get('is_synthetic') for r in train)
+    observational_negative=sum(r.get('label')==0 and not r.get('is_synthetic') for r in train)
     assert {'monsoon_rain','coseismic','cryosphere','post_wildfire','anthropogenic_cut_mining'}<=set(counts)
     assert not {r.get('region_block') for r in train}&{r.get('region_block') for r in hold}
     balance=Counter((r['regime'],r['label']) for r in hold)
@@ -160,7 +166,9 @@ def dataset_isolation():
     for r in rows:
         if r.get('event_record_type')=='audit_mapped_polygon_cell':
             assert verified[r['event_id']]==r['h3_cell_id']
-    return {'train_rows':len(y),'synthetic':40,'positive_regime_counts':dict(counts),
+    return {'train_rows':len(y),'synthetic':len(synthetic),'positive_regime_counts':dict(counts),
+            'observational_positive_rows':observational_positive,'observational_negative_rows':observational_negative,
+            'requested_negative_coverage_met':observational_negative>=max(304,observational_positive),
             'positive_balance_achieved':max(counts.values())<=2*min(counts.values()),
             'restored_unclassified_positive_rows':len(restored),'holdout_rows':len(hold),
             'holdout_balanced_by_regime_and_label':True,'holdout_spatial_blocks_disjoint':True,
@@ -236,7 +244,7 @@ def main():
     report={'generated_at_utc':datetime.now(timezone.utc).isoformat(),'checks':{},'scenarios':[],
             'limitations':['Source footprint/point proxies and unverified temporal absences are not surveyed global ground truth.',
              'Requested scarp/fire coefficients and alpine snowpack floors are scenario assumptions, not calibrated laws.',
-             'Native TreeSHAP explains raw booster margins, not isotonic or mechanically gated scores.',
+             'Native TreeSHAP explains raw booster margins, not sigmoid or mechanically gated scores.',
              'Windows CUDA/Unsloth execution is not verified in the reference evaluation.']}
     def run(name,fn):
         try:
@@ -250,6 +258,26 @@ def main():
     run('vector_5_attribution',attribution_edges)
     run('vector_6_sanitizer',serialization_edges)
     run('dataset_isolation',dataset_isolation)
+    def trigger_usage():
+        import joblib
+        from backend.ml.global_xgb import trigger_importance_audit
+        result=trigger_importance_audit(joblib.load(ROOT/'artifacts/global_multi_causal_xgb.pkl'))
+        assert result['passed'], json.dumps(result)
+        return result
+    run('all_trigger_features_used',trigger_usage)
+    def prior_and_pair_contract():
+        import joblib
+        model=joblib.load(ROOT/'artifacts/global_multi_causal_xgb.pkl')
+        X,y,g=load_labeled_training_data(str(ROOT/'data/model_training.parquet'))
+        expected=[float(np.mean(y[test])) for _,test in spatial_group_splits(y,g,len(model.calibration_fold_prevalences_))]
+        np.testing.assert_allclose(model.calibration_fold_prevalences_,expected)
+        assert model.field_prevalence==.15
+        validation=json.loads((ROOT/'artifacts/scientific_validation_report.json').read_text())
+        pairs=validation['holdout_pair_diagnostics']
+        assert len(pairs['pairs'])==24 and pairs['all_pairs_share_terrain']
+        return {'fold_prevalences':expected,'assumed_field_prevalence':.15,'paired_same_terrain':True,
+                'changed_holdout_control_dates_secondary_cohort':pairs['changed_controls']}
+    run('prior_correction_and_label_blind_pairs',prior_and_pair_contract)
     run('vector_8_windows_export',windows_exports)
     run('source_compilation',source_inventory)
     def offline_regressions():
@@ -272,11 +300,16 @@ def main():
                         response=client.get('/api/v1/scan',params={'query':name,**params});response.raise_for_status();scan=response.json()
                     scans.append(scan);api_payloads.append(scan)
                     s=scan['summary'];top=s['kinematics_top_hotspot'];assert top is not None,'No live terrain'
-                    flags={'fs':s['min_fs_dynamic']<fs_limit,'failure_score':s['max_p_failure']>p_limit,'cause':s['dominant_cause']==cause}
-                    if name in ('Wayanad','Malibu'):flags['velocity']=top['peak_velocity_ms']>5
-                    if name=='Kaikoura':flags['selected_hotspot_newmark']=top['newmark_displacement_cm']>5
-                    if name=='New Delhi':flags={'fs':s['min_fs_dynamic']>fs_limit,'failure_score':s['max_p_failure']<p_limit,'velocity':max(f['properties']['peak_velocity_ms'] for f in scan['h3_geojson']['features'])==0.}
+                    flags={'failure_score':s['max_p_failure']>=p_limit,'cause':s['dominant_cause']==cause}
+                    if name!='Malibu':flags['fs']=s['min_fs_dynamic']<fs_limit
+                    if name in ('Wayanad','Kaikoura'):flags['velocity']=top['peak_velocity_ms']>10
+                    if name=='Malibu':
+                        flags['velocity']=top['peak_velocity_ms']>=5
+                        flags['forecast']=scan.get('predictive_forecast_72h',{}).get('status')=='PROJECTED_SCENARIO'
+                    if name=='Kaikoura':flags['selected_hotspot_newmark']=top['newmark_displacement_cm']>=10
+                    if name=='New Delhi':flags={'fs':s['min_fs_dynamic']>fs_limit,'failure_score':s['max_p_failure']<p_limit,'maximum_cell_score_lt_5_percent':max(f['properties']['p_failure'] for f in scan['h3_geojson']['features'])<.05,'velocity':max(f['properties']['peak_velocity_ms'] for f in scan['h3_geojson']['features'])==0.}
                     row={'name':name,'p05_fs':s['min_fs_dynamic'],'p95_failure':s['max_p_failure'],'hotspot_velocity_ms':top['peak_velocity_ms'],
+                         'maximum_cell_score':max(f['properties']['p_failure'] for f in scan['h3_geojson']['features']),
                          'dominant_cause':s['dominant_cause'],'hotspot_newmark_cm':top['newmark_displacement_cm'],
                          'viewport_max_newmark_cm':max(f['properties']['newmark_displacement_cm'] for f in scan['h3_geojson']['features']),
                          'targets':flags,'passed':all(flags.values()),'source_status':scan['source_status']}
@@ -348,8 +381,17 @@ def main():
     stage1=validation.get('stage1',{}).get('metrics',{});stage2=validation.get('stage2',{}).get('metrics',{});stage3=validation.get('stage3_monotonicity',{}).get('metrics',{})
     report['validation']={'stage1':stage1,'stage2':stage2,'stage3':stage3,'stage4':validation.get('stage4_kinematics',[])}
     report['validation_targets']={
+        'observational_negative_coverage':bool(report['checks']['dataset_isolation'].get('details',{}).get('requested_negative_coverage_met')),
+        'revised_holdout_both_variants_pass':validation.get('holdout_revised_controls',{}).get('all_targets_passed',False),
+        'revised_holdout_all_controls_quiescent':validation.get('holdout_pair_diagnostics',{}).get('all_revised_controls_quiescent',False),
+        'both_holdout_score_variants_pass':validation.get('holdout_score_variants',{}).get('all_targets_passed',False),
+        'stage2_fpr_lte_0_25':stage2.get('fpr',1)<=.25,
         'stage1_auc_gte_0_84':stage1.get('roc_auc',0)>=.84,
         'stage2_auc_gte_0_80':stage2.get('roc_auc',0)>=.80,
+        'stage1_tss_gte_0_55':stage1.get('tss',-1)>=.55,
+        'stage2_tss_gte_0_55':stage2.get('tss',-1)>=.55,
+        'stage1_fnr_lte_0_20':stage1.get('fnr',1)<=.20,
+        'stage2_fnr_lte_0_20':stage2.get('fnr',1)<=.20,
         'stage3_zero_violations':validation.get('stage3_monotonicity',{}).get('status')=='passed',
         'stage4_four_controls':len(report['validation']['stage4'])==4 and all(r['passed'] for r in report['validation']['stage4'])}
     prefixes=['vector_1_','vector_2_','vector_3_','vector_4_','vector_5_','vector_6_','vector_7_','vector_8_']
@@ -391,7 +433,7 @@ def main():
             '| Monotonicity violations | {} / {} | {} |'.format(stage3.get('violations'),stage3.get('comparisons'), 'PASS' if report['validation_targets']['stage3_zero_violations'] else 'FAIL'),
             '| Kinematics | {} / 4 | {} |'.format(sum(r['passed'] for r in report['validation']['stage4']),'PASS' if report['validation_targets']['stage4_four_controls'] else 'FAIL'),
             '| Latent checks | {} / 8 | {} |'.format(report['latent_vectors_passed'],'PASS' if report['latent_vectors_passed']==8 else 'FAIL'), '',
-            'The 48-row balanced holdout has 24 event groups across rain, seismic and cryospheric regimes with matched temporal absence proxies. It replaces the Brazil-only benchmark and is not comparable with its old scores. Recall@40 covers most of this small set. Stage 2 scores ungated isotonic probabilities; the live gated blend is not independently calibrated.', '',
+            'The 48-row balanced holdout has 24 event groups across rain, seismic and cryospheric regimes with matched temporal absence proxies. It replaces the Brazil-only benchmark and is not comparable with its old scores. Recall@40 covers most of this small set. Stage 2 scores ungated prior-adjusted sigmoid probabilities; the live gated blend is not independently calibrated.', '',
             '| Engineering check | Result |','|---|---|']
     for name,check in report['checks'].items():lines.append('| {} | {} |'.format(name,'PASS' if check['passed'] else 'FAIL: '+check.get('error','')))
     lines+=['','| Empirical metric | Estimate | 95% cluster interval |','|---|---:|---|']

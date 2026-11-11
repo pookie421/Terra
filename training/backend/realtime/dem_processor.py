@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import io
 import math
+from pathlib import Path
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
@@ -17,6 +18,8 @@ from .cache import AsyncTTLCache, DEFAULT_CACHE
 
 EARTH_CIRCUMFERENCE_M = 40075016.686
 TERRARIUM_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+TERRAIN_VERSION = "metric_specific_area_bounded_1000m_v1"
+CATCHMENT_LENGTH_M = 1000.0
 
 
 class TerrainDataError(RuntimeError):
@@ -56,6 +59,7 @@ class TerrainScan:
     interpolated_pixels: int
     cells: Dict[str, TerrainCell]
     warnings: List[str] = field(default_factory=list)
+    terrain_version: str = 'legacy_unverified'
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -75,7 +79,8 @@ class DEMProcessor:
         self.zoom = zoom
         self.resolution = resolution
         self.cache = cache or DEFAULT_CACHE
-        self._tile_semaphore = asyncio.Semaphore(max(1, tile_concurrency))
+        self._tile_concurrency=max(1,tile_concurrency)
+        self._tile_semaphore=None
         self.max_fill_iterations = max_fill_iterations
 
     async def process(
@@ -89,7 +94,11 @@ class DEMProcessor:
                 "Terrarium XYZ tiles do not cover latitudes beyond 85.0511 degrees; polar terrain is unavailable"
             )
 
-        south, west, north, east = self._bbox(latitude, longitude, radius_km)
+        output_bounds = self._bbox(latitude, longitude, radius_km)
+        output_cells = self._cover_bbox(*output_bounds)
+        # Every output cell gets the same bounded upstream support regardless of
+        # viewport size. Extra 600 m covers overlap cells, samples and derivatives.
+        south, west, north, east = self._bbox(latitude, longitude, radius_km + CATCHMENT_LENGTH_M/1000. + .6)
         cells = self._cover_bbox(south, west, north, east)
         tile_xs, min_y, max_y = self._tile_ranges(south, west, north, east)
         tile_coords = [(x, y) for y in range(min_y, max_y + 1) for x in tile_xs]
@@ -126,73 +135,75 @@ class DEMProcessor:
             )
 
         delta_x = EARTH_CIRCUMFERENCE_M * math.cos(math.radians(latitude)) / (256.0 * (2**self.zoom))
-        delta_y = EARTH_CIRCUMFERENCE_M / (256.0 * (2**self.zoom))
-        q, p = np.gradient(mosaic, delta_y, delta_x)
-        dp_dy, r = np.gradient(p, delta_y, delta_x)
-        t, dq_dx = np.gradient(q, delta_y, delta_x)
-        s = (dp_dy + dq_dx) * 0.5
-
-        gradient_squared = p * p + q * q
-        slope_rad = np.clip(np.arctan(np.sqrt(gradient_squared)), 0.0175, 1.4835)
-        slope_deg = np.degrees(slope_rad)
-        aspect_deg = np.mod(270.0 - np.degrees(np.arctan2(q, p)), 360.0)
-        curvature = -(
-            p * p * r + 2.0 * p * q * s + q * q * t
-        ) / ((gradient_squared + 1e-6) * np.power(1.0 + gradient_squared, 1.5))
-        curvature = np.clip(curvature, -0.08, 0.08)
+        delta_y = delta_x
+        slope_deg, aspect_deg, curvature = self.derivatives(mosaic, delta_x, delta_y)
 
         cell_map = self._sample_cells(
             cells, latitude, longitude, tile_xs, min_y, mosaic, slope_deg, aspect_deg, curvature
         )
         sampled_count = len(cell_map)
-        cell_map = {
-            cell_id: cell for cell_id, cell in cell_map.items()
-            if cell.elevation_m > 0.5
-        }
+        cell_map = {cell_id: cell for cell_id, cell in cell_map.items() if cell.elevation_m > 0.5}
         removed_ocean = sampled_count - len(cell_map)
         if removed_ocean:
-            warnings.append(
-                "Filtered {} H3 cells with mean elevation <= 0.5 m as ocean/bathymetry".format(removed_ocean)
-            )
+            warnings.append("Elevation <=0.5 m mask is provisional; below-sea-level land needs a land mask")
         if not cell_map:
-            raise TerrainDataError("The requested bounding box contains no sampled land H3 cells above 0.5 m")
+            raise TerrainDataError("No sampled land cells")
         self._route_contributing_area(cell_map)
+        cell_map = {key: value for key, value in cell_map.items() if key in output_cells}
         values = list(cell_map.values())
         if not values:
             raise TerrainDataError("The requested bounding box did not produce usable H3 terrain cells")
+        warnings.append(TERRAIN_VERSION + "; contributing paths limited to 1000 m; contour width=sqrt(H3 area)")
 
-        terrain = TerrainScan(
-            center_latitude=latitude,
-            center_longitude=longitude,
-            radius_km=radius_km,
-            resolution=self.resolution,
-            zoom=self.zoom,
-            pixel_spacing_x_m=delta_x,
-            pixel_spacing_y_m=delta_y,
-            tile_count=successful,
-            tile_ids=tile_ids,
-            h3_cell_count=len(cell_map),
-            min_elevation_m=float(min(cell.elevation_m for cell in values)),
-            max_elevation_m=float(max(cell.elevation_m for cell in values)),
-            slope_p95_deg=float(np.percentile([cell.slope_deg for cell in values], 95)),
-            max_twi=float(max(cell.twi for cell in values)),
-            interpolated_pixels=interpolated_pixels,
-            cells=cell_map,
-            warnings=warnings,
-        )
-        if len(cell_map) < len(cells):
-            warnings.append("{} H3 cover cells had no raster samples inside fetched tiles".format(len(cells) - len(cell_map)))
-        return terrain
+        return TerrainScan(
+            center_latitude=latitude, center_longitude=longitude, radius_km=radius_km,
+            resolution=self.resolution, zoom=self.zoom, pixel_spacing_x_m=delta_x,
+            pixel_spacing_y_m=delta_y, tile_count=successful, tile_ids=tile_ids,
+            h3_cell_count=len(cell_map), min_elevation_m=float(min(c.elevation_m for c in values)),
+            max_elevation_m=float(max(c.elevation_m for c in values)),
+            slope_p95_deg=float(np.percentile([c.slope_deg for c in values],95)),
+            max_twi=float(max(c.twi for c in values)), interpolated_pixels=interpolated_pixels,
+            cells=cell_map, warnings=warnings,terrain_version=TERRAIN_VERSION)
+
+    @staticmethod
+    def derivatives(mosaic, delta_x, delta_y):
+        """Metric derivatives; raster rows increase southwards, bearings clockwise from north."""
+        q, p = np.gradient(np.asarray(mosaic, float), delta_y, delta_x)
+        dp_dy, r = np.gradient(p, delta_y, delta_x)
+        t, dq_dx = np.gradient(q, delta_y, delta_x)
+        s = (dp_dy + dq_dx) * 0.5
+
+        gradient_squared = p * p + q * q
+        slope_rad = np.arctan(np.sqrt(gradient_squared))
+        slope_deg = np.degrees(slope_rad)
+        aspect_deg = np.mod(np.degrees(np.arctan2(-p, q)), 360.0)
+        curvature = -(
+            p * p * r + 2.0 * p * q * s + q * q * t
+        ) / ((gradient_squared + 1e-6) * np.power(1.0 + gradient_squared, 1.5))
+        curvature = np.clip(curvature, -0.08, 0.08)
+
+        return slope_deg, aspect_deg, curvature
 
     async def _fetch_tile(self, client: httpx.AsyncClient, tile_x: int, tile_y: int) -> Tuple[np.ndarray, np.ndarray]:
+        if self._tile_semaphore is None:self._tile_semaphore=asyncio.Semaphore(self._tile_concurrency)
         key = ("terrarium", self.zoom, tile_x, tile_y)
 
         async def load() -> Tuple[np.ndarray, np.ndarray]:
             url = TERRARIUM_URL.format(z=self.zoom, x=tile_x, y=tile_y)
-            async with self._tile_semaphore:
-                response = await client.get(url)
-            response.raise_for_status()
-            with Image.open(io.BytesIO(response.content)) as image:
+            path = Path(__file__).resolve().parents[2]/'data/source_catalogs/terrarium_tiles'/str(self.zoom)/str(tile_x)/(str(tile_y)+'.png')
+            if path.exists():
+                content = path.read_bytes()
+            else:
+                async with self._tile_semaphore:
+                    response = await client.get(url)
+                response.raise_for_status()
+                content = response.content
+                # Decode before persisting, so provider error bodies never poison the cache.
+                with Image.open(io.BytesIO(content)) as checked:
+                    checked.verify()
+                path.parent.mkdir(parents=True,exist_ok=True)
+                path.write_bytes(content)
+            with Image.open(io.BytesIO(content)) as image:
                 rgba = np.asarray(image.convert("RGBA"), dtype=np.uint8)
             if rgba.shape[:2] != (256, 256):
                 raise TerrainDataError("Unexpected Terrarium tile size {}".format(rgba.shape[:2]))
@@ -441,7 +452,6 @@ class DEMProcessor:
         if not cells:
             return
         areas = {cell_id: self._cell_area_m2(cell_id) for cell_id in cells}
-        accumulated = dict(areas)
         neighbors: Dict[str, List[Tuple[str, float]]] = {}
         disk = getattr(h3, "grid_disk", getattr(h3, "k_ring", None))
         for cell_id, cell in cells.items():
@@ -460,19 +470,29 @@ class DEMProcessor:
             neighbors[cell_id] = lower
             cell.downslope_neighbors = [neighbor for neighbor, _ in lower]
 
-        for cell_id in sorted(cells, key=lambda item: cells[item].elevation_m, reverse=True):
-            lower = neighbors[cell_id]
-            total_weight = sum(weight for _, weight in lower)
-            if total_weight <= 0:
-                continue
-            for target, weight in lower:
-                accumulated[target] += accumulated[cell_id] * weight / total_weight
+        accumulated = dict(areas)
+        # Transport each origin's area only along paths within a fixed physical
+        # length. The process() halo contains every possible contributing origin.
+        for origin in cells:
+            pending = [(origin, 0., areas[origin])]
+            while pending:
+                current, travelled, mass = pending.pop()
+                lower = neighbors[current]
+                total_weight = sum(weight for _,weight in lower)
+                for target, weight in lower:
+                    distance = travelled + self._distance_m(cells[current],cells[target])
+                    if distance > CATCHMENT_LENGTH_M:
+                        continue
+                    contribution = mass*weight/total_weight
+                    accumulated[target] += contribution
+                    pending.append((target,distance,contribution))
 
         for cell_id, cell in cells.items():
             area = accumulated[cell_id]
             cell.contributing_area_m2 = float(area)
             tangent_slope = max(math.tan(math.radians(cell.slope_deg)), 0.005)
-            cell.twi = float(np.clip(math.log(max(area, 1.0) / tangent_slope), 2.0, 22.0))
+            contour_width = math.sqrt(areas[cell_id])
+            cell.twi = float(math.log(max(area/contour_width, 1e-12) / tangent_slope))
 
     @staticmethod
     def _latlng_to_cell(latitude: float, longitude: float, resolution: int) -> str:

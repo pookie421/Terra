@@ -139,6 +139,7 @@ class TerraShieldQwenAgent:
     def __init__(self, scan_service: Optional[GlobalScanService] = None, ollama_url: Optional[str] = None) -> None:
         self.scan_service = scan_service or GlobalScanService()
         self.ollama_url = (ollama_url or "http://localhost:11434").rstrip("/")
+        self._availability_error=None
 
     async def scan_global_location(
         self,
@@ -173,53 +174,24 @@ class TerraShieldQwenAgent:
         current_query: str = "",
         agency_mode: str = "LOCAL_EOC",
         sliders: Optional[Mapping[str, Any]] = None,
+        scan_id: Optional[str] = None,
+        scenario_id: Optional[str] = None,
+        selected_h3_index: Optional[str] = None,
+        history: Optional[List[Dict[str,str]]] = None,
+        autonomous: bool = False,
     ) -> Dict[str, Any]:
-        parsed = parse_scenario_request(message, current_query, sliders)
-        model_name, tier = await self._available_model()
-        tool_calls: List[Dict[str, Any]] = []
-        scan_data: Optional[Dict[str, Any]] = None
-        candidate = None
-        if model_name:
-            try:
-                scan_data, candidate = await self._ollama_tool_roundtrip(
-                    model_name, message, parsed, agency_mode, tool_calls
-                )
-            except Exception:
-                # If Ollama disconnects mid-conversation, continue with live deterministic tools.
-                model_name, tier = None, 3
-        if scan_data is None:
-            args = self._scan_arguments(parsed)
-            started = time.perf_counter()
-            scan_data = await self._run_scan(args, agency_mode)
-            tool_calls.append({
-                "tool_name": "scan_global_location",
-                "arguments": args,
-                "latency_ms": round((time.perf_counter() - started) * 1000.0, 2),
-            })
-
-        clean_markdown, numeric_audit_passed, briefing_guard = self._guard_briefing(candidate, scan_data, agency_mode, bool(parsed.get("magnitude_only")))
-        location = scan_data.get("location") or {}
-        ui_action = {
-            "fly_to": [location.get("longitude"), location.get("latitude")],
-            "zoom": 13.4,
-            "sliders": {key: parsed[key] for key in (
-                "rain_delta_mm", "storm_duration_hr", "pga_override_g",
-                "snowmelt_temp_surge_c", "burn_severity_override",
-            )},
-            "agency_mode": agency_mode,
-        }
-        return {
-            "clean_markdown": clean_markdown,
-            "tool_calls": tool_calls,
-            "ui_action": ui_action,
-            "updated_scan_data": scan_data,
-            "numeric_audit_passed": bool(numeric_audit_passed),
-            "briefing_guard": briefing_guard,
-            "model_tier": tier,
-            "model_name": model_name,
-        }
-
+        if (scan_id is None)!=(scenario_id is None):raise ValueError('scan_id and scenario_id must be supplied together')
+        if scan_id is not None:
+            from .state_copilot import chat_active
+            return await chat_active(self,message,scan_id,scenario_id,sliders or {},agency_mode,selected_h3_index,history,autonomous)
+        # New-location chat acquires one scan, then uses the same state-bound
+        # co-pilot protocol as the map. It never asks the LLM to invent a scan.
+        parsed=parse_scenario_request(message,current_query,sliders)
+        scan=await self._run_scan(self._scan_arguments(parsed),agency_mode)
+        from .state_copilot import chat_active
+        return await chat_active(self,message,scan['scan_id'],scan['scenario_id'],{},agency_mode,selected_h3_index,history,autonomous)
     async def _available_model(self) -> Tuple[Optional[str], int]:
+        self._availability_error=None
         try:
             async with httpx.AsyncClient(timeout=1.25) as client:
                 response = await client.get(self.ollama_url + "/api/tags")
@@ -231,8 +203,8 @@ class TerraShieldQwenAgent:
             qwen = next((name for name in names if "qwen2.5" in name.lower()), None)
             if qwen:
                 return qwen, 2
-        except Exception:
-            pass
+        except Exception as exc:
+            self._availability_error=type(exc).__name__
         return None, 3
 
     async def _ollama_tool_roundtrip(
@@ -320,6 +292,23 @@ class TerraShieldQwenAgent:
 
     @staticmethod
     def _briefing(scan: Mapping[str, Any], agency_mode: str, magnitude_only: bool = False) -> str:
+        if scan.get('assessment_mode')=='PHYSICS_INFORMED_REFERENCE':
+            from .state_copilot import context,template
+            return template(context(scan))
+        if scan.get('assessment_mode')=='SOURCE_EVIDENCE_AND_EXPLICIT_GROUND_INPUTS':
+            physical=scan.get('physical_assessment',{});stat=scan.get('statistical_assessment',{})
+            cell=stat.get('hotspot') or {}
+            lines=['TERRA-SHIELD source assessment',
+                'Operational hazard verdict: unavailable; the inventory classifier is not locally or prospectively validated.']
+            if cell:
+                lines.append('Inventory classifier output: {} at {}, {} (H3 {}).'.format(
+                    TerraShieldQwenAgent._fmt(cell.get('score')),TerraShieldQwenAgent._fmt(cell.get('latitude'),6),
+                    TerraShieldQwenAgent._fmt(cell.get('longitude'),6),cell.get('h3_index')))
+                same=next((r for r in scan.get('cell_comparisons',[]) if r['h3_index']==cell.get('h3_index')),{})
+                lines.append('Factor of safety at that same cell: {}.'.format(TerraShieldQwenAgent._fmt(same.get('fs_dynamic'))))
+            lines.append('Ground model: '+str(physical.get('reason') or physical.get('scope','unavailable')))
+            lines.append('FOSM, runout speed and failure time are unavailable without supported inputs; no zero values substitute for missing evidence.')
+            return '\n'.join(lines)
         location = scan.get("location") or {}
         summary = scan.get("summary") or {}
         metrics = summary.get("meteorological_metrics") or {}
@@ -385,12 +374,24 @@ class TerraShieldQwenAgent:
         if value is None:
             return "unavailable"
         try:
-            return format(float(value), ".{}f".format(digits))
+            numeric=float(value)
+            if not math.isfinite(numeric):return 'unavailable'
+            if numeric==0:return '0'
+            if abs(numeric)<.5*10**(-digits):return format(numeric,'.2e')
+            return format(numeric, ".{}f".format(digits))
         except (TypeError, ValueError):
             return str(value)
 
     @staticmethod
     def _guard_briefing(candidate, telemetry, agency_mode, magnitude_only=False):
+        if re.search(r'\b(?:failure is certain|certain failure|guaranteed safe|evacuate immediately)\b',candidate or '',re.I):
+            return TerraShieldQwenAgent._briefing(telemetry,agency_mode,magnitude_only),True,'VERIFIED_TEMPLATE'
+        if telemetry.get('assessment_mode')=='SOURCE_EVIDENCE_AND_EXPLICIT_GROUND_INPUTS':
+            canonical=TerraShieldQwenAgent._briefing(telemetry,agency_mode,magnitude_only)
+            # Matching numbers cannot validate assertions of safety, certainty,
+            # causation or evacuation need. Current live assessments use a
+            # deterministic evidence summary instead of unverified model prose.
+            return canonical,True,'SOURCE_EVIDENCE_TEMPLATE'
         cleaned=re.sub(r'<(?:ui_action|tool_call)\b[^>]*>.*?</(?:ui_action|tool_call)>','',candidate or '',flags=re.S|re.I).strip()
         if cleaned and TerraShieldQwenAgent._numeric_parity_audit(cleaned,telemetry):
             return cleaned,True,'VERIFIED_LLM_PROSE'

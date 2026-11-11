@@ -1,4 +1,8 @@
-"""Location-independent production input builder for all live H3 scans."""
+"""Archived v14 assumption-based input builder for reference regression only.
+
+Live CLI/API assessments use api.ground_assessment and do not execute this
+wrapper's estimated material, initial-head or compatibility defaults.
+"""
 from typing import Optional
 import numpy as np
 from backend.physics.alpine_weather import apply_alpine_weather, ALPINE_ASSUMPTION
@@ -20,17 +24,16 @@ def evaluate_live_physics(scan: GlobalScan, model: Optional[GlobalMonotonicXGB] 
     count = len(cells)
     hydrology = scan.hydrology
     properties = hydrology.soil_properties if hydrology else {}
-    soil_fallback = estimate_pedotransfer(
-        float(np.mean([cell.slope_deg for cell in cells])),
-        float(np.mean([cell.profile_curvature for cell in cells])),
-        float(np.mean([cell.twi for cell in cells])),
-        hydrology.blended_relative_wetness_pct if hydrology else None,
-    )
+    if hydrology is None or hydrology.soil_saturation_pct is None:
+        return None
+    # Ingestion derives every field from one finalized raw soil payload. Do not
+    # derive a second viewport-dependent soil prior after computing saturation.
+    required=('sand_fraction','clay_fraction','organic_matter_fraction','bulk_density_g_cm3')
+    if any(properties.get(key) is None for key in required):
+        return None
 
     def soil_array(key: str, fallback_key: str) -> np.ndarray:
         value = properties.get(key)
-        if value is None:
-            value = soil_fallback[fallback_key]
         return np.full(count, float(value), dtype=np.float64)
 
     sand = soil_array("sand_fraction", "sand_fraction")
@@ -56,15 +59,12 @@ def evaluate_live_physics(scan: GlobalScan, model: Optional[GlobalMonotonicXGB] 
     if weather is None or weather.freeze_thaw_cycles_7d is None:
         weather_fallbacks.append("freeze_thaw_cycles_7d=0 (unavailable observation)")
 
-    if hydrology and hydrology.soil_saturation_pct is not None:
-        saturation = float(np.clip(hydrology.soil_saturation_pct / 100.0, 0.0, 1.0))
-        saturation_source = "Open-Meteo moisture / bulk-density porosity" if "porosity" in " ".join(hydrology.source_mix) else "hydrology soil saturation"
-    elif hydrology and hydrology.blended_relative_wetness_pct is not None:
-        saturation = float(np.clip(hydrology.blended_relative_wetness_pct / 100.0, 0.0, 1.0))
-        saturation_source = "relative wetness proxy, used as saturation fallback"
-    else:
-        saturation = 0.50
-        saturation_source = "0.50 neutral fallback; no wetness observation"
+    if hydrology is None or hydrology.soil_saturation_pct is None:
+        # Preserve unavailable state. A relative index or incompatible theta/n
+        # cannot supply an absolute hydraulic initial condition.
+        return None
+    saturation = float(hydrology.soil_saturation_pct / 100.0)
+    saturation_source = "Compatible modeled volumetric moisture / selected soil porosity; not observed groundwater"
 
     satellite = scan.satellite_cells
     vegetation = np.asarray([
@@ -112,8 +112,6 @@ def evaluate_live_physics(scan: GlobalScan, model: Optional[GlobalMonotonicXGB] 
         profile_curvature=np.asarray([cell.profile_curvature for cell in cells]),
         peak_3h_intensity_mmhr=float(scan.weather.peak_rain_3h_mm or 0)/3 if scan.weather else 0.,
         river_surge_ratio=(scan.river or {}).get("surge_ratio",1.),
-        geology_friction_adjustment_deg=(scan.bedrock or {}).get("friction_adjustment_deg",0.),
-        geology_cohesion_adjustment_kpa=(scan.bedrock or {}).get("cohesion_adjustment_kpa",0.),
         latitude_deg=scan.location.latitude, pga_g=float(pga), road_cut_distance_m=road_distance, river_distance_m=river_distance,
     )
     station_inputs = inputs
@@ -126,7 +124,7 @@ def evaluate_live_physics(scan: GlobalScan, model: Optional[GlobalMonotonicXGB] 
     shap_values = None
     if model is not None:
         try:
-            shap_values = model.shap_log_odds_contributions(matrix)
+            shap_values = model.shap_log_odds_contributions(matrix, absolute=False)
         except Exception:
             shap_values = None
     breakdown = explain_causes(inputs, state, shap_values=shap_values, feature_names=list(FEATURE_NAMES) if shap_values is not None else None)
@@ -156,14 +154,14 @@ def evaluate_live_physics(scan: GlobalScan, model: Optional[GlobalMonotonicXGB] 
         top_hotspot_index, inputs, state, breakdown, probability_failure=probability
     )
     provenance = {
-        "soil": "{} ({})".format(hydrology.soil_property_source, hydrology.soil_property_quality) if hydrology else soil_fallback["source"],
+        "soil": "{} ({})".format(hydrology.soil_property_source, hydrology.soil_property_quality),
         "soil_saturation": saturation_source,
         "vegetation": vegetation_source,
         "burn": burn_sources,
         "d_road_cut_m": "OSM mapped cutting tag at H3 centroid; otherwise 9999 m default",
         "d_river_m": "H3-center distance to nearest DEM cell with TWI >= 14.5; 9999 m if absent",
         "weather_and_other_defaults": weather_fallbacks,
-        "probability": "mechanically gated XGBoost/physical blend; source inventory and reported-point proxy labels" if p_xgb is not None else "FOSM physical probability; no calibrated model artifact",
+        "probability": "Calibrated ML; physical components reported separately; no combined probability" if p_xgb is not None else "FOSM physical probability; no calibrated model artifact",
     }
     return {
         "cell_count": count,
@@ -186,6 +184,11 @@ def evaluate_live_physics(scan: GlobalScan, model: Optional[GlobalMonotonicXGB] 
             "slope_deg": float(inputs.slope_deg[top_hotspot_index]),
             "fs_dynamic": float(state.fs_dynamic[top_hotspot_index]),
             "p_failure": float(probability[top_hotspot_index]),
+            "p_failure_physical": float(state.p_failure_physical[top_hotspot_index]),
+            "p_xgb_calibrated": float(p_xgb[top_hotspot_index]) if p_xgb is not None else None,
+            "p_combined": None,
+            "newmark_applicable": bool(state.newmark_applicable[top_hotspot_index]),
+            "newmark_displacement_cm": float(state.newmark_displacement_cm[top_hotspot_index]),
             "exposure_weight": float(exposure[top_hotspot_index]),
             "hotspot_score": float(hotspot_scores[top_hotspot_index]),
             "peak_velocity_ms": float(kinematics.peak_velocity_m_s[top_hotspot_index]),

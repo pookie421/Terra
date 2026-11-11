@@ -27,11 +27,11 @@ def ask_number(label, default, minimum=0., maximum=None, integer=False):
 def prompt_scenario():
     panel('WHAT IF? / Compare with the original scan')
     print('  [1] Extra rainfall       e.g. +180 mm over 24 hours')
-    print('  [2] Earthquake shaking   e.g. 0.35 g PGA (not magnitude)')
-    print('  [3] Warming             e.g. +8 degrees C')
-    print('  [4] Burn + rain         e.g. 85% burn and +65 mm')
-    print('  [5] Incoming storm      e.g. 220 mm arriving in 18 h, lasting 12 h')
-    print('  [0] Original conditions and provider forecast   [b] Back')
+    print('  [2] Earthquake shaking   requires a supported site model')
+    print('  [3] Warming              requires a supported site model')
+    print('  [4] Burn + rain          requires a supported basin model')
+    print('  [5] Incoming storm       requires a time-dependent ground model')
+    print('  [0] Original snapshot    [b] Back')
     print('  Each scenario starts from the original snapshot; changes do not accumulate.')
     while True:
         choice = input('Scenario: ').strip().lower()
@@ -54,7 +54,7 @@ def prompt_scenario():
                 amount = ask_number('Future storm total, mm (example: 220)', 220)
                 arrival = ask_number('Arrival, hours from now (example: 18)', 18, maximum=71, integer=True)
                 duration = ask_number('Duration, hours (example: 12)', min(12, 72-arrival), minimum=1, maximum=72-arrival, integer=True)
-                print('  Synthetic calm-start experiment: initial rain and water head reset to zero; live summary remains separate.')
+                print('  Current live analysis will report this physical forecast as unavailable; it does not invent an initial ground state.')
                 return {'inject_forecast_storm_mm': amount, 'storm_arrival_hour': arrival, 'storm_duration_hours': duration}
             print('  Choose 0–5 or b to go back.')
         except BackToMenu:

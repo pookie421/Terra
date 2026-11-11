@@ -1,14 +1,16 @@
 """Fit uncertainty on separately reserved, unfiltered spatial blocks."""
 import numpy as np
-from .global_xgb import FEATURE_NAMES, blend_failure_probability
+from .global_xgb import FEATURE_NAMES, blend_failure_probability, row_component_groups
 
 def fit_reserved_conformal(model, data_directory, training_groups):
     import pyarrow.parquet as pq
     path=data_directory/'conformal_calibration.parquet'
-    rows=pq.read_table(path).to_pylist()
+    rows=[r for r in pq.read_table(path).to_pylist() if all(r.get(k) is not None for k in FEATURE_NAMES)]
+    if not rows:
+        return {"status":"unavailable_no_compatible_calibration_rows"}
     x=np.array([[r[k] for k in FEATURE_NAMES] for r in rows],dtype=np.float32)
     p=blend_failure_probability(model.predict_proba(x),np.array([r['p_failure_physical'] for r in rows]),x[:,4],x[:,0])
-    return model.calibrate_conformal(p,[r['label'] for r in rows],[r['region_block'] for r in rows],training_groups,scales=model.ensemble_std(x))
+    return model.calibrate_conformal(p,[r['label'] for r in rows],row_component_groups(rows),training_groups,scales=model.ensemble_std(x))
 
 def heldout_conformal_diagnostics(model, rows):
     """Descriptive coverage on untouched holdout labels, never used to choose q."""

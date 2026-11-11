@@ -16,7 +16,7 @@ from .cache import AsyncTTLCache, DEFAULT_CACHE, PolicyCache
 from .dem_processor import DEMProcessor, TerrainScan
 from .natural_events import NaturalEvent, fetch_eonet_events
 from .satellite_processor import SatelliteCell, SatelliteProcessor
-from .soilgrids import estimate_pedotransfer, fetch_soilgrids_wcs
+from .soilgrids import estimate_pedotransfer, fetch_soilgrids_wcs, derive_soil_properties, soilgrids_to_conventional
 
 OPEN_METEO_FORECAST = "https://api.open-meteo.com/v1/forecast"
 OPEN_METEO_GEOCODING = "https://geocoding-api.open-meteo.com/v1/search"
@@ -47,6 +47,7 @@ class SourceStatus:
     mode: str = "UNASSESSED"
     cache_policy: str = "UNSPECIFIED"
     cache_trace: List[str] = field(default_factory=list)
+    latency_ms: Optional[float] = None
 
 
 @dataclass
@@ -75,6 +76,7 @@ class WeatherSnapshot:
     soil_temperature_28_100cm_c: Optional[float]
     freeze_thaw_cycles_7d: Optional[int]
     forecast_hourly_72h: List[Dict[str, Any]] = field(default_factory=list)
+    rainfall_source_window: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -92,6 +94,7 @@ class HydrologySnapshot:
     soil_properties: Dict[str, Any]
     soil_property_source: str = "unknown"
     soil_property_quality: str = "unknown"
+    moisture_compatibility: str = "unknown"
 
 
 @dataclass
@@ -113,6 +116,8 @@ class SeismicSnapshot:
     event_count: int
     max_pga_g: Optional[float]
     events: List[EarthquakeEvent]
+    background_events_30d: List[EarthquakeEvent] = field(default_factory=list)
+    active_window_seconds: int = 300
 
 
 @dataclass
@@ -123,7 +128,7 @@ class InfrastructureSummary:
     waterway_count: int
     quarry_count: int
     building_count: int
-    by_h3_cell: Dict[str, Dict[str, int]]
+    by_h3_cell: Dict[str, Dict[str, Any]]
     query_bbox: Tuple[float, float, float, float]
 
 
@@ -145,6 +150,7 @@ class GlobalScan:
     river: Optional[Dict[str, Any]] = None
     bedrock: Optional[Dict[str, Any]] = None
     coolr_nearby: Dict[str, Any] = field(default_factory=lambda: {"count":0,"quality":"not_queried"})
+    scan_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -292,6 +298,7 @@ class GlobalIngestor:
         from .cache import CACHE_TRACE
         trace=[];token=CACHE_TRACE.set(trace)
         fetched_at = datetime.now(timezone.utc).isoformat()
+        started=time.perf_counter()
         policy = 'CACHE_ALLOWED' if getattr(self,'use_cache',False) else ('LIVE_FIRST_CACHE_ON_ERROR' if getattr(self,'allow_cache_fallback',True) else 'LIVE_ONLY')
         try:
             deadline = max(float(getattr(self, "provider_timeout_s", 15.0)), 15.0)
@@ -300,9 +307,9 @@ class GlobalIngestor:
             return payload, SourceStatus(True, provider, fetched_at,
                 error='; '.join(fallback_errors) or None,
                 mode="CACHED" if any(x=="CACHED" for x in trace) else "LIVE",
-                cache_policy=policy, cache_trace=trace)
+                cache_policy=policy, cache_trace=trace,latency_ms=(time.perf_counter()-started)*1000)
         except Exception as exc:
-            return None, SourceStatus(False, provider, fetched_at, "{}: {}".format(type(exc).__name__, exc), "FALLBACK", policy, trace)
+            return None, SourceStatus(False, provider, fetched_at, "{}: {}".format(type(exc).__name__, exc), "FALLBACK", policy, trace, (time.perf_counter()-started)*1000)
         finally:
             CACHE_TRACE.reset(token)
 
@@ -383,7 +390,7 @@ class GlobalIngestor:
         data = await self._json_cached("open_meteo", params, 600, client, OPEN_METEO_FORECAST)
         return self._parse_weather(data)
 
-    def _parse_weather(self, data: Mapping[str, Any]) -> WeatherSnapshot:
+    def _parse_weather(self, data: Mapping[str, Any], *, product: str = 'forecast') -> WeatherSnapshot:
         hourly = data.get("hourly") or {}
         times = list(hourly.get("time") or [])
         now = datetime.now(timezone.utc)
@@ -392,7 +399,7 @@ class GlobalIngestor:
         from .forecast_weather import liquid_rain, future_hours
         rain = [liquid_rain(hourly, i) for i in range(len(times))]
         current = [idx for idx, dt in enumerate(datetimes) if dt is not None and dt <= now]
-        recent_24 = [idx for idx in current if datetimes[idx] >= now - timedelta(hours=24)]
+        recent_24 = [idx for idx in current if datetimes[idx] > now - timedelta(hours=24)]
         rain_24 = self._sum_present(rain[idx] for idx in recent_24)
         peak3 = None
         windows: List[float] = []
@@ -409,15 +416,19 @@ class GlobalIngestor:
         future = [idx for idx, dt in enumerate(datetimes) if dt is not None and dt > now]
         next24 = [idx for idx in future if datetimes[idx] <= now + timedelta(hours=24)]
         next48 = [idx for idx in future if now + timedelta(hours=24) < datetimes[idx] <= now + timedelta(hours=48)]
-        forecast24 = self._sum_present(precipitation[idx] for idx in next24)
-        forecast48 = self._sum_present(precipitation[idx] for idx in next48)
+        forecast24 = self._sum_present(rain[idx] for idx in next24) if len(next24)==24 else None
+        forecast48 = self._sum_present(rain[idx] for idx in next48) if len(next48)==24 else None
+        if len(recent_24)!=24 or any(datetimes[b]-datetimes[a]!=timedelta(hours=1) for a,b in zip(recent_24,recent_24[1:])):
+            rain_24=None
 
         daily_precip: Dict[date, float] = {}
-        for observed_time, amount in zip(datetimes, precipitation):
+        daily_counts = {}
+        for observed_time, amount in zip(datetimes, rain):
             if observed_time is None or amount is None or observed_time > now or observed_time < now - timedelta(days=7):
                 continue
             daily_precip[observed_time.date()] = daily_precip.get(observed_time.date(), 0.0) + amount
-        ari_values = [daily_precip[day] for day in sorted(daily_precip, reverse=True)[:7]]
+            daily_counts[observed_time.date()] = daily_counts.get(observed_time.date(),0)+1
+        ari_values = [daily_precip[day] for day in sorted(daily_precip, reverse=True) if daily_counts[day]==24][:7]
         ari = sum(amount * (0.85**index) for index, amount in enumerate(ari_values)) if ari_values else None
 
         layers: Dict[str, Optional[float]] = {}
@@ -462,6 +473,7 @@ class GlobalIngestor:
 
         observed_idx = current[-1] if current else None
         observed_at = datetimes[observed_idx].isoformat() if observed_idx is not None else None
+        from backend.ml.rainfall_features import source_window
         return WeatherSnapshot(
             observed_at_utc=observed_at,
             rain_24h_mm=rain_24,
@@ -478,6 +490,7 @@ class GlobalIngestor:
             soil_temperature_28_100cm_c=soil_temp_deep,
             freeze_thaw_cycles_7d=cycles if last_week else None,
             forecast_hourly_72h=future_hours(hourly,now),
+            rainfall_source_window=source_window(hourly,now,product=product),
         )
 
     async def _get_power(self, latitude: float, longitude: float, client: httpx.AsyncClient) -> Dict[str, Any]:
@@ -509,20 +522,13 @@ class GlobalIngestor:
         key_params = tuple(params)
 
         async def load() -> Dict[str, Any]:
-            try:
-                response = await client.get(SOILGRIDS, params=params, timeout=self.provider_timeout_s / 2)
-                response.raise_for_status()
-                return response.json()
-            except Exception as rest_error:
-                try:
-                    wcs = await fetch_soilgrids_wcs(client, latitude, longitude, timeout_s=self.provider_timeout_s / 2)
-                    return {**wcs, "properties": wcs}
-                except Exception as wcs_error:
-                    raise RuntimeError("SoilGrids REST failed ({}); WCS failed ({})".format(rest_error, wcs_error))
+            # WCS is primary; the discontinued REST endpoint never consumes the budget.
+            return await fetch_soilgrids_wcs(client, latitude, longitude, timeout_s=self.provider_timeout_s/4)
 
-        return await self.cache.get_or_create(("soilgrids", key_params), 30 * 24 * 3600, load)
+        return await self.cache.get_or_create(("soilgrids_wcs_0_30cm_3km_v1", key_params), 30 * 24 * 3600, load)
 
     async def _get_seismic(self, latitude: float, longitude: float, client: httpx.AsyncClient) -> SeismicSnapshot:
+        now = datetime.now(timezone.utc)
         params = {
             "format": "geojson",
             "latitude": latitude,
@@ -530,8 +536,13 @@ class GlobalIngestor:
             "maxradiuskm": 250,
             "minmagnitude": 2.5,
             "orderby": "time",
+            "starttime": (now-timedelta(seconds=300)).isoformat(),
+            "endtime": now.isoformat(),
         }
-        data = await self._json_cached("usgs", params, 30, client, USGS_EVENTS)
+        data,background=await asyncio.gather(
+            self._json_cached('usgs_active_300s',params,30,client,USGS_EVENTS),
+            self._json_cached('usgs_background_30d',{**params,'starttime':(now-timedelta(days=30)).isoformat()},600,client,USGS_EVENTS))
+        data={'features':list({f.get('id',str(i)):f for i,f in enumerate((background.get('features') or [])+(data.get('features') or []))}.values())}
         events: List[EarthquakeEvent] = []
         for feature in data.get("features") or []:
             props = feature.get("properties") or {}
@@ -564,11 +575,9 @@ class GlobalIngestor:
                     place=props.get("place"),
                 )
             )
-        return SeismicSnapshot(
-            event_count=len(events),
-            max_pga_g=max((event.pga_g for event in events), default=0.0),
-            events=events,
-        )
+        active = [e for e in events if e.time_utc and 0 <= (now-datetime.fromisoformat(e.time_utc)).total_seconds() <= 300]
+        return SeismicSnapshot(event_count=len(active),max_pga_g=max((e.pga_g for e in active),default=0.),
+            events=active,background_events_30d=events)
 
     async def _get_infrastructure(
         self,
@@ -592,6 +601,8 @@ class GlobalIngestor:
 (
   way[\"highway\"~\"^(trunk|primary|secondary|tertiary)$\"]({bbox});
   way[\"waterway\"=\"river\"]({bbox});
+  nwr[\"building\"]({bbox});
+  nwr[\"landuse\"=\"quarry\"]({bbox});
 );
 out geom;
 """.format(bbox=bbox)
@@ -643,10 +654,8 @@ out geom;
                     lon = sum(float(point["lon"]) for point in coordinates) / len(coordinates)
             if lat is None or lon is None:
                 continue
-            cell_id = self._coordinate_to_h3(float(lat), float(lon))
-            cell_counts = by_cell.setdefault(
-                cell_id, {"roads": 0, "road_cuts": 0, "waterways": 0, "quarries": 0, "buildings": 0}
-            )
+            from .osm_geometry import intersected_cells
+            cell_ids = intersected_cells(element, resolution=9) or {self._coordinate_to_h3(float(lat),float(lon))}
             categories = []
             if tags.get("highway"):
                 categories.append("roads")
@@ -660,7 +669,12 @@ out geom;
                 categories.append("buildings")
             for category in set(categories):
                 totals[category] += 1
-                cell_counts[category] += 1
+                for cell_id in cell_ids:
+                    counts = by_cell.setdefault(cell_id,dict.fromkeys(totals,0))
+                    identifiers=counts.setdefault(category+'_ids',[])
+                    feature_id=str(element.get('type',''))+'/'+str(element.get('id',''))
+                    if feature_id not in identifiers:identifiers.append(feature_id)
+                    counts[category] = len(identifiers)
         return InfrastructureSummary(
             total_features=len(data.get("elements") or []),
             road_count=totals["roads"],
@@ -696,6 +710,7 @@ out geom;
         power: Optional[Mapping[str, Any]],
         soilgrids: Optional[Mapping[str, Any]],
         terrain: Optional[TerrainScan] = None,
+        *, allow_estimated_soil: bool = True,
     ) -> Optional[HydrologySnapshot]:
         if weather is None and power is None and soilgrids is None and terrain is None:
             return None
@@ -705,54 +720,59 @@ out geom;
         precip, _ = self._latest_parameter(params.get("PRECTOTCORR") or {})
         moisture = weather.soil_moisture_0_100cm_m3m3 if weather else None
         props = self._soil_property_values(soilgrids)
-        if any(props.get(key) is None for key in ("bdod_kg_m3", "clay_g_kg", "sand_g_kg", "soc_g_kg")):
+        incomplete=any(props.get(key) is None for key in ("bdod_kg_m3", "clay_g_kg", "sand_g_kg", "soc_g_kg"))
+        if incomplete and allow_estimated_soil:
             measured_keys = [key for key in ("bdod_kg_m3", "clay_g_kg", "sand_g_kg", "soc_g_kg") if props.get(key) is not None]
             if terrain and terrain.cells:
                 cells = list(terrain.cells.values())
-                slope = float(np.mean([cell.slope_deg for cell in cells]))
-                curvature = float(np.mean([cell.profile_curvature for cell in cells]))
-                twi = float(np.mean([cell.twi for cell in cells]))
+                center_lat = terrain.center_latitude
+                center_lon = terrain.center_longitude
+                cell = min(cells, key=lambda c: ((c.latitude-center_lat)**2 +
+                           ((c.longitude-center_lon)*math.cos(math.radians(center_lat)))**2, c.cell_id))
+                slope, curvature, twi = cell.slope_deg, cell.profile_curvature, cell.twi
             else:
                 slope, curvature, twi = 15.0, 0.0, 6.0
-            moisture_regime = gwetroot * 100.0 if gwetroot is not None else (moisture * 100.0 if moisture is not None else None)
-            estimate = estimate_pedotransfer(slope, curvature, twi, moisture_regime)
+            estimate = estimate_pedotransfer(slope, curvature, twi)
             for key in ("bdod_kg_m3", "clay_g_kg", "sand_g_kg", "soc_g_kg"):
                 if props.get(key) is None:
                     props[key] = estimate[key]
-            for key in ("sand_fraction", "clay_fraction", "silt_fraction", "organic_matter_fraction", "bulk_density_g_cm3"):
-                props.setdefault(key, estimate[key])
             props["property_sources"] = {
-                key: ("ISRIC SoilGrids" if key in measured_keys else "topographic_climatic_pedotransfer_estimate")
+                key: ("ISRIC SoilGrids" if key in measured_keys else "static_topographic_soil_prior_at_scan_center")
                 for key in ("bdod_kg_m3", "clay_g_kg", "sand_g_kg", "soc_g_kg")
             }
-            props["source"] = "hybrid_soilgrids_and_pedotransfer" if measured_keys else "topographic_climatic_pedotransfer_estimate"
+            props["source"] = "hybrid_soilgrids_and_pedotransfer" if measured_keys else "static_topographic_soil_prior_at_scan_center"
             props["quality"] = "mixed_measured_prediction_and_estimate" if measured_keys else "estimated_not_measured"
-        else:
-            props["sand_fraction"] = float(props["sand_g_kg"]) / 1000.0
-            props["clay_fraction"] = float(props["clay_g_kg"]) / 1000.0
-            props["silt_fraction"] = max(0.0, 1.0 - props["sand_fraction"] - props["clay_fraction"])
-            props["organic_matter_fraction"] = float(props["soc_g_kg"]) * 1.724 / 1000.0
-            props["bulk_density_g_cm3"] = float(props["bdod_kg_m3"]) / 1000.0
+        elif not incomplete:
             props["source"] = (soilgrids or {}).get("source", "ISRIC SoilGrids")
             props["quality"] = (soilgrids or {}).get("quality", "soilgrids_prediction")
-        bulk_density = props.get("bdod_kg_m3")
-        porosity = 1.0 - bulk_density / 2650.0 if bulk_density is not None else None
+        else:
+            props['source']='partial_ISRIC_SoilGrids' if any(v is not None for v in props.values()) else 'unavailable'
+            props['quality']='incomplete_provider_fields_no_imputation'
+        if not incomplete or allow_estimated_soil:
+            try:props=derive_soil_properties(props)
+            except (ValueError,TypeError) as exc:
+                props.update(quality='invalid_provider_soil_properties',error=str(exc),porosity_fraction=None)
+        else:
+            # Preserve raw partial measurements. No static terrain prior fills
+            # missing soil composition, density, pore volume or saturation.
+            props.update({key:None for key in ('sand_fraction','clay_fraction','silt_fraction',
+                'organic_matter_fraction','bulk_density_g_cm3','porosity_fraction')})
+        porosity = props.get("porosity_fraction")
         saturation = None
-        if moisture is not None and porosity is not None and porosity > 0:
-            saturation = float(np.clip(moisture / porosity * 100.0, 0.0, 100.0))
-        sources: List[str] = []
-        wetness_values: List[float] = []
-        if saturation is not None:
-            wetness_values.append(saturation)
-            sources.append("Open-Meteo volumetric moisture / SoilGrids bulk-density porosity")
-        elif moisture is not None:
-            # This is volumetric moisture expressed as percent, not true pore saturation.
-            wetness_values.append(float(np.clip(moisture * 100.0, 0.0, 100.0)))
-            sources.append("Open-Meteo volumetric moisture (relative proxy; porosity unavailable)")
-        if gwetroot is not None:
-            wetness_values.append(float(np.clip(gwetroot * 100.0, 0.0, 100.0)))
-            sources.append("NASA POWER GWETROOT")
-        blended = sum(wetness_values) / len(wetness_values) if wetness_values else None
+        compatibility = "missing_volumetric_moisture"
+        if moisture is not None:
+            if porosity is None:
+                compatibility='missing_soil_porosity'
+            elif not math.isfinite(moisture) or moisture < 0 or moisture > porosity:
+                compatibility = "incompatible_moisture_and_porosity"
+            else:
+                saturation = float(moisture / porosity * 100.0)
+                compatibility = "compatible_modeled_moisture_not_observed_groundwater"
+        sources = ["Open-Meteo volumetric moisture / selected soil porosity"] if saturation is not None else []
+        # Relative wetness is a separate index, never averaged with saturation.
+        blended = float(gwetroot * 100.) if gwetroot is not None and 0 <= gwetroot <= 1 else None
+        if blended is not None:
+            sources.append("NASA POWER GWETROOT relative wetness index; not saturation")
         return HydrologySnapshot(
             observed_date=root_date,
             nasa_gwetroot_pct=gwetroot,
@@ -766,6 +786,7 @@ out geom;
             soil_properties=props,
             soil_property_source=str(props.get("source", "unknown")),
             soil_property_quality=str(props.get("quality", "unknown")),
+            moisture_compatibility=compatibility,
         )
 
     @staticmethod
@@ -778,10 +799,11 @@ out geom;
         }
         if not data:
             return values
-        if all(data.get(key) is not None for key in values):
-            return {key: float(data[key]) for key in values}
-        if all(data.get(key) is not None for key in values):
-            return {key: float(data[key]) for key in values}
+        for key in values:
+            if data.get(key) is not None:
+                values[key] = float(data[key])
+        if all(value is not None for value in values.values()):
+            return values
         raw_properties = data.get("properties") or []
         if isinstance(raw_properties, Mapping):
             raw_properties = raw_properties.get("layers", raw_properties)
@@ -831,7 +853,7 @@ out geom;
             if depth_values:
                 mean_value = sum(value * weight for value, weight in depth_values) / sum(weight for _, weight in depth_values)
                 # SoilGrids bdod uses cg/cm3; 1 cg/cm3 equals 10 kg/m3.
-                values[key] = mean_value * 10.0 if key == "bdod_kg_m3" else mean_value
+                values[key] = soilgrids_to_conventional(name, mean_value)
         return values
 
     @staticmethod
@@ -865,8 +887,10 @@ out geom;
 
     @staticmethod
     def _sum_present(values: Sequence[Optional[float]]) -> Optional[float]:
-        usable = [float(value) for value in values if value is not None]
-        return sum(usable) if usable else None
+        values = list(values)
+        if not values or any(v is None or not math.isfinite(float(v)) or float(v)<0 for v in values):
+            return None
+        return sum(map(float,values))
 
     @staticmethod
     def _parse_provider_time(value: Any) -> Optional[datetime]:

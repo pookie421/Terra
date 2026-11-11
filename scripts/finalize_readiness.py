@@ -1,54 +1,57 @@
 #!/usr/bin/env python3
-"""Combine engineering audits and disclose the latest mandatory request gates."""
+"""Record reference engineering verification separately from predictive validity."""
 import hashlib
 import json
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime,timezone
+ROOT=Path(__file__).resolve().parents[1]
 
-ROOT = Path(__file__).resolve().parents[1]
 
 def fingerprint():
-    paths = sorted([*ROOT.glob('backend/**/*.py'), *ROOT.glob('scripts/*.py'),
-                    *ROOT.glob('tests/*.py'), *ROOT.glob('training/*.py'),
-                    ROOT/'data/model_training.parquet', ROOT/'data/historical_hindcast_candidates.parquet',
-                    ROOT/'data/conformal_calibration.parquet', ROOT/'data/historical_hindcast_pinls.parquet',
-                    ROOT/'data/event_holdout_manifest.json', ROOT/'import_artifacts.sh', ROOT/'LICENSE', ROOT/'pyproject.toml',
-                    ROOT/'artifacts/global_multi_causal_xgb.pkl'])
-    digest = hashlib.sha256()
-    for path in paths:
+    paths=[*ROOT.glob('backend/**/*.py'),*ROOT.glob('scripts/*.py'),*ROOT.glob('tests/**/*.py'),
+           *ROOT.glob('tests/fixtures/*.json')]
+    paths += [ROOT/p for p in ('requirements-training.txt','requirements-qwen.txt','scripts/run_training.bat',
+        'data/model_training.parquet','data/conformal_calibration.parquet','data/historical_hindcast_candidates.parquet',
+        'data/real_global_landslide_observations.parquet','data/event_holdout_manifest.json','data/sft_600_trajectories.jsonl',
+        'artifacts/global_multi_causal_xgb.pkl','artifacts/global_multi_causal_xgb.metadata.json',
+        'artifacts/reference_baseline_report.json','artifacts/sft_trajectory_report.json',
+        'data/rainfall_source_training.json','data/replays/chooralmala_2024.json',
+        'artifacts/rainfall_source_baseline.pkl','artifacts/rainfall_baseline_report.json')]
+    paths += [ROOT/p for p in ('artifacts/physics_informed_models.pkl','artifacts/physics_informed_ablation_report.json',
+        'artifacts/metric_terrain_rebuild.json','artifacts/context_observation_coverage.json',
+        'data/physics_informed_training.json','data/reference_context_observations.jsonl','data/sft_context_trajectories.jsonl')]
+    digest=hashlib.sha256()
+    for path in sorted(set(paths)):
         digest.update(str(path.relative_to(ROOT)).encode())
         digest.update(path.read_bytes() if path.exists() else b'MISSING')
     return digest.hexdigest()
 
-def main():
-    current = fingerprint()
-    reports = {}
-    for name in ('full_system_bug_audit', 'randomized_global_blind_audit', 'literature_boundary_audit', 'phase4_forecast_audit'):
-        path = ROOT/'artifacts'/f'{name}.json'
-        reports[name] = json.loads(path.read_text()) if path.exists() else {}
-    checks = {name: bool(report.get('engineering_ready') and
-              report.get('implementation_fingerprint') == current)
-              for name, report in reports.items()}
-    engineering_ready = all(checks.values())
-    request_passed = bool(reports['literature_boundary_audit'].get('all_requested_targets_passed') and reports['phase4_forecast_audit'].get('all_requested_targets_passed'))
-    ready = engineering_ready
-    payload = {'generated_at_utc': datetime.now(timezone.utc).isoformat(),
-               'implementation_fingerprint': current, 'audits': checks,
-               'engineering_ready': engineering_ready, 'pretraining_ready': ready,
-               'all_requested_targets_passed': request_passed,
-               'scope': 'Engineering invariants govern readiness. Empirical scores and latency observations are descriptive; no operational certification.'}
-    (ROOT/'artifacts/readiness.json').write_text(json.dumps(payload, indent=2)+'\n')
-    path = ROOT/'artifacts/scientific_validation_report.json'
-    validation = json.loads(path.read_text())
-    validation.update(engineering_ready=engineering_ready, pretraining_ready=ready, combined_audit=payload)
-    path.write_text(json.dumps(validation, indent=2)+'\n')
-    for name, report in reports.items():
-        if not report:
-            continue
-        report.update(pretraining_ready=ready, combined_engineering_ready=engineering_ready)
-        (ROOT/'artifacts'/f'{name}.json').write_text(json.dumps(report, indent=2)+'\n')
-    print(json.dumps(payload, indent=2))
-    return 0 if ready else 1
 
-if __name__ == '__main__':
-    raise SystemExit(main())
+def main():
+    current=fingerprint()
+    path=ROOT/'artifacts/reference_verification.json'
+    report=json.loads(path.read_text()) if path.exists() else {}
+    fresh=report.get('implementation_fingerprint')==current
+    checks={'fresh_verification':fresh,
+            'equation_tests':bool(report.get('equation_tests',{}).get('passed')),
+            'frozen_payload_replays':bool(report.get('frozen_payload_replays',{}).get('passed')),
+            'other_deterministic_tests':bool(report.get('other_deterministic_tests',{}).get('passed')),
+            'artifact_integrity':bool(report.get('artifact_integrity',{}).get('passed'))}
+    ready=all(checks.values())
+    payload={'generated_at_utc':datetime.now(timezone.utc).isoformat(),'implementation_fingerprint':current,
+        'checks':checks,'engineering_ready':ready,'pretraining_ready':ready,
+        'independent_predictive_validation':False,'operational_warning_ready':False,
+        'windows_rtx5070ti_verified':False,'qlora_verified':False,
+        'live_physics_requires_sourced_ground_inputs':False,'legacy_reference_physics_live_enabled':False,
+        'reference_column_priors_live_enabled':True,'physics_informed_fusion_live_enabled':True,
+        'conditional_runout_enabled':True,'copilot_state_bound':True,
+        'live_numeric_placeholders_allowed':False,'cap_warning_export_enabled':False,
+        'scope':'CPU engineering verification for corrected terrain, reference columns, four-way fusion ablation and state-bound co-pilot. No external predictive validation, CUDA certification, or operational warning approval.'}
+    (ROOT/'artifacts/readiness.json').write_text(json.dumps(payload,indent=2)+'\n')
+    validation_path=ROOT/'artifacts/scientific_validation_report.json'
+    validation=json.loads(validation_path.read_text()) if validation_path.exists() else {}
+    validation.update(engineering_ready=ready,pretraining_ready=ready,combined_audit=payload)
+    validation_path.write_text(json.dumps(validation,indent=2)+'\n')
+    print(json.dumps(payload,indent=2))
+    return 0 if ready else 1
+if __name__=='__main__':raise SystemExit(main())

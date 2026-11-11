@@ -2,7 +2,7 @@
 from dataclasses import replace
 import numpy as np
 
-ALPINE_ASSUMPTION = "Lapse-rate and latitude/elevation screen are scenario proxies, not observed permafrost. Snow/cycle floors apply only to explicit positive warming scenarios inside the baseline cryospheric screen."
+ALPINE_ASSUMPTION = "Temperature lapse is applied only with explicit source elevation. Warming never creates snow or freeze-thaw observations; unverified joint ice does not weaken soil."
 
 def cryospheric_eligibility(snow_depth_m, baseline_temperature_c, elevation_m, latitude_deg):
     line = np.maximum(1800.0, 4600.0 - 55.0 * np.abs(latitude_deg))
@@ -11,12 +11,12 @@ def cryospheric_eligibility(snow_depth_m, baseline_temperature_c, elevation_m, l
 def apply_alpine_weather(inputs, elevations_m, snowmelt_temp_surge_c=0.0, latitude_deg=None):
     elevation = np.asarray(elevations_m, dtype=float)
     latitude = inputs.latitude_deg if latitude_deg is None else latitude_deg
-    lapse = .0065 * (elevation - float(np.median(elevation)))
+    reference = np.asarray(inputs.weather_reference_elevation_m)
+    lapse = np.where(reference > -998, .0065*(elevation-reference), 0.)
     baseline = np.asarray(inputs.air_temperature_c) - lapse
     eligible = cryospheric_eligibility(inputs.snow_depth_m, baseline, elevation, latitude)
-    snow_floor = .40 * np.clip((elevation - 1800.0) / 1000.0, .2, 1.5)
-    snow = np.where(eligible & (snowmelt_temp_surge_c > 0), np.maximum(inputs.snow_depth_m, snow_floor), inputs.snow_depth_m)
-    cycles = np.where(eligible & (snowmelt_temp_surge_c > 0), np.maximum(inputs.freeze_thaw_cycles_7d, 3.), inputs.freeze_thaw_cycles_7d)
+    snow = np.broadcast_to(np.asarray(inputs.snow_depth_m), elevation.shape).copy()
+    cycles = np.broadcast_to(np.asarray(inputs.freeze_thaw_cycles_7d), elevation.shape).copy()
     return replace(inputs, air_temperature_c=baseline + snowmelt_temp_surge_c,
                    soil_temperature_c=np.asarray(inputs.soil_temperature_c)-lapse+.5*snowmelt_temp_surge_c,
                    snow_depth_m=snow, freeze_thaw_cycles_7d=cycles, elevation_m=elevation,

@@ -17,17 +17,10 @@ HORIZON = 72
 DISPLAY_HOURS = (0, 6, 12, 18, 24, 36, 48, 72)
 
 
-def response_function(t):
-    """Iverson step response, R(0)=0; positive dimensionless time only."""
-    t = np.asarray(t, dtype=float)
-    if not np.isfinite(t).all() or np.any(t < 0):
-        raise ValueError('Response time must be finite and nonnegative')
-    safe = np.maximum(t, 1e-12)
-    r = np.sqrt(safe/math.pi)*np.exp(-1/safe)-MultiCausalEngine._erfc(1/np.sqrt(safe))
-    return np.where(t > 0, np.maximum(r, 0), 0)
+from backend.physics.reference_column import response_function
 
 
-def superposed_head(infiltration_m_s, conductivity_m_s, diffusivity_m2_s, depth_m, step_seconds=3600.):
+def superposed_head(infiltration_m_s, conductivity_m_s, diffusivity_m2_s, depth_m, step_seconds=3600., slope_deg=0.):
     """Head at the end of k contiguous pulses; flux has shape (k, cells)."""
     flux = np.asarray(infiltration_m_s, dtype=float)
     k = len(flux)
@@ -38,7 +31,8 @@ def superposed_head(infiltration_m_s, conductivity_m_s, diffusivity_m2_s, depth_
         raise ValueError('Invalid hydraulic parameters')
     start_lags = np.arange(k,0,-1)[:,None]*step_seconds
     end_lags = np.arange(k-1,-1,-1)[:,None]*step_seconds
-    kernels = response_function(diffusivity*start_lags/depth**2)-response_function(diffusivity*end_lags/depth**2)
+    transformed = 4.*diffusivity*np.cos(np.radians(slope_deg))**2
+    kernels = response_function(transformed*start_lags/depth**2)-response_function(transformed*end_lags/depth**2)
     return depth*np.sum(flux/conductivity*kernels,axis=0)
 
 
@@ -67,7 +61,7 @@ def fosm_probability_sigma(state):
     Clipping sigma_FS does not establish coverage or justify tight confidence bounds.
     """
     density=np.exp(-.5*state.beta_fosm**2)/math.sqrt(2*math.pi)
-    return density*np.clip(state.sigma_fs,.03,.18)*(1-state.p_failure_seismic)*(1-state.p_failure_m1)
+    return density*np.clip(state.sigma_fs,.03,.18)
 
 
 def _risk(model, inputs, state, curvature):
@@ -136,7 +130,8 @@ def forecast_72h(inputs, initial_state, curvature, model, hours, ensemble=None, 
                 'risk_pct':float(100*np.percentile(probability[mask],95)),
                 'max_m1_pct':float(100*np.max(state.p_failure_m1[mask]))}
     initial=summarize(0,initial_state,initial_probability)
-    lapse=.0065*(np.asarray(inputs.elevation_m)-np.median(inputs.elevation_m))
+    lapse=np.where(np.asarray(inputs.weather_reference_elevation_m) > -998,
+                   .0065*(np.asarray(inputs.elevation_m)-np.asarray(inputs.weather_reference_elevation_m)), 0.)
     river_by_day={r['date']:r['surge_ratio'] for r in (river or {}).get('forecast_7d',[])}
     paths={}
     for name,rainfall in (('p50',p50),('p90',p90)):
@@ -158,17 +153,22 @@ def forecast_72h(inputs, initial_state, curvature, model, hours, ensemble=None, 
             potential=np.where(air>0,np.maximum(0.,4.5*air+.0126*liquid*24*air)/24,0.)
             melt=np.minimum(snow_water,potential);snow_water-=melt
             q=(liquid+melt)*1e-3/3600
-            # Hydrophobic infiltration reduction is a disclosed burn scenario proxy.
-            kappa=1-.9*initial_state.effective_burn_severity
-            infiltration=np.minimum(q*kappa,4*conductivity)
+            infiltration=np.minimum(q,conductivity)
             fluxes.append(infiltration)
-            dry_seconds+=np.where(q<=0,3600.,0.)
-            base=initial_state.pore_pressure_head_m*np.exp(-conductivity*np.sin(slope)*dry_seconds/(depth*initial_state.theta_s))
-            head=np.clip(base+superposed_head(np.stack(fluxes),conductivity,diffusivity,depth),0,cap)
+            # Recession of the retained pre-origin finite storm, using the same
+            # linear kernel as future pulses. No additional drainage multiplier.
+            elapsed=k*3600.
+            duration=np.asarray(inputs.storm_duration_hr)*3600.
+            transformed=4*diffusivity*np.cos(slope)**2/depth**2
+            past=depth*initial_state.effective_infiltration_m_s/conductivity*(
+                response_function(transformed*(duration+elapsed))-response_function(transformed*elapsed))
+            base=np.asarray(inputs.antecedent_pressure_head_m)
+            transient=past+superposed_head(np.stack(fluxes),conductivity,diffusivity,depth,slope_deg=initial_state.effective_slope_deg)
             future=replace(inputs,rain_24h_mm=sum(rolling),storm_duration_hr=24.,
                 peak_3h_intensity_mmhr=max(rolling[-3:]),rain_15min_override_mm=.25*max(rolling[-3:]),air_temperature_c=air,soil_temperature_c=soil,
                 snow_depth_m=snow_water/100.,snowmelt_override_mm_day=melt*24,
-                freeze_thaw_cycles_7d=cycles,pore_pressure_override_m=head,
+                freeze_thaw_cycles_7d=cycles,pore_pressure_override_m=-1.,
+                transient_pressure_head_m=transient,antecedent_pressure_head_m=base,
                 river_surge_ratio=river_by_day.get(row['time'][:10],inputs.river_surge_ratio))
             state=engine.compute(future)
             probability=_risk(model,future,state,curvature)
@@ -196,6 +196,7 @@ def forecast_72h(inputs, initial_state, curvature, model, hours, ensemble=None, 
         'paths':paths,'forcing_modes':sorted(set(modes)),'injected_storm':injection,
         'creep_failure_hour':None,'creep_status':'No observed velocity series supplied',
         'assumptions':['Linear pulse superposition with fixed initial K,D,Z; not full TRIGRS',
+            'Finite pre-origin rainfall pulse plus future pulses; specified steady initial head; surface head cap in live wrapper',
             'Hourly time-grid crossing, not exact real-world failure time; lead refers to P50 regional summary',
             'P90 is pointwise forcing envelope, not 90% probability of failure or a worst-case bound',
             'Explicit warming perturbation persists through the future horizon',

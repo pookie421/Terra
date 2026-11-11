@@ -57,27 +57,35 @@ class NumbersThatMatterItem:
         return asdict(self)
 
 
-def group_shap_by_cause(shap_values, feature_names):
-    """Partition absolute raw-margin SHAP; shared stability features split equally.
+def group_shap_by_cause(shap_values, feature_names, physical=None):
+    """Allocate positive raw-margin evidence, not causal effects or probability SHAP.
 
-    This is an explicit display allocation, not identification of causal effects.
-    Every column is accounted for exactly once across the five groups.
+    Composite columns follow per-cell physical stress shares. Zero-stress cells
+    use an explicit equal allocation; all positive column mass is conserved.
     """
-    shap = np.abs(np.asarray(shap_values, dtype=float))
+    shap = np.maximum(np.asarray(shap_values, dtype=float), 0.)
     if shap.ndim != 2 or shap.shape[1] != len(feature_names) or not np.isfinite(shap).all():
         raise ValueError('SHAP values must match finite feature columns')
     groups = {
-        'hydro_meteorological': ('psi_head_m','soil_saturation','rain_24h_mm','twi'),
+        'hydro_meteorological': ('psi_head_m','soil_saturation','rain_24h_mm'),
         'seismic_tectonic': ('pga_g','newmark_dn_cm'),
         'cryospheric': ('snowmelt_mm_day','thaw_degradation'),
         'post_wildfire_biotic': ('burn_severity',),
-        'anthropogenic_fluvial': ('toe_undercut_mult','profile_curvature'),
+        'anthropogenic_fluvial': ('toe_undercut_mult','twi'),
     }
+    composite = {'fs_dynamic','p_f_fosm','slope_max_deg','profile_curvature'}
+    weights = np.ones((len(CAUSES),len(shap))) if physical is None else np.stack([np.broadcast_to(physical[c],(len(shap),)) for c in CAUSES])
+    if not np.isfinite(weights).all() or np.any(weights<0):raise ValueError('Invalid physical shares')
+    total=weights.sum(axis=0)
+    weights=np.divide(weights,total,out=np.full_like(weights,1/len(CAUSES),dtype=float),where=total>0)
     result = {cause: np.zeros(shap.shape[0]) for cause in CAUSES}
     for column, name in enumerate(feature_names):
-        owners = [cause for cause, names in groups.items() if name in names] or list(CAUSES)
-        for cause in owners:
-            result[cause] += shap[:, column] / len(owners)
+        owners = [cause for cause, names in groups.items() if name in names]
+        if owners:
+            result[owners[0]] += shap[:, column]
+        elif name in composite:
+            for i,cause in enumerate(CAUSES):result[cause]+=shap[:,column]*weights[i]
+        else:raise ValueError('Unmapped SHAP feature: '+name)
     return result
 
 
@@ -88,7 +96,7 @@ def explain_causes(
     feature_names: Optional[List[str]] = None,
     shap_by_cause: Optional[Mapping[str, np.ndarray]] = None,
 ) -> CausalBreakdown:
-    """Return five physical shear reductions and optional absolute TreeSHAP shares.
+    """Return five physical shear reductions and optional positive TreeSHAP shares.
 
     Physical contributions remain in kPa. They are normalized separately from
     dimensionless SHAP log-odds values; the combined percentage is the mean of
@@ -98,69 +106,26 @@ def explain_causes(
     ndvi = np.clip(np.asarray(inputs.ndvi_norm, dtype=np.float64), 0.0, 1.0)
     burn = state.effective_burn_severity
     tan_phi = np.tan(np.radians(state.friction_angle_deg))
-    root_cohesion_unburned = 12.0 * ndvi**1.35
-    slope_cos2 = np.cos(slope) ** 2
-    slope_deg = np.asarray(inputs.slope_deg, dtype=np.float64)
-    twi = np.maximum(np.asarray(inputs.twi, dtype=np.float64), 0.01)
-    road_distance = np.broadcast_to(np.asarray(inputs.road_cut_distance_m, dtype=np.float64), (state.cell_count,))
-    river_distance = np.broadcast_to(np.asarray(inputs.river_distance_m, dtype=np.float64), (state.cell_count,))
-    field_capacity_saturation = np.clip(state.theta_33 / np.maximum(state.theta_s, 1e-6), 0.0, 0.95)
-    field_capacity_head = np.zeros(state.cell_count)  # positive head already excludes field-capacity storage
-    excess_pore_pressure_head = np.maximum(0.0, state.pore_pressure_head_m - field_capacity_head)
-    snowmelt_activation = np.clip(state.snowmelt_mm_day / 60.0, 0.0, 0.75)
-    cryospheric_degradation = np.maximum(1.0 - state.thaw_factor, snowmelt_activation)
-    if np.any(burn > 0.0):
-        unburned_state = MultiCausalEngine().compute(replace(inputs, burn_severity=np.zeros_like(burn)))
-        unburned_excess_head = np.maximum(
-            0.0, unburned_state.pore_pressure_head_m * state.regolith_depth_m / unburned_state.regolith_depth_m - field_capacity_head
-        )
-        fire_amplified_excess_head = np.maximum(
-            0.0, excess_pore_pressure_head - unburned_excess_head
-        )
-        fire_runoff_stress = fire_amplified_excess_head * GAMMA_W_KN_M3 * tan_phi
-    else:
-        fire_runoff_stress = np.zeros(state.cell_count, dtype=np.float64)
-    road_undercut = 0.35 * np.exp(-road_distance / 60.0) * (slope_deg > 16.0)
-    # River distance is estimated from high-TWI DEM cells, not a mapped stream;
-    # discount that proxy contribution while retaining measured road-cut effects.
-    fluvial_proxy_undercut = 0.15 * np.exp(-river_distance / 80.0) * (twi / 15.0)
-    fire_drag_stress = state.wet_unit_weight_kn_m3 * state.regolith_depth_m * (
-        np.sin(slope)*np.cos(slope) + state.kh*slope_cos2
-    ) * state.toe_undercut_multiplier * (state.fire_driving_multiplier - 1.0)
-    fire_cohesion_loss = (state.soil_cohesion_kpa-state.effective_soil_cohesion_kpa + root_cohesion_unburned-state.root_cohesion_kpa) * state.thaw_factor
+    rain=np.broadcast_to(np.maximum(np.asarray(inputs.rain_24h_mm,float),0.),(state.cell_count,))
+    melt=np.maximum(state.snowmelt_mm_day,0.)
+    rain_share=np.divide(rain,rain+melt,out=np.ones_like(rain),where=(rain+melt)>0)
+    head_stress=np.maximum(state.pore_pressure_head_m,0.)*GAMMA_W_KN_M3*tan_phi
+    zeros=np.zeros(state.cell_count)
+    # Only modeled terms receive mechanical attribution. M1 basin likelihood and
+    # unobserved root/ice/erosion effects are not manufactured shear stresses.
     stress = {
-        "hydro_meteorological": np.maximum(
-            0.0, excess_pore_pressure_head * GAMMA_W_KN_M3 * tan_phi - fire_runoff_stress
-        ),
-        "seismic_tectonic": np.maximum(
-            0.0,
-            state.wet_unit_weight_kn_m3
-            * state.regolith_depth_m
-            * state.kh
-            * np.cos(slope) ** 2,
-        ),
-        "cryospheric": np.maximum(
-            0.0,
-            (state.effective_soil_cohesion_kpa + state.root_cohesion_kpa)
-            * cryospheric_degradation,
-        ),
-        "post_wildfire_biotic": np.maximum(
-            0.0, fire_cohesion_loss + fire_runoff_stress + fire_drag_stress + state.p_failure_m1 * state.wet_unit_weight_kn_m3 * state.regolith_depth_m * np.sin(slope)
-        ),
-        "anthropogenic_fluvial": np.maximum(
-            0.0,
-            state.wet_unit_weight_kn_m3
-            * state.regolith_depth_m
-            * np.sin(slope)
-            * np.cos(slope)
-            * (road_undercut + 0.5 * fluvial_proxy_undercut),
-        ),
+        'hydro_meteorological':head_stress*rain_share,
+        'cryospheric':head_stress*(1-rain_share),
+        'seismic_tectonic':state.wet_unit_weight_kn_m3*state.regolith_depth_m*np.maximum(
+            np.asarray(inputs.pga_g)-state.critical_acceleration_g,0.)*np.cos(slope)**2,
+        'post_wildfire_biotic':zeros.copy(),
+        'anthropogenic_fluvial':zeros.copy(),
     }
     physical = _normalize(stress)
     if shap_values is not None:
         if shap_by_cause is not None or feature_names is None:
             raise ValueError('Provide either grouped SHAP or SHAP columns and names')
-        shap_by_cause = group_shap_by_cause(shap_values, feature_names)
+        shap_by_cause = group_shap_by_cause(shap_values, feature_names, physical)
     shap_pct = None
     if shap_by_cause is not None:
         if set(shap_by_cause) != set(CAUSES):

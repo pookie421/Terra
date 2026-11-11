@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import json
+import asyncio
 import math
 import os
 import threading
 import unicodedata
+import hashlib
+import uuid
+import copy
+from collections import OrderedDict
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
@@ -16,7 +21,7 @@ import numpy as np
 
 from backend.api.reliability import reliability_report
 from backend.physics.alpine_weather import apply_alpine_weather, ALPINE_ASSUMPTION
-from backend.ml.global_xgb import GlobalMonotonicXGB, blend_failure_probability, FEATURE_NAMES
+from backend.ml.global_xgb import GlobalMonotonicXGB, blend_failure_probability, FEATURE_NAMES, PHYSICS_MODEL_VERSION
 from backend.physics.causal_attribution import CAUSES, explain_causes, select_numbers_that_matter, group_shap_by_cause
 from backend.physics.kinematics import route_runout, solve_kinematics
 from backend.physics.multi_causal_engine import MultiCausalEngine, PhysicsInputs
@@ -57,7 +62,7 @@ def _load_model() -> Optional[GlobalMonotonicXGB]:
     try:
         import joblib
         model = joblib.load(path)
-        return model if isinstance(model, GlobalMonotonicXGB) else None
+        return model if isinstance(model, GlobalMonotonicXGB) and getattr(model, 'physics_model_version_', None) == PHYSICS_MODEL_VERSION else None
     except Exception:
         return None
 
@@ -88,6 +93,11 @@ class GlobalScanService:
     def __init__(self, provider_timeout_s: Optional[float] = None) -> None:
         self.provider_timeout_s = provider_timeout_s or float(os.getenv("TERRA_PROVIDER_TIMEOUT_S", "15"))
         self.model = _load_model()
+        from .source_assessment import load_rainfall_model
+        self.rainfall_model = load_rainfall_model()
+        from .physics_informed_assessment import load_models
+        self.context_models=load_models()
+        self._scan_states=OrderedDict()
         self.engine = MultiCausalEngine()
         self._cell_contexts: Dict[str, Dict[str, Any]] = {}
         self._context_order: List[str] = []
@@ -108,6 +118,8 @@ class GlobalScanService:
         inject_forecast_storm_mm: Optional[float] = None,
         storm_arrival_hour: int = 18,
         storm_duration_hours: int = 12,
+        ground_columns: Optional[Dict[str, Any]] = None,
+        _reference_assumptions: bool = False,
     ) -> Dict[str, Any]:
         if inject_forecast_storm_mm is not None:
             from backend.physics.temporal_forecaster import validate_injection
@@ -143,9 +155,59 @@ class GlobalScanService:
                     used_named_fallback = True
         else:
             live_scan = _snapshot
+        # The archived 14-feature path uses unsurveyed strength/depth, zero
+        # initial head and compatibility defaults. It is retained ONLY for
+        # explicitly requested historical reference regression, never live use.
+        if not _reference_assumptions:
+            from .source_assessment import attach
+            from .ground_assessment import attach_ground
+            from .physics_informed_assessment import attach as attach_context,upgrade_retained_terrain
+            live_scan.scan_id=getattr(live_scan,'scan_id',None) or str(uuid.uuid4())
+            live_scan=upgrade_retained_terrain(live_scan)
+            if not live_scan.location.display_name:
+                live_scan.location=replace(live_scan.location,display_name=f'{live_scan.location.latitude:.6f}, {live_scan.location.longitude:.6f} · terrain sector')
+            response=self._empty_response(live_scan,agency_mode)
+            response['scenario']={'rain_delta_mm':rain_delta_mm,'storm_duration_hr':storm_duration_hr,
+                'pga_override_g':pga_override_g,'snowmelt_temp_surge_c':snowmelt_temp_surge_c,
+                'burn_severity_override':burn_severity_override,'inject_forecast_storm_mm':inject_forecast_storm_mm,
+                'storm_arrival_hour':storm_arrival_hour,'storm_duration_hours':storm_duration_hours}
+            other=bool(pga_override_g or snowmelt_temp_surge_c or burn_severity_override)
+            response=attach_ground(response,live_scan,ground_columns,rain_delta_mm=rain_delta_mm,
+                storm_duration_hr=storm_duration_hr,pga_override_g=pga_override_g,
+                unsupported_scenario=bool(snowmelt_temp_surge_c or burn_severity_override))
+            response=attach(response,live_scan,None,rain_delta_mm,other)
+            response=attach_context(response,live_scan,self.context_models,rain_delta_mm)
+            from .physics_informed_assessment import summary_metrics
+            summary_metrics(response)
+            response['scan_id']=live_scan.scan_id
+            response['scenario_id']=hashlib.sha256(json.dumps({'scenario':response['scenario'],'ground_columns':ground_columns},sort_keys=True).encode()).hexdigest()[:24]
+            response['schema_version']='physics_context_scan_v1'
+            response['source_count']=len(live_scan.sources)
+            from .automatic_state import live_inputs,decorate_forecast
+            response['live_inputs']=live_inputs(live_scan)
+            if inject_forecast_storm_mm is not None:
+                from .reference_forecast import forecast
+                response['predictive_forecast_72h']=await asyncio.to_thread(forecast,live_scan,self.context_models,ground_columns,inject_forecast_storm_mm,storm_arrival_hour,storm_duration_hours,physical=response['physical_assessment'],duration_hr=storm_duration_hr)
+            else:
+                from .reference_forecast import forecast
+                response['predictive_forecast_72h']=await asyncio.to_thread(forecast,live_scan,self.context_models,ground_columns,physical=response['physical_assessment'],duration_hr=storm_duration_hr)
+            response=decorate_forecast(response)
+            key=(response['scan_id'],response['scenario_id'])
+            with self._context_lock:
+                self._scan_states[key]={'scan':copy.deepcopy(live_scan),'response':copy.deepcopy(response),'ground_columns':copy.deepcopy(ground_columns),'forecast_origin':True}
+                while len(self._scan_states)>24:self._scan_states.popitem(last=False)
+            if live_scan.terrain:
+                self._remember_contexts(list(live_scan.terrain.cells),{'kind':'source_evidence','scan':live_scan,'response':response})
+            return response
         base = evaluate_live_physics(live_scan, self.model)
+        from .source_assessment import attach
+        nonrain_scenario=bool(pga_override_g or snowmelt_temp_surge_c or burn_severity_override)
         if base is None:
-            return self._empty_response(live_scan, agency_mode)
+            response=self._empty_response(live_scan, agency_mode)
+            response['assessment_mode']='ARCHIVED_REFERENCE_ASSUMPTIONS_NOT_LIVE_ASSESSMENT'
+            response['scenario']={'rain_delta_mm':rain_delta_mm,'storm_duration_hr':storm_duration_hr,
+                'pga_override_g':pga_override_g,'snowmelt_temp_surge_c':snowmelt_temp_surge_c,'burn_severity_override':burn_severity_override}
+            return attach(response,live_scan,self.rainfall_model,rain_delta_mm,nonrain_scenario)
 
         base_inputs: PhysicsInputs = base["station_inputs"]
         count = int(base["cell_count"])
@@ -171,9 +233,8 @@ class GlobalScanService:
         feature_rows = _feature_matrix(inputs, state, base["profile_curvature"])
         p_xgb = self.model.predict_proba(feature_rows) if self.model is not None else None
         probability = blend_failure_probability(p_xgb, state.p_failure_physical, inputs.slope_deg, state.fs_dynamic) if p_xgb is not None else state.p_failure_physical
-        shap_values = self.model.shap_log_odds_contributions(feature_rows) if self.model is not None else None
-        shap_by_cause = group_shap_by_cause(shap_values, FEATURE_NAMES) if shap_values is not None else None
-        breakdown = explain_causes(inputs, state, shap_by_cause=shap_by_cause)
+        shap_values = self.model.shap_log_odds_contributions(feature_rows, absolute=False) if self.model is not None else None
+        breakdown = explain_causes(inputs, state, shap_values=shap_values, feature_names=list(FEATURE_NAMES))
 
         cell_ids = list(base["cell_ids"])
         cells = base["cells"]
@@ -219,8 +280,8 @@ class GlobalScanService:
         else:
             intervals=np.tile([0.,1.],(count,1)); widths=np.ones(count)
             bivariate=np.where(probability>=.5,'HIGH_SUSCEPTIBILITY_HIGH_UNCERTAINTY','LOW_SUSCEPTIBILITY_HIGH_UNCERTAINTY')
-        from backend.physics.temporal_forecaster import fosm_probability_sigma, forecast_72h
-        epistemic = self.model.epistemic_probability_intervals(feature_rows, probability, fosm_probability_sigma(state)) if self.model is not None else np.tile([0.,1.],(count,1))
+        from backend.physics.temporal_forecaster import forecast_72h
+        epistemic = self.model.epistemic_probability_intervals(feature_rows, probability, np.zeros(count)) if self.model is not None else np.tile([0.,1.],(count,1))
         predictive = forecast_72h(inputs,state,base["profile_curvature"],self.model,
             live_scan.weather.forecast_hourly_72h if live_scan.weather else [],live_scan.ensemble,live_scan.river,
             inject_forecast_storm_mm,storm_arrival_hour,storm_duration_hours)
@@ -257,7 +318,7 @@ class GlobalScanService:
                 "conformal_binary_label_interval": intervals[index].tolist(),
                 "epistemic_interval_90": epistemic[index].tolist(),
                 "epistemic_interval_90_pct": (100*epistemic[index]).tolist(),
-                "epistemic_quality": "Normal fold-disagreement plus FOSM sensitivity proxy; no calibrated coverage guarantee",
+                "epistemic_quality": "Normal calibrated-fold disagreement only; no calibrated coverage guarantee or physical-probability mixture",
                 "physical_cause_pct": {c: float(v[index]) for c,v in breakdown.physical_percentages.items()},
                 "shap_cause_pct": None if breakdown.shap_percentages is None else {c: float(v[index]) for c,v in breakdown.shap_percentages.items()},
                 "uncertainty_width": float(widths[index]),
@@ -271,7 +332,14 @@ class GlobalScanService:
                 "suction_cohesion_kpa": float(state.suction_cohesion_kpa[index]),
                 "cryo_perched_head_m": float(state.cryo_perched_head_m[index]),
                 "equivalent_water_mm": float(state.equivalent_water_mm[index]),
-                "mechanism_quality": "M1/Gartner cell-input proxies; postfire FS is a yield index; assumed ice joints and basal drainage",
+                "mechanism_quality": "Reference mechanics with estimated soil/capacity; separate basin and seismic models; no inferred ice/root/toe strength",
+                "postfire_basin_inputs_available": bool(state.postfire_basin_inputs_available[index]),
+                "newmark_applicable": bool(state.newmark_applicable[index]),
+                "newmark_displacement_reference_cm": float(state.newmark_displacement_cm[index]) if state.newmark_applicable[index] else None,
+                "newmark_quality": "Jibson regression" if state.newmark_applicable[index] else "Not applicable: no stable sliding-block initial state; legacy numeric value is a placeholder",
+                "p_failure_physical": float(state.p_failure_physical[index]),
+                "p_xgb_calibrated": float(p_xgb[index]) if p_xgb is not None else None,
+                "p_combined": None,
                 "newmark_displacement_cm": float(state.newmark_displacement_cm[index]),
                 "cell_snow_depth_m": float(np.asarray(inputs.snow_depth_m)[index]),
                 "cell_air_temperature_c": float(np.asarray(inputs.air_temperature_c)[index]),
@@ -316,6 +384,17 @@ class GlobalScanService:
             "summary_population": "effective_slope_ge_24_deg" if np.any(steep) else "all_cells",
             "summary_population_count": int(np.count_nonzero(steep)) if np.any(steep) else count,
             "viewport_fs_p05": viewport_fs_p05, "viewport_probability_p95": viewport_probability_p95,
+            "viewport_max_cell_probability": float(np.max(probability)),
+            "summary_statistics_quality": "Legacy critical/min/max keys are marginal percentiles; hotspot_* keys identify one cell",
+            "hotspot_h3_index": cell_ids[top_index],
+            "hotspot_fs_dynamic": float(state.fs_dynamic[top_index]),
+            "hotspot_fs_static": float(state.fs_static[top_index]),
+            "hotspot_probability": float(probability[top_index]),
+            "hotspot_newmark_displacement_cm": float(state.newmark_displacement_cm[top_index]) if state.newmark_applicable[top_index] else None,
+            "hotspot_newmark_applicable": bool(state.newmark_applicable[top_index]),
+            "p_failure_physical": float(state.p_failure_physical[top_index]),
+            "p_xgb_calibrated": float(p_xgb[top_index]) if p_xgb is not None else None,
+            "p_combined": None,
             "min_fs_dynamic": min_fs_dynamic,
             "dominant_cause": dominant_cause,
             "causal_attribution_valid": bool(breakdown.valid[top_index]),
@@ -345,11 +424,14 @@ class GlobalScanService:
                 "burn_severity_override": burn_severity_override,
             },
             "shap_status": "native_tree_shap_fold_boosters" if shap_values is not None else "model_unavailable",
-            "shap_mean_absolute_log_odds": None if shap_values is None else dict(zip(self.model.feature_names_in_, np.mean(shap_values,axis=0).tolist())),
-            "probability_source": "mechanical gate × regime-weighted isotonic XGBoost/physical union; gated score not separately calibrated" if p_xgb is not None else "physical FOSM/seismic/M1 union; no trained model artifact loaded",
+            "shap_mean_absolute_log_odds": None if shap_values is None else dict(zip(self.model.feature_names_in_, np.mean(np.abs(shap_values),axis=0).tolist())),
+            "shap_attribution_scope": "Positive raw-margin evidence; composite columns allocated by physical shares, not identified causal effects",
+            "probability_source": "Calibrated ML on declared sample population; no mechanical gate, prior assumption, or combined probability" if p_xgb is not None else "FOSM diagnostic with assumed material uncertainty; no calibrated model available",
+            "assumed_field_prevalence": getattr(self.model,'field_prevalence',None) if p_xgb is not None else None,
             "runout_parameter_quality": RUNOUT_PARAMETER_QUALITY,
         }
         response = {
+            'assessment_mode':'ARCHIVED_REFERENCE_ASSUMPTIONS_NOT_LIVE_ASSESSMENT',
             "location": {
                 "query": location_query if used_named_fallback or (location_query and location_query != "Chooralmala, Wayanad" and (lat is None or lon is None)) else live_scan.location.query,
                 "display_name": location_query if used_named_fallback else live_scan.location.display_name,
@@ -389,12 +471,66 @@ class GlobalScanService:
             "top_index": top_index,
             "feature_rows": feature_rows,
         })
+        return attach(response,live_scan,self.rainfall_model,rain_delta_mm,nonrain_scenario)
+
+    def get_scan_state(self,scan_id,scenario_id):
+        with self._context_lock:state=self._scan_states.get((scan_id,scenario_id))
+        if state is None:raise KeyError('Unknown or expired scan_id/scenario_id')
+        return copy.deepcopy(state)
+
+    def latest_scan_state(self,scan_id,scenario_id=None):
+        if scenario_id is not None:return self.get_scan_state(scan_id,scenario_id)
+        with self._context_lock:
+            state=next((v for (sid,_),v in reversed(self._scan_states.items()) if sid==scan_id and v.get('forecast_origin')),None)
+        if state is None:raise KeyError('Unknown or expired scan_id')
+        return copy.deepcopy(state)
+
+    async def automatic_forecast_state(self,scan_id,view_key):
+        if view_key not in ('now','t24','t48','t72','peak'):raise ValueError('Unknown automatic forecast horizon')
+        state=self.latest_scan_state(scan_id)
+        from .automatic_state import project_response
+        metadata=next((v for v in state['response']['predictive_forecast_72h'].get('views',[]) if v['key']==view_key),None)
+        if metadata:
+            with self._context_lock:cached=self._scan_states.get((scan_id,metadata['scenario_id']))
+            if cached is not None:return copy.deepcopy(cached['response'])
+        response,raw=await asyncio.to_thread(project_response,state,self.context_models,view_key)
+        with self._context_lock:
+            self._scan_states[(scan_id,response['scenario_id'])]={'scan':raw,'response':copy.deepcopy(response),
+                'ground_columns':state['ground_columns'],'forecast_origin':False}
+            while len(self._scan_states)>24:self._scan_states.popitem(last=False)
         return response
 
-    def inspect_hexagon(self, h3_index: str) -> Dict[str, Any]:
+    async def apply_scenario(self,scan_id,scenario_id,changes):
+        state=self.get_scan_state(scan_id,scenario_id)
+        if state['response'].get('forecast_view',{}).get('hour',0)>0:
+            raise ValueError('Automatic forecast states are read-only; research perturbations require the original NOW state')
+        allowed={'rain_delta_mm','storm_duration_hr','pga_override_g','snowmelt_temp_surge_c','burn_severity_override','inject_forecast_storm_mm','storm_arrival_hour','storm_duration_hours'}
+        if set(changes)-allowed:raise ValueError('Unknown scenario perturbation')
+        scenario={**state['response']['scenario'],**changes}
+        return await self.scan(_snapshot=state['scan'],ground_columns=state['ground_columns'],**scenario)
+
+    def inspect_hexagon(self, h3_index: str,scan_id=None,scenario_id=None) -> Dict[str, Any]:
+        if scan_id is not None or scenario_id is not None:
+            state=self.get_scan_state(scan_id,scenario_id);response=state['response']
+            physical=next((r for r in response['physical_assessment']['cells'] if r['h3_index']==h3_index),None)
+            ml=next((r for r in response['physics_informed_assessment']['cells'] if r['h3_index']==h3_index),None)
+            if physical is None:raise KeyError('Cell not in this scan/scenario')
+            return {'scan_id':scan_id,'scenario_id':scenario_id,**physical,'physics_informed_assessment':ml}
         context = self._get_context(h3_index)
         scan: GlobalScan = context["scan"]
         cell = scan.terrain.cells[h3_index]
+        if context.get('kind')=='source_evidence':
+            response=context['response']
+            return self.inspect_hexagon(h3_index,response['scan_id'],response['scenario_id'])
+            # Historical inspection shape below is retained for archived callers.
+            from .ground_assessment import located_cell
+            response=context['response']
+            statistical=next((r for r in response['statistical_assessment']['cells'] if r['h3_index']==h3_index),None)
+            physical=next((r for r in response['physical_assessment']['cells'] if r['h3_index']==h3_index),None)
+            return {**located_cell(cell,scan.location),'statistical_assessment':statistical,'physical_assessment':physical,
+                'fs_dynamic':physical['fs_dynamic'] if physical else None,
+                'p_f_fosm':None,'p_failure':None,'peak_velocity_ms':None,'newmark_displacement_cm':None,
+                'reason':None if physical else response['physical_assessment']['reason']}
         properties = context["state"]
         index = context["cell_ids"].index(h3_index) if "cell_ids" in context else list(scan.terrain.cells).index(h3_index)
         state = context["state"]
@@ -420,8 +556,16 @@ class GlobalScanService:
             "physics_feature_provenance": self._cell_provenance(scan, h3_index),
         }
 
-    def trace_runout(self, h3_index: str) -> Dict[str, Any]:
+    def trace_runout(self, h3_index: str,scan_id=None,scenario_id=None) -> Dict[str, Any]:
+        if scan_id is not None or scenario_id is not None:
+            from .reference_assessment import reference_runout
+            state=self.get_scan_state(scan_id,scenario_id)
+            if h3_index not in state['scan'].terrain.cells:raise KeyError('Cell not in this scan')
+            return {'scan_id':scan_id,'scenario_id':scenario_id,**reference_runout(state['scan'],h3_index)}
         context = self._get_context(h3_index)
+        if context.get('kind')=='source_evidence':
+            from .reference_assessment import reference_runout
+            return reference_runout(context['scan'],h3_index)
         scan: GlobalScan = context["scan"]
         state = context["state"]
         kinematics = context["kinematics"]
@@ -548,9 +692,9 @@ class GlobalScanService:
             "nasa_power_gwetroot": h.nasa_gwetroot_pct if h and h.nasa_gwetroot_pct is not None else None,
             "nasa_power_prectotcorr_mm": h.nasa_precipitation_mm_day if h else None,
             "nasa_eonet_active_events": scan.eonet_events,
-            "nasa_coolr_regional_count_100km": scan.coolr_nearby.get("nasa_coolr_regional_count_100km",0),
+            "nasa_coolr_regional_count_100km": scan.coolr_nearby.get("nasa_coolr_regional_count_100km"),
             "nearest_coolr_event_km": scan.coolr_nearby.get("nearest_coolr_event_km"),
-            "nasa_coolr_nearby_count": scan.coolr_nearby["count"], "coolr_count_provenance": scan.coolr_nearby,
+            "nasa_coolr_nearby_count": scan.coolr_nearby.get("count") if scan.coolr_nearby.get('quality')!='not_queried' else None, "coolr_count_provenance": scan.coolr_nearby,
             "srtm_terrarium_elevation_range_m": [scan.terrain.min_elevation_m, scan.terrain.max_elevation_m] if scan.terrain else None,
             "quality": {"power": "latest available daily values; not instantaneous",
                         "eonet": "returned event records with their dates; not a local hazard count",
@@ -561,15 +705,16 @@ class GlobalScanService:
 
     def _empty_response(self, scan: GlobalScan, agency_mode: str) -> Dict[str, Any]:
         weather=scan.weather
+        reason = "No terrain" if not scan.terrain or not scan.terrain.cells else "Missing or incompatible volumetric moisture/soil porosity"
         return {
-            "predictive_forecast_72h": {"status":"UNAVAILABLE","reason":"No terrain"},
-            "location": {"query": scan.location.query, "display_name": scan.location.display_name, "latitude": scan.location.latitude, "longitude": scan.location.longitude, "agency_mode": agency_mode, "bedrock_lithology": scan.bedrock, "river_discharge": scan.river, "nasa_telemetry": self._nasa_telemetry(scan), "reliability_report": reliability_report(scan)},
+            "predictive_forecast_72h": {"status":"UNAVAILABLE","reason":reason},
+            "location": {"query": scan.location.query, "display_name": scan.location.display_name, "latitude": scan.location.latitude, "longitude": scan.location.longitude, "agency_mode": agency_mode, "bedrock_lithology": scan.bedrock, "river_discharge": scan.river, "nasa_telemetry": self._nasa_telemetry(scan), "reliability_report": reliability_report(scan),"forecast_weather_hourly_72h":weather.forecast_hourly_72h if weather else []},
             "summary": {
                 "wmo_alert_level": "UNAVAILABLE", "max_p_failure": None, "min_fs_dynamic": None,
-                "dominant_cause": None, "critical_hotspots_count": 0, "total_households_exposed": None,
-                "causal_breakdown_pct": {cause: 20.0 for cause in CAUSES}, "kinematics_top_hotspot": None,
-                "causal_attribution_valid": False, "causal_attribution_quality": "neutral_prior_no_terrain",
-                "numbers_that_matter": [{"metric": key, "value": 0.0, "unit": unit, "threshold": "unavailable", "status": "NORMAL", "causal_group": "unavailable", "weight_percent": 0.0, "available": False}
+                "dominant_cause": None, "critical_hotspots_count": None, "total_households_exposed": None,
+                "causal_breakdown_pct": None, "kinematics_top_hotspot": None,
+                "causal_attribution_valid": False, "causal_attribution_quality": "UNAVAILABLE",
+                "numbers_that_matter": [{"metric": key, "value": None, "unit": unit, "threshold": None, "status": "UNAVAILABLE", "causal_group": None, "weight_percent": None, "available": False}
                     for key,unit in [("dynamic_factor_of_safety","ratio"),("blended_failure_probability","%"),("peak_velocity","m/s"),("pore_pressure_head","m"),("slope_angle","degrees"),("newmark_displacement","cm")]],
                 "meteorological_metrics": {
                     "forecast_rain_48h_mm": (weather.forecast_rain_next_24h_mm + weather.forecast_rain_24_48h_mm) if weather and weather.forecast_rain_next_24h_mm is not None and weather.forecast_rain_24_48h_mm is not None else None,
@@ -578,8 +723,10 @@ class GlobalScanService:
                     "snow_depth_m": weather.snow_depth_m if weather else None,
                     "air_temperature_c_scenario": weather.air_temperature_c if weather else None,
                     "soil_temperature_c_observed": weather.soil_temperature_0_7cm_c if weather else None,
-                    "pga_g_observed": scan.seismic.max_pga_g if scan.seismic else None,
-                }, "physics_status": "no sampled land cells",
+                    "pga_g_observed": None,
+                    "pga_g_catalog_proxy": scan.seismic.max_pga_g if scan.seismic and scan.seismic.event_count>0 else None,
+                    "measurement_quality":"Weather is provider-model output; catalog PGA is an attenuation proxy, not a local shaking measurement",
+                }, "physics_status": reason, "moisture_compatibility": getattr(scan.hydrology, "moisture_compatibility", "unknown"),
             },
             "h3_geojson": {"type": "FeatureCollection", "features": []},
             "runout_geojson": {"type": "FeatureCollection", "features": []},

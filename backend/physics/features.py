@@ -13,7 +13,7 @@ def physics_feature_matrix(inputs: PhysicsInputs, state: Any, curvature: np.ndar
         "fs_dynamic": state.fs_dynamic, "p_f_fosm": state.p_failure_fosm,
         "psi_head_m": state.pore_pressure_head_m, "newmark_dn_cm": state.newmark_displacement_cm,
         "slope_max_deg": inputs.slope_deg, "twi": inputs.twi,
-        "soil_saturation": state.local_saturation, "rain_24h_mm": state.equivalent_water_mm,
+        "soil_saturation": state.local_saturation, "rain_24h_mm": np.maximum(rain, 0.),
         "snowmelt_mm_day": state.snowmelt_mm_day, "pga_g": pga,
         "thaw_degradation": 1.0 - state.thaw_factor, "burn_severity": state.effective_burn_severity,
         "toe_undercut_mult": state.toe_undercut_multiplier,

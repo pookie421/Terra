@@ -7,7 +7,8 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
 import numpy as np
-from .mechanisms import postfire, suction_cohesion, ice_factors
+from .mechanisms import staley_m1_probability, gartner_volume_m3
+from .reference_column import response_function, critical_acceleration_g, jibson_displacement_cm, jibson_failure_probability
 
 ArrayInput = Union[float, int, Sequence[float], np.ndarray]
 GAMMA_W_KN_M3 = 9.81
@@ -47,6 +48,7 @@ class PhysicsInputs:
     baseline_air_temperature_c: ArrayInput = -999.0
     observed_snow_depth_m: ArrayInput = -1.0
     river_surge_ratio: ArrayInput = 1.0
+    # Deprecated compatibility inputs: bedrock context never modifies regolith strength.
     geology_friction_adjustment_deg: ArrayInput = 0.0
     geology_cohesion_adjustment_kpa: ArrayInput = 0.0
     rain_15min_override_mm: ArrayInput = -1.0
@@ -54,6 +56,17 @@ class PhysicsInputs:
     pore_pressure_override_m: ArrayInput = -1.0  # temporal solver: -1 uses the static storm calculation
     block_width_m: ArrayInput = 35.0
     hollow_confinement_ratio: ArrayInput = 1.0
+    transient_pressure_head_m: ArrayInput = -1.0  # replace transient response only
+    antecedent_pressure_head_m: ArrayInput = 0.0  # specified initial head, not inferred from wetness
+    specific_moisture_capacity_m_inv: ArrayInput = -1.0
+    horizontal_seismic_coefficient: ArrayInput = 0.0
+    postfire_burned_steep_fraction: ArrayInput = -1.0
+    postfire_mean_dnbr: ArrayInput = -1.0  # dNBR in the scaled 0..1000 convention
+    postfire_soil_erodibility_kf: ArrayInput = -1.0
+    postfire_burned_area_km2: ArrayInput = -1.0
+    postfire_basin_relief_m: ArrayInput = -1.0
+    weather_reference_elevation_m: ArrayInput = -999.0
+    runout_travel_length_m: ArrayInput = 0.0  # unavailable geometry => no predicted speed
 
 
 @dataclass
@@ -107,6 +120,9 @@ class PhysicsState:
     cryospheric_eligible: np.ndarray
     lateral_resistance_kpa: np.ndarray
     warnings: List[str] = field(default_factory=list)
+    newmark_applicable: Optional[np.ndarray] = None
+    postfire_basin_inputs_available: Optional[np.ndarray] = None
+    specific_moisture_capacity_m_inv: Optional[np.ndarray] = None
 
     @property
     def cell_count(self) -> int:
@@ -127,18 +143,19 @@ class MultiCausalEngine:
         values = self._broadcast_inputs(inputs)
         sand = np.clip(values["sand_fraction"], 0.05, 0.85)
         clay = np.clip(values["clay_fraction"], 0.05, 0.65)
-        organic = 100.0 * np.clip(values["organic_matter_fraction"], 0.005, 0.06)  # coefficients use percent OM
-        bulk_density = np.clip(values["bulk_density_g_cm3"], 1.15, 1.70)
+        organic = 100.0 * values["organic_matter_fraction"]  # coefficients use percent OM
+        bulk_density = values["bulk_density_g_cm3"]
+        if np.any((bulk_density <= 0) | (bulk_density >= PARTICLE_DENSITY_G_CM3)):
+            raise ValueError('Bulk density must define a positive pore volume')
         slope_deg = np.clip(values["slope_deg"], 0.0, 89.9)
-        curvature = np.abs(values["profile_curvature"])
-        amplified = slope_deg * (1.0 + 0.20 * np.clip(curvature / 0.015, 0.25, 1.0))
-        # Never flatten a DEM slope already steeper than the 48 degree scenario cap.
-        effective_slope = np.where(slope_deg >= 15.0, np.maximum(slope_deg, np.minimum(amplified, 48.0)), slope_deg)
+        effective_slope = slope_deg.copy()
         slope = np.radians(effective_slope)
         sin_slope, cos_slope = np.sin(slope), np.cos(slope)
         cos2 = cos_slope**2
         twi = values["twi"]
-        initial_saturation = np.clip(values["soil_saturation_fraction"], 0.0, 1.0)
+        initial_saturation = values["soil_saturation_fraction"]
+        if np.any((initial_saturation < 0) | (initial_saturation > 1)):
+            raise ValueError('Absolute saturation must be compatible with the selected soil porosity')
         rain = np.maximum(values["rain_24h_mm"], 0.0)
         storm_hr = values["storm_duration_hr"]
         snow_depth = np.maximum(values["snow_depth_m"], 0.0)
@@ -146,7 +163,7 @@ class MultiCausalEngine:
         soil_temp = values["soil_temperature_c"]
         freeze_cycles = np.maximum(values["freeze_thaw_cycles_7d"], 0.0)
         ndvi = np.clip(values["ndvi_norm"], 0.0, 1.0)
-        burn = np.clip(values["burn_severity"], 0.0, 1.0) * np.clip(ndvi / .22, 0.0, 1.0)
+        burn = np.clip(values["burn_severity"], 0.0, 1.0)
         pga = np.maximum(values["pga_g"], 0.0)
         road_distance = np.maximum(values["road_cut_distance_m"], 0.0)
         river_distance = np.maximum(values["river_distance_m"], 0.0)
@@ -156,7 +173,7 @@ class MultiCausalEngine:
             raise ValueError("TWI must be positive for every cell")
 
         # Saxton & Rawls 2006 equations, retaining the specified clip bounds.
-        theta_s = np.clip(1.0 - bulk_density / PARTICLE_DENSITY_G_CM3, 0.34, 0.58)
+        theta_s = 1.0 - bulk_density / PARTICLE_DENSITY_G_CM3
         theta_1500_t = (
             -0.024 * sand
             + 0.487 * clay
@@ -198,10 +215,8 @@ class MultiCausalEngine:
         )
         ksat = np.clip(ksat_raw, 1e-7, 1e-3)
         friction_deg = np.clip(24.0 + 14.0 * sand - 8.0 * clay, 18.0, 39.0)
-        friction_deg += values["geology_friction_adjustment_deg"]
         tan_phi = np.tan(np.radians(friction_deg))
         cohesion_soil = np.clip(4.0 + 16.0 * clay - 3.5 * sand, 2.0, 20.0)
-        cohesion_soil = np.maximum(0.,cohesion_soil + values["geology_cohesion_adjustment_kpa"])
         base_depth = np.clip(2.8 * np.exp(-0.85 * np.tan(slope)), 0.60, 3.00)
         # Keep the slab thickness independent of the separate post-fire runoff branch.
         regolith_depth = base_depth.copy()  # slab depth is independent of the runoff branch
@@ -212,84 +227,76 @@ class MultiCausalEngine:
             0.0,
         )
         snowmelt = np.where(values["snowmelt_override_mm_day"] >= 0, values["snowmelt_override_mm_day"], snowmelt)
-        from .alpine_weather import cryospheric_eligibility
-        baseline_air = np.where(values['baseline_air_temperature_c'] > -998,
-                                values['baseline_air_temperature_c'], air_temp-values['warming_delta_c'])
-        observed_snow = np.where(values['observed_snow_depth_m'] >= 0,
-                                 values['observed_snow_depth_m'], snow_depth)
-        cryo_active = cryospheric_eligibility(observed_snow, baseline_air, values['elevation_m'], values['latitude_deg'])
-        # Elevation is an eligibility screen, not evidence that an ice-filled joint exists.
-        cryo_active &= (observed_snow > .005) | (freeze_cycles > 0) | (values['warming_delta_c'] > 0)
-        _, thaw, ice_friction = ice_factors(values['elevation_m'],soil_temp,snow_depth,freeze_cycles,values['warming_delta_c'],eligible=cryo_active)
+        # No unsurveyed ice-joint, root, toe-erosion, or wet-strength modifiers.
+        # Their compatibility fields remain present; independent observations are
+        # required before introducing these mechanisms into reference mechanics.
+        cryo_active = np.zeros_like(slope_deg, dtype=bool)
+        thaw = np.ones_like(slope_deg)
+        ice_friction = np.ones_like(slope_deg)
         tan_phi_base = tan_phi.copy()
-        tan_phi = tan_phi * ice_friction
-        friction_deg = np.degrees(np.arctan(tan_phi))
-        root_cohesion_baseline = 12.0 * np.power(ndvi, 1.35)
-        root_cohesion = root_cohesion_baseline * (1.0 - 0.90 * burn)
-        fire_multiplier = np.ones_like(burn)
+        root_cohesion_baseline = np.zeros_like(slope_deg)
+        root_cohesion = root_cohesion_baseline.copy()
+        fire_multiplier = np.ones_like(slope_deg)
         keff = ksat.copy()
-
-        median_twi = float(np.median(twi))
-        # Project storm/convergence proxies, not a solved TRIGRS water balance.
-        active_water_mm = rain + 1.35 * snowmelt
-        wetness_convergence = 1.0 + (np.power(twi / median_twi, 0.28) - 1.0) * np.clip(active_water_mm / 35.0, 0.08, 1.0)
-        storm_wetting = (1.0 - initial_saturation) * np.clip(active_water_mm / 210.0, 0.0, 0.85)
-        local_saturation = np.clip((initial_saturation + storm_wetting) * wetness_convergence, 0.10, 0.99)
-
-        fire_driving = np.ones_like(burn)
+        local_saturation = initial_saturation.copy()
+        active_water_mm = rain + snowmelt
+        fire_driving = np.ones_like(slope_deg)
         soil_cohesion_effective = cohesion_soil.copy()
-        infiltration = (
-            rain * 1e-3 / (storm_hr * 3600.0) + snowmelt * 1e-3 / 86400.0
-        ) * fire_multiplier
-        hydraulic_diffusivity = 4.0 * keff * cos2 / np.maximum(theta_s * (1.0 - local_saturation), 0.015)
-        dimensionless_time = storm_hr * 3600.0 * hydraulic_diffusivity / (regolith_depth**2)
-        safe_time = np.maximum(dimensionless_time, 1e-12)
-        iverson_response = (
-            np.sqrt(safe_time / math.pi) * np.exp(-1.0 / safe_time)
-            - self._erfc(1.0 / np.sqrt(safe_time))
-        )
-        s_fc = np.clip(theta_33 / np.maximum(theta_s, 0.30), 0.48, 0.76)
-        drainage_gate = np.clip(active_water_mm / 15.0, 0.04, 1.0)
-        mobile_water_fraction = drainage_gate * np.clip((local_saturation-s_fc) / np.maximum(1.0-s_fc,0.15),0.0,1.0)
-        pressure_head = np.clip(
-            regolith_depth * mobile_water_fraction * cos2
-            + regolith_depth * np.minimum(infiltration / keff, 4.0) * iverson_response,
-            0.0,
-            regolith_depth * cos2,
-        )
-
-        # Bounded active-layer water storage above an assumed low-permeability base.
-        # This mass-balance approximation is not the TRIGRS PDE solution.
-        basal_ratio=np.clip(values['basal_conductivity_ratio'],0,1)
-        perched=np.where(cryo_active & (snowmelt>0),
-            np.minimum(regolith_depth*cos2, np.maximum(0.,infiltration-ksat*basal_ratio)*storm_hr*3600/np.maximum(theta_s,.01)),0.)
-        pressure_head=np.minimum(regolith_depth*cos2,pressure_head+perched)
-        override=values["pore_pressure_override_m"]
-        pressure_head=np.where(override>=0,np.clip(override,0,regolith_depth*cos2),pressure_head)
-        se=np.clip((local_saturation-.08)/.92,.02,.999)
-        alpha=values['vg_alpha_kpa_inv'];n=values['vg_n']
-        if np.any(alpha<=0) or np.any(n<=1):raise ValueError('Invalid van Genuchten parameters')
-        suction_stress=-se/alpha*np.expm1(np.clip(np.log(se)*n/(1-n),0.,700.))**(1/n)
-        taper=np.clip((.85-se)/.10,0,1);taper=taper*taper*(3-2*taper)
-        storm_activation=np.clip((rain+snowmelt)/25.,0,1)
-        suction=np.clip(-suction_stress*tan_phi,0,8)*taper*(1-storm_activation)
-        suction=np.where(perched>0,0.,suction)
-        p_m1,volume,fs_fire,r15=postfire(burn,effective_slope,clay,sand,rain,values['peak_3h_intensity_mmhr'],base_depth,values['rain_15min_override_mm'])
-
-        toe_multiplier = (
-            1.0
-            + 0.35 * np.exp(-road_distance / 60.0) * (slope_deg > 16.0)
-            + 0.15 * np.exp(-river_distance / 80.0) * (twi / 15.0) * np.where((twi>=14.5)&(values["river_surge_ratio"]>1.3),np.sqrt(np.clip(values["river_surge_ratio"],1,5)),1.)
-        )
-        wet_unit_weight = (bulk_density + local_saturation * theta_s) * GAMMA_W_KN_M3
+        infiltration = np.minimum(rain*1e-3/(storm_hr*3600.) + snowmelt*1e-3/86400., keff)
+        alpha = values['vg_alpha_kpa_inv']
+        if np.any(alpha <= 0):
+            raise ValueError('Characteristic retention alpha must be positive')
+        # Linearized capacity across a characteristic suction head hc=1/(alpha*gamma_w).
+        # This is a disclosed pedotransfer approximation, not measured diffusivity.
+        # Explicit capacity overrides the approximation. C [1/m], Ks/C [m²/s].
+        capillary_head_m = 1. / (alpha * GAMMA_W_KN_M3)
+        supplied_capacity = values['specific_moisture_capacity_m_inv']
+        if np.any((supplied_capacity != -1.) & (supplied_capacity <= 0.)):
+            raise ValueError('Specific moisture capacity must be positive, or -1 for the declared approximation')
+        capacity = np.where(values['specific_moisture_capacity_m_inv'] > 0,
+                            values['specific_moisture_capacity_m_inv'], theta_s/capillary_head_m)
+        hydraulic_diffusivity = keff / capacity
+        dimensionless_time = 4.*hydraulic_diffusivity*cos2*storm_hr*3600./regolith_depth**2
+        iverson_response = response_function(dimensionless_time)
+        transient_head = np.where(values['transient_pressure_head_m'] >= 0,
+                                   values['transient_pressure_head_m'],
+                                   regolith_depth*infiltration/keff*iverson_response)
+        pressure_head = np.minimum(regolith_depth*cos2,
+                                   values['antecedent_pressure_head_m'] + transient_head)
+        override = values['pore_pressure_override_m']
+        pressure_head = np.where(override >= 0, np.minimum(override, regolith_depth*cos2), pressure_head)
+        perched = np.zeros_like(pressure_head)
+        suction = np.zeros_like(pressure_head)
+        s_fc = theta_33 / theta_s
+        toe_multiplier = np.ones_like(slope_deg)
+        r15 = np.where(values['rain_15min_override_mm'] >= 0,
+                        values['rain_15min_override_mm'], .25*values['peak_3h_intensity_mmhr'])
+        fire_available = ((values['postfire_burned_steep_fraction'] >= 0) &
+                          (values['postfire_mean_dnbr'] >= 0) &
+                          (values['postfire_soil_erodibility_kf'] >= 0) &
+                          (values['rain_15min_override_mm'] >= 0))
+        p_m1 = np.zeros_like(slope_deg)
+        if fire_available.any():
+            p_m1[fire_available] = staley_m1_probability(r15[fire_available],
+                values['postfire_burned_steep_fraction'][fire_available],
+                values['postfire_mean_dnbr'][fire_available], values['postfire_soil_erodibility_kf'][fire_available])
+        volume = np.zeros_like(slope_deg)
+        volume_available = fire_available & (values['postfire_burned_area_km2'] > 0) & (values['postfire_basin_relief_m'] >= 0)
+        if volume_available.any():
+            volume[volume_available] = gartner_volume_m3(4*r15[volume_available],
+                values['postfire_burned_area_km2'][volume_available], values['postfire_basin_relief_m'][volume_available])
+        fs_fire = np.full_like(slope_deg, 5.)  # deprecated compatibility diagnostic
+        # Reference moist slab weight is fixed during a rain perturbation. This
+        # decouples the approximate pressure response from storm-driven mass gain.
+        wet_unit_weight = (bulk_density + initial_saturation * theta_s) * GAMMA_W_KN_M3
         effective_cohesion = (soil_cohesion_effective + root_cohesion) * thaw + suction
-        kh = 0.50 * pga
+        kh = values["horizontal_seismic_coefficient"]  # explicit load only; PGA is used in Newmark
 
         lateral = np.zeros_like(regolith_depth)  # compatibility output; no lateral force
         normal_static = wet_unit_weight * regolith_depth * cos2 - pressure_head * GAMMA_W_KN_M3
         driving_static = wet_unit_weight * regolith_depth * sin_slope * cos_slope * toe_multiplier * fire_driving
-        fs_static_raw = (effective_cohesion + normal_static * tan_phi) / np.maximum(driving_static, 1.0)
-        fs_static = np.clip(fs_static_raw, 0.10, 5.00)
+        fs_static_raw = (effective_cohesion + np.maximum(normal_static, 0.) * tan_phi) / np.maximum(driving_static, 1e-12)
+        fs_static = fs_static_raw.copy()
 
         normal_dynamic = (
             wet_unit_weight * regolith_depth * (cos2 - kh * sin_slope * cos_slope)
@@ -301,54 +308,59 @@ class MultiCausalEngine:
             * (sin_slope * cos_slope + kh * cos2)
             * toe_multiplier * fire_driving
         )
-        denominator_dynamic = np.maximum(driving_dynamic, 1.0)
-        fs_dynamic_raw = (effective_cohesion + normal_dynamic * tan_phi) / denominator_dynamic
-        fs_mohr = np.clip(fs_dynamic_raw, 0.10, 5.00)
+        denominator_dynamic = np.maximum(driving_dynamic, 1e-12)
+        fs_dynamic_raw = (effective_cohesion + np.maximum(normal_dynamic, 0.) * tan_phi) / denominator_dynamic
+        fs_mohr = fs_dynamic_raw.copy()
         fs_dynamic = fs_mohr.copy()
 
-        # Delta-method FOSM, including the derivative of the specified FS clip.
-        sigma_cohesion = 0.18 * effective_cohesion
-        lateral_coefficient = 0.0
-        sigma_tan_phi = 0.12 * tan_phi
-        sigma_pressure = 0.15 * pressure_head
-        clip_active = (fs_dynamic_raw > 0.10) & (fs_dynamic_raw < 5.00)
-        d_fs_dc = np.where(clip_active, 1.0 / denominator_dynamic, 0.0)
-        d_fs_dtan = np.where(clip_active, normal_dynamic / denominator_dynamic, 0.0)
-        d_fs_dpressure = np.where(
-            clip_active, -GAMMA_W_KN_M3 * tan_phi / denominator_dynamic, 0.0
-        )
-        sigma_fs = np.sqrt(
-            (d_fs_dc * sigma_cohesion) ** 2
-            + (d_fs_dtan * sigma_tan_phi) ** 2
-            + (d_fs_dpressure * sigma_pressure) ** 2
-        )
-        beta = (fs_mohr - 1.0) / np.maximum(sigma_fs, 0.05)
-        p_failure = 0.5 * self._erfc(beta / math.sqrt(2.0))
+        # Joint delta method, including geometry, hydraulics, water and forcing.
+        from .reference_context import joint_fosm,angular_reliability
+        from scipy.special import ndtr
+        supplied_head=(values['pore_pressure_override_m']>=0)|(values['transient_pressure_head_m']>=0)
+        reference_rain=rain+snowmelt*storm_hr/24.
+        reference_initial=values['antecedent_pressure_head_m']
+        reference_rain=np.where(supplied_head,0.,reference_rain)
+        reference_initial=np.where(supplied_head,pressure_head,reference_initial)
+        parameters=np.column_stack([effective_cohesion,friction_deg,wet_unit_weight,regolith_depth,
+            keff,hydraulic_diffusivity,reference_initial,np.maximum(effective_slope,1e-6),reference_rain,kh])
+        spreads=np.column_stack([.4*effective_cohesion+.5,np.full_like(slope_deg,4.),.08*wet_unit_weight,
+            .35*regolith_depth,.5*keff,.6*hydraulic_diffusivity,.15*regolith_depth*cos2+.02,
+            np.full_like(slope_deg,1.),.2*reference_rain+.5,np.zeros_like(kh)])
+        correlation=np.eye(10);correlation[0,1]=correlation[1,0]=-.25;correlation[4,5]=correlation[5,4]=.6
+        # Durations may differ by cell in the vectorized scenario interface.
+        variance=np.zeros_like(slope_deg)
+        for duration in np.unique(storm_hr):
+            mask=storm_hr==duration
+            variance[mask]=joint_fosm(parameters[mask],spreads[mask],duration*3600.,correlation)[0]
+        sigma_fs=np.sqrt(variance)
+        sigma_log=sigma_fs/np.maximum(fs_mohr,1e-12)
+        beta=np.log(np.maximum(fs_mohr,1e-12))/np.maximum(sigma_log,1e-12)
+        p_failure=ndtr(-beta)
+        for duration in np.unique(storm_hr):
+            mask=(storm_hr==duration)&(fs_mohr>1e-9)
+            if mask.any():p_failure[mask]=angular_reliability(parameters[mask],spreads[mask],duration*3600.,correlation)[0]
 
         # Pre-storm, unsaturated, unburned baseline; excludes seismic load and thaw.
         dry_gamma = bulk_density * GAMMA_W_KN_M3
         dry_normal = dry_gamma * base_depth * cos2
         dry_driving = dry_gamma * base_depth * sin_slope * cos_slope * toe_multiplier
-        fs_static_dry = np.clip((cohesion_soil + root_cohesion_baseline + dry_normal * tan_phi_base)
-                               / np.maximum(dry_driving, 1.0), 0.10, 5.0)
-        # Project static-state yield with a heuristic 0.75 factor; geology is still included.
-        critical_acceleration = np.clip((fs_static - 1.0) * sin_slope * 0.75, 0.05, 0.60)
-        pga_ratio = np.clip(
-            critical_acceleration / np.maximum(pga, 1e-12), 1e-12, 1.0 - 1e-12
-        )
-        newmark = np.where(
-            pga > critical_acceleration,
-            np.power(10.0, 0.215 + 2.341 * np.log10(1.0 - pga_ratio) - 1.438 * np.log10(pga_ratio)),
-            0.0,
-        )
-
-        # Project-defined detachment cap; retain a separate regional empirical component.
-        newmark = np.minimum(newmark, 120.0)
-        p_seismic = 0.335 * (-np.expm1(-0.048 * np.power(newmark, 1.565)))
-        # Requested probabilistic union; this treats the three components as independent.
+        fs_static_dry = (cohesion_soil + root_cohesion_baseline + dry_normal * tan_phi_base) / np.maximum(dry_driving, 1e-12)
+        critical_acceleration = critical_acceleration_g(fs_static_raw, effective_slope)
+        newmark_raw = jibson_displacement_cm(critical_acceleration, pga)
+        newmark_applicable = (fs_static_raw > 1.) & (critical_acceleration > 0)
+        # Numeric placeholder only for the legacy 14-feature interface. Public
+        # cell output additionally carries applicability and null displacement.
+        newmark = np.where(newmark_applicable, newmark_raw, 0.)
+        p_seismic = np.where(newmark_applicable, jibson_failure_probability(newmark), 0.)
         p_fosm = p_failure.copy()
-        p_failure = 1.0-(1.0-p_fosm)*(1.0-p_seismic)*(1.0-p_m1)
-        warnings = ["M1/Gartner inputs are cell proxies; mechanical FS is separate from surface runoff initiation. Ice weakening, basal drainage and VG parameters are scenario assumptions. Probability union assumes independent components."]
+        # Components have different calibration populations and are dependent.
+        # Keep them separate; the legacy physical score denotes FOSM only.
+        p_failure = p_fosm.copy()
+        warnings = ["Reference-column approximation; live material properties and capacity are pedotransfer estimates. "
+                    "Initial pressure head defaults to an explicit zero-head scenario, not a wetness conversion. "
+                    "FOSM spread is assumed, not calibrated event probability. M1 requires basin inputs. "
+                    "Unavailable Newmark uses a zero feature placeholder and an explicit applicability flag. "
+                    "No validated ice, root, erosion, or runout geometry is inferred from imagery or terrain."]
         reversed_bounds = np.where(theta_33 <= theta_1500)[0]
         if reversed_bounds.size:
             warnings.append(
@@ -393,8 +405,10 @@ class MultiCausalEngine:
             fs_mohr_coulomb=fs_mohr, fs_postfire_yield_index=fs_fire, p_failure_m1=p_m1,
             debris_volume_m3=volume, rain_15min_proxy_mm=r15, suction_cohesion_kpa=suction,
             cryo_perched_head_m=perched, ice_friction_factor=ice_friction,
-            equivalent_water_mm=rain+1.35*snowmelt,
+            equivalent_water_mm=rain+snowmelt,
             effective_burn_severity=burn, cryospheric_eligible=cryo_active, lateral_resistance_kpa=lateral,
+            newmark_applicable=newmark_applicable, postfire_basin_inputs_available=fire_available,
+            specific_moisture_capacity_m_inv=capacity,
         )
 
     @staticmethod

@@ -3,22 +3,32 @@ import hashlib
 import math
 from collections import Counter
 
-def pinls_filter(rows, threshold=1.20):
-    kept, rejected = [], []
-    for row in rows:
-        prior = row.get('fs_static_prior')
-        negative_ok = prior is not None and math.isfinite(float(prior)) and float(prior) > threshold
-        (kept if row.get('label') != 0 or negative_ok else rejected).append(row)
-    strata = Counter('low_slope_lt15' if r.get('slope_max_deg',0)<15 else 'moderate_high_slope_ge15'
-                     for r in kept if r.get('label')==0 and not r.get('is_synthetic'))
-    return kept, {'threshold':threshold,'removed_ids':[r['event_id'] for r in rejected],
-                  'retained_negative_slope_strata':dict(strata),
-                  'scope':'Requested sampling rule; not verified intact ground. Filtering evaluation negatives changes the estimand.'}
+def quiescent_control(row):
+    """External-forcing diagnostic only; never consult modeled stability.
+
+    This defines a calm-weather subset, not the default background population.
+    """
+    keys=('rain_effective_storm_mm','pga_attenuation_proxy_g','snow_depth_72h_max_m')
+    if any(row.get(k) is None or not math.isfinite(float(row[k])) for k in keys):return False
+    return (0.<=row[keys[0]]<=35. and 0.<=row[keys[1]]<.01 and row[keys[2]]==0.
+            and str(row.get('usgs_source_status','')).startswith(('live_', 'retained_')))
+
+
+def pinls_filter(rows, threshold=None):
+    """Compatibility adapter: retain all labels; no model-screened negatives."""
+    return list(rows), {'threshold':None,'removed_ids':[],
+        'scope':'No FS/probability filtering; inventory absence is not verified stability',
+        'temporal_rule':'Fixed-date or seeded external-data sampling only'}
 
 def reserve_conformal_blocks(rows):
-    groups=sorted({str(r['region_block']) for r in rows if r.get('label') in (0,1) and not r.get('is_synthetic')},
-                  key=lambda g:hashlib.sha256(('terra-conformal-v5:'+g).encode()).hexdigest())
-    reserved=set(groups[:max(10,len(groups)//5)])
-    calibration=[r for r in rows if str(r.get('region_block')) in reserved and r.get('label') in (0,1)]
-    proper=[r for r in rows if str(r.get('region_block')) not in reserved]
+    from .global_xgb import row_component_groups
+    eligible = [r for r in rows if r.get('label') in (0,1) and not r.get('is_synthetic')]
+    if not eligible:
+        return list(rows), [], []
+    components = row_component_groups(eligible)
+    ids = {r['event_id']:str(g) for r,g in zip(eligible,components)}
+    groups=sorted(set(components),key=lambda g:hashlib.sha256(('terra-conformal-v14:'+g).encode()).hexdigest())
+    reserved=set(groups[:max(1,len(groups)//5)])
+    calibration=[r for r in rows if ids.get(r['event_id']) in reserved]
+    proper=[r for r in rows if ids.get(r['event_id']) not in reserved]
     return proper,calibration,sorted(reserved)

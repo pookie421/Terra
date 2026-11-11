@@ -7,7 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 from collections import Counter
-from backend.ml.global_xgb import FEATURE_NAMES
+from backend.ml.global_xgb import FEATURE_NAMES, row_component_groups
 
 REGIMES=('monsoon_rain','coseismic','cryosphere')
 
@@ -47,19 +47,23 @@ def write_holdout(output,rows):
     hold=[by_id[eid] for eid in manifest['selected_ids']]
     excluded=set(manifest['heldout_groups'])|set(manifest['legacy_reserved_groups'])
     blocks={r['region_block'] for r in rows if r.get('event_group_id') in excluded}
-    train=[r for r in rows if r.get('event_group_id') not in excluded and r.get('region_block') not in blocks]
+    observed = [r for r in rows if r.get('label') in (0,1) and not r.get('is_synthetic')]
+    components = row_component_groups(observed)
+    embargo = {str(g) for r,g in zip(observed,components) if r.get('event_group_id') in excluded or r['region_block'] in blocks}
+    allowed_ids = {r['event_id'] for r,g in zip(observed,components) if str(g) not in embargo}
+    train=[r for r in observed if r['event_id'] in allowed_ids and all(r.get(k) is not None for k in FEATURE_NAMES)]
     from .pinls import pinls_filter, reserve_conformal_blocks
     unfiltered_train=list(train)
     train,conformal,reserved=reserve_conformal_blocks(train)
     train,training_filter=pinls_filter(train)
     filtered_hold,holdout_filter=pinls_filter(hold)
     labeled=[r for r in train if r.get('label') in (0,1)]
-    if len(labeled)<450 or len({r['region_block'] for r in labeled if r['label']==1})<3:
+    if {r['label'] for r in labeled} != {0,1} or len(set(row_component_groups(labeled)))<3:
         raise ValueError('Spatially embargoed holdout leaves insufficient training rows: '+str(len(labeled)))
     for filename,records in [('model_training_unfiltered.parquet',unfiltered_train),('model_training.parquet',train),('historical_hindcast_candidates.parquet',hold),('historical_hindcast_pinls.parquet',filtered_hold),('conformal_calibration.parquet',conformal)]:
         keys=sorted(set().union(*(r.keys() for r in records)))
         pq.write_table(pa.Table.from_pylist([{k:r.get(k) for k in keys} for r in records]),output.with_name(filename),compression='zstd')
-    return {'status':'ready','protocol':'balanced_events_v3_with_declared_pinls_v5','holdout_event_group_ids':manifest['heldout_groups'],
+    return {'status':'ready','protocol':'original_development_holdout_with_event_spatial_component_embargo_v14','holdout_event_group_ids':manifest['heldout_groups'],
             'legacy_reserved_groups':manifest['legacy_reserved_groups'],'holdout_rows':len(hold),
             'holdout_positive_rows':len(hold)//2,'holdout_inventory_absence_controls':len(hold)//2,
             'holdout_positive_regimes':dict(Counter(r['regime'] for r in hold if r['label']==1)),

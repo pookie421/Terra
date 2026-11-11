@@ -14,10 +14,10 @@ def sanitize_json(value, report_replacements=True):
         if isinstance(item,Mapping):return {str(k):convert(v,path+'.'+str(k)) for k,v in item.items()}
         if isinstance(item,(list,tuple)):return [convert(v,path+'['+str(i)+']') for i,v in enumerate(item)]
         if isinstance(item,float) and not math.isfinite(item):
-            replaced.append(path);return 0.0
+            replaced.append(path);return None
         if isinstance(item,Path):return str(item)
         return item
     clean=convert(value,'$')
     if report_replacements and isinstance(clean,dict) and replaced:
-        clean['serialization_quality']={'nonfinite_replacement_count':len(replaced),'replacement_value':0.0,'affected_paths':replaced}
+        clean['serialization_quality']={'nonfinite_replacement_count':len(replaced),'replacement_value':None,'affected_paths':replaced}
     return clean

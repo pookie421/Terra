@@ -40,13 +40,15 @@ class RunoutRoute:
     intersected_buildings: int
     intersected_households: Optional[int]
     stopped_at: str
+    peak_velocity_m_s: float = 0.
+    stop_reason: str = 'energy_exhausted_or_local_sink'
 
     def to_dict(self) -> Dict[str, object]:
         return asdict(self)
 
 
 def solve_kinematics(inputs: PhysicsInputs, state: PhysicsState) -> KinematicsState:
-    """Apply the ordered rapid-flow, coseismic, slump, and creep branches."""
+    """Report mechanical mode; velocity requires an explicit travel-length scenario."""
     slope = np.radians(np.clip(state.effective_slope_deg, 0.0, 89.9))
     burn = state.effective_burn_severity
     rain = np.maximum(np.asarray(inputs.rain_24h_mm, dtype=np.float64), 0.0)
@@ -54,45 +56,16 @@ def solve_kinematics(inputs: PhysicsInputs, state: PhysicsState) -> KinematicsSt
     pga = np.maximum(np.asarray(inputs.pga_g, dtype=np.float64), 0.0)
     tan_phi = np.tan(np.radians(state.friction_angle_deg))
 
-    rapid = ((state.fs_dynamic <= 1.05) & (state.local_saturation >= 0.68)) | ((state.p_failure_m1 >= 0.50) & (burn >= 0.35) & (rain >= 25.0))
-    coseismic = (
-        (~rapid) & (state.fs_dynamic <= 1.0)
-        & (pga > state.critical_acceleration_g)
-        & (state.newmark_displacement_cm >= 2.0)
-        & (np.asarray(inputs.slope_deg) >= 28.0)
-    )
-    slump = (~rapid) & (~coseismic) & (state.fs_dynamic <= 1.25)
-    stable = (~rapid) & (~coseismic) & (~slump)
-
-    flow_depth = state.regolith_depth_m * np.clip(
-        state.pore_pressure_head_m / (state.regolith_depth_m * np.cos(slope) ** 2), 0.25, 1.0
-    )
-    rapid_speed = np.sqrt(
-        np.maximum(
-            0.0,
-            (300.0 + 150.0 * burn)
-            * flow_depth
-            * np.maximum(0.002, np.sin(slope) - 0.18 * np.cos(slope)),
-        )
-    )
-    coseismic_speed = np.sqrt(
-        2.0
-        * GRAVITY_M_S2
-        * 120.0
-        * np.maximum(
-            0.005,
-            np.sin(slope)
-            + state.kh * np.cos(slope)
-            - 0.65 * tan_phi * np.cos(slope),
-        )
-    )
-    slump_speed = (
-        0.08
-        * np.sin(slope)
-        * np.power(np.maximum(0.0001, (1.28 / state.fs_dynamic) - 1.0), 2.2)
-    )
-    creep_speed = np.zeros_like(state.fs_dynamic)  # stable: no resolved mass movement
-    speed = np.select([rapid, coseismic, slump, stable], [rapid_speed, coseismic_speed, slump_speed, creep_speed])
+    applicable = state.newmark_applicable if state.newmark_applicable is not None else state.fs_static > 1.
+    coseismic = applicable & (pga > state.critical_acceleration_g) & (state.newmark_displacement_cm > 0)
+    rapid = np.zeros_like(coseismic)  # basin runoff probability does not identify flow velocity
+    slump = state.fs_dynamic < 1.
+    stable = ~(coseismic | slump)
+    length = np.broadcast_to(np.asarray(inputs.runout_travel_length_m, float), state.fs_dynamic.shape)
+    # Optional Coulomb-block energy scenario with supplied travel length. Without
+    # geometry, a failure/displacement score cannot determine a velocity.
+    acceleration = GRAVITY_M_S2*np.maximum(0., np.sin(slope)+state.kh*np.cos(slope)-tan_phi*np.cos(slope))
+    speed = np.where(~stable & (length > 0), np.sqrt(2*acceleration*np.maximum(length, 0)), 0.)
     velocity_class = np.select(
         [
             speed >= 5.0,
@@ -103,7 +76,7 @@ def solve_kinematics(inputs: PhysicsInputs, state: PhysicsState) -> KinematicsSt
             speed >= 5e-10,
         ],
         [7, 6, 5, 4, 3, 2],
-        default=1,
+        default=0,
     ).astype(np.int8)
     class_names = np.asarray(
         [
@@ -118,9 +91,10 @@ def solve_kinematics(inputs: PhysicsInputs, state: PhysicsState) -> KinematicsSt
         ],
         dtype=object,
     )[velocity_class]
+    class_names = np.where((~stable) & (length <= 0), "Unresolved: travel geometry unavailable", class_names)
     modes = np.select(
         [rapid, coseismic, slump, stable],
-        ["Rapid fluidized debris flow / avalanche", "Coseismic rock avalanche / block slide", "Cohesive slump / thaw slump / toe-cut wedge", "Stable / sub-perception creep"],
+        ["Unresolved flow", "Newmark sliding-block displacement", "Mechanical instability / unresolved motion", "No modeled mechanical instability"],
         default="Unclassified",
     )
     return KinematicsState(speed, velocity_class, class_names, modes)
@@ -147,13 +121,13 @@ def route_runout(
     delta_s_by_edge: Optional[Mapping[Tuple[str, str], float]] = None,
     max_steps: int = 50,
     flow_depth_m: float = 0.5,
+    released: bool = False,
 ) -> RunoutRoute:
     """Route positive energy head over lower H3 neighbors.
 
-    For each edge, Δs is supplied in ``delta_s_by_edge`` when available; otherwise
-    it is the current cell's dimensionless sin(slope) factor. The project-defined
-    Voellmy head change is applied exactly as ΔE = Δz - μb Δx - (v²/(g ξ)) Δs.
-    Friction and ξ are required inputs because the prompt gives no calibrated values.
+    Edge length is in metres and xi in m/s². Integrate the constant-edge law
+    dE/ds = sin(theta)-mu*cos(theta)-2gE/(xi*h) exactly. ``released`` authorizes
+    acceleration from rest; it does not assert that release actually occurred.
     """
     if source_cell not in terrain_cells:
         raise KeyError("source cell is absent from the terrain graph")
@@ -164,7 +138,7 @@ def route_runout(
 
     if not math.isfinite(flow_depth_m) or flow_depth_m <= 0:
         raise ValueError("Flow depth must be positive and finite")
-    h_f = max(float(flow_depth_m), 0.5)
+    h_f = float(flow_depth_m)
     energy_head = peak_velocity_m_s**2 / (2.0 * GRAVITY_M_S2)
     path = [source_cell]
     elapsed_seconds = 0.0
@@ -172,9 +146,11 @@ def route_runout(
     visited = {source_cell}
     infra = infrastructure_by_cell or {}
     edge_s = delta_s_by_edge or {}
+    peak_speed=peak_velocity_m_s
+    stop_reason='energy_exhausted_or_local_sink'
 
     for _ in range(min(int(max_steps), 50)):
-        if energy_head <= 0.0:
+        if energy_head <= 0.0 and not released:
             break
         cell = terrain_cells[current]
         neighbors = list(getattr(cell, "downslope_neighbors", []) or [])
@@ -189,30 +165,53 @@ def route_runout(
             if dz <= 0.0:
                 continue
             dx = _distance_m(cell, neighbor)
-            delta_s = math.hypot(dx, dz)
-            delta_energy = dz - mu_b * dx - (current_speed**2 / (GRAVITY_M_S2 * xi * h_f)) * delta_s
-            next_head = energy_head + delta_energy
+            delta_s = float(edge_s.get((current,neighbor_id),math.hypot(dx,dz)))
+            if not math.isfinite(delta_s) or delta_s<=0:raise ValueError('Edge travel length must be positive')
+            # Exact constant-edge solution of dE/ds=sin(theta)-mu*cos(theta)
+            # -2gE/(xi*h), xi in m/s^2. Stable for coarse H3 edges, including
+            # release from rest on a positive net-driving slope.
+            driving=(dz-mu_b*dx)/delta_s
+            decay=2*GRAVITY_M_S2/(xi*h_f)
+            equilibrium=driving/decay
+            next_head=equilibrium+(energy_head-equilibrium)*math.exp(-decay*delta_s)
             if next_head > 0.0:
-                candidates.append((next_head, neighbor_id, dx))
+                candidates.append((next_head, neighbor_id, delta_s))
         if not candidates:
+            stop_reason='no_traversable_downstream_edge'
             break
-        next_head, next_cell, dx = max(candidates, key=lambda candidate: candidate[0])
+        next_head, next_cell, dx = max(candidates, key=lambda candidate: (candidate[0],candidate[1]))
         next_speed = math.sqrt(2.0 * GRAVITY_M_S2 * next_head)
-        mean_speed = max(1e-4, (current_speed + next_speed) / 2.0)
-        elapsed_seconds += dx / mean_speed
+        from scipy.integrate import quad
+        next_elevation=float(getattr(terrain_cells[next_cell],'elevation_m'))
+        horizontal=_distance_m(cell,terrain_cells[next_cell])
+        drive=(current_elevation-next_elevation-mu_b*horizontal)/dx
+        rate=2*GRAVITY_M_S2/(xi*h_f);eq=drive/rate;start_head=energy_head
+        def inverse_speed(distance):
+            e=start_head*math.exp(-rate*distance)+eq*(-math.expm1(-rate*distance))
+            return 1/math.sqrt(max(2*GRAVITY_M_S2*e,np.finfo(float).tiny))
+        elapsed_seconds += quad(inverse_speed,0.,dx,epsabs=1e-7,limit=100)[0]
         energy_head = next_head
+        peak_speed=max(peak_speed,next_speed)
         current = next_cell
         visited.add(current)
         path.append(current)
 
-    road_hits = sum(int(infra.get(cell_id, {}).get("roads", 0)) for cell_id in path)
-    building_hits = sum(int(infra.get(cell_id, {}).get("buildings", 0)) for cell_id in path)
+    def unique_assets(category):
+        identifiers=set();legacy=0
+        for cell_id in path:
+            record=infra.get(cell_id,{})
+            if category+'_ids' in record:identifiers.update(record[category+'_ids'])
+            else:legacy+=int(record.get(category,0))
+        return len(identifiers)+legacy
+    road_hits = unique_assets('roads')
+    building_hits = unique_assets('buildings')
     household_counts = [infra.get(cell_id, {}).get("households") for cell_id in path]
     household_hits = (
         sum(int(value) for value in household_counts)
         if all(value is not None for value in household_counts)
         else None
     )
+    if len(path)>=min(int(max_steps),50)+1:stop_reason='step_limit_domain_truncated'
     return RunoutRoute(
         source_cell=source_cell,
         path=path,
@@ -222,6 +221,7 @@ def route_runout(
         intersected_buildings=building_hits,
         intersected_households=household_hits,
         stopped_at=path[-1],
+        peak_velocity_m_s=peak_speed,stop_reason=stop_reason,
     )
 
 

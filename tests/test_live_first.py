@@ -65,22 +65,24 @@ class LivePolicy(unittest.IsolatedAsyncioTestCase):
 
     async def test_api_known_location_only_after_geocoder_failure(self):
         service=GlobalScanService.__new__(GlobalScanService)
-        service.provider_timeout_s=15;service.model=None
-        raw=SimpleNamespace(sources={'geocoding':SourceStatus(True,'coordinates','now',mode='PROVIDED')})
+        service.provider_timeout_s=15;service.model=None;service.rainfall_model=None
+        raw=SimpleNamespace(terrain=None,sources={'geocoding':SourceStatus(True,'coordinates','now',mode='PROVIDED')})
         with patch('backend.api.scan_service.GlobalIngestor') as factory, \
              patch('backend.api.scan_service.evaluate_live_physics',return_value=None), \
-             patch.object(service,'_empty_response',side_effect=lambda scan,agency:scan):
+             patch.object(service,'_empty_response',side_effect=lambda scan,agency:{}), \
+             patch('backend.api.ground_assessment.attach_ground',side_effect=lambda response,*args,**kwargs:response), \
+             patch('backend.api.source_assessment.attach',side_effect=lambda response,scan,*args:scan):
             ingestor=factory.return_value.__aenter__.return_value
             ingestor.scan=AsyncMock(return_value=raw)
-            await service.scan(location_query='Wayanad')
+            await service.scan(location_query='Wayanad',_reference_assumptions=True)
             ingestor.scan.assert_awaited_once_with('Wayanad',radius_km=3.5)
             ingestor.scan=AsyncMock(side_effect=[GeocodingError('no network result'),raw])
-            result=await service.scan(location_query='Wayanad')
+            result=await service.scan(location_query='Wayanad',_reference_assumptions=True)
             self.assertEqual(ingestor.scan.await_args_list[1].args,((11.548,76.134),))
             self.assertFalse(result.sources['geocoding'].available)
             self.assertEqual(result.sources['geocoding'].mode,'FALLBACK')
             ingestor.scan=AsyncMock(side_effect=RuntimeError('terrain failure'))
-            with self.assertRaises(RuntimeError):await service.scan(location_query='Wayanad')
+            with self.assertRaises(RuntimeError):await service.scan(location_query='Wayanad',_reference_assumptions=True)
             self.assertEqual(ingestor.scan.await_count,1)
 
 
@@ -120,10 +122,10 @@ class ScenarioContracts(unittest.TestCase):
         inputs=replace(BASE,soil_saturation_fraction=.66,rain_24h_mm=0.,twi=np.array([6.,18.]),slope_deg=35.)
         dry=MultiCausalEngine().compute(inputs)
         wet=MultiCausalEngine().compute(replace(inputs,rain_24h_mm=180.))
-        self.assertTrue(np.all(wet.local_saturation>dry.local_saturation))
+        np.testing.assert_array_equal(wet.local_saturation,dry.local_saturation)
         self.assertTrue(np.all(wet.pore_pressure_head_m>dry.pore_pressure_head_m))
         self.assertTrue(np.all(wet.critical_acceleration_g<=dry.critical_acceleration_g))
-        self.assertGreater(mechanical_stability_gate([35],[1.6],[.99])[0],mechanical_stability_gate([35],[1.6],[.01])[0])
+        self.assertEqual(mechanical_stability_gate([35],[1.6],[.99])[0],mechanical_stability_gate([35],[1.6],[.01])[0])
 
     def test_bounded_spread_retains_sigma_dependence(self):
         state=SimpleNamespace(beta_fosm=np.zeros(2),sigma_fs=np.array([.04,.12]),p_failure_seismic=np.zeros(2),p_failure_m1=np.zeros(2))

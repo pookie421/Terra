@@ -31,7 +31,7 @@ from backend.physics.multi_causal_engine import MultiCausalEngine, PhysicsInputs
 from backend.realtime.dem_processor import DEMProcessor
 from backend.realtime.global_ingestor import SOILGRIDS, GlobalIngestor
 from backend.realtime.natural_events import NaturalEvent, fetch_eonet_events
-from backend.realtime.soilgrids import estimate_pedotransfer, fetch_soilgrids_wcs
+from backend.realtime.soilgrids import estimate_pedotransfer, fetch_soilgrids_wcs, derive_soil_properties
 
 NASA_GLC_CSV = "https://data.nasa.gov/docs/legacy/Global_Landslide_Catalog_Export/Global_Landslide_Catalog_Export_rows.csv"
 NASA_COOLR_EVENTS = "https://gis.earthdata.nasa.gov/portal/rest/services/Landslides/COOLR_Events_Points/FeatureServer/0/query"
@@ -535,61 +535,8 @@ def event_candidates(glc: Sequence[EventCandidate], coolr: Sequence[EventCandida
 
 
 async def fetch_archive(client: httpx.AsyncClient, event: EventCandidate) -> Dict[str, Any]:
-    if not event.event_date:
-        return {"weather_source_status": "not_run_no_event_date"}
-    event_date = date.fromisoformat(event.event_date)
-    start = (event_date - timedelta(days=7)).isoformat()
-    params = {
-        "latitude": event.latitude, "longitude": event.longitude,
-        "start_date": start, "end_date": event_date.isoformat(), "timezone": "UTC",
-        "hourly": "precipitation,rain,snowfall,snow_depth,temperature_2m,soil_temperature_0_to_7cm,soil_moisture_0_to_7cm,soil_moisture_28_to_100cm",
-    }
-    try:
-        try:
-            response = await client.get(OPEN_METEO_ARCHIVE, params=params, timeout=15.0)
-            response.raise_for_status()
-        except Exception:
-            fallback = dict(params)
-            fallback["hourly"] = "precipitation,rain,snowfall,snow_depth,temperature_2m"
-            response = await client.get(OPEN_METEO_ARCHIVE, params=fallback, timeout=15.0)
-            response.raise_for_status()
-        data = response.json()
-        hourly = data.get("hourly") or {}
-        times = hourly.get("time") or []
-        dates = [str(value)[:10] for value in times]
-        event_indices = [index for index, day in enumerate(dates) if day == event_date.isoformat()]
-        antecedent_indices = [index for index, day in enumerate(dates) if start <= day < event_date.isoformat()]
-        def values(key: str, indices: Sequence[int]) -> List[float]:
-            raw = hourly.get(key) or []
-            output = []
-            for index in indices:
-                if index < len(raw) and raw[index] is not None:
-                    try:
-                        number = float(raw[index])
-                    except (ValueError, TypeError):
-                        continue
-                    if math.isfinite(number):
-                        output.append(number)
-            return output
-        def mean(key: str, indices: Sequence[int]) -> Optional[float]:
-            present = values(key, indices)
-            return float(sum(present) / len(present)) if present else None
-        rain_day = values("precipitation", event_indices)
-        return {
-            "weather_source_status": "live_open_meteo_archive",
-            "weather_observation_start": times[0] if times else None,
-            "weather_observation_end": times[-1] if times else None,
-            "rain_event_day_mm": float(sum(rain_day)) if rain_day else None,
-            "rain_antecedent_7d_mm": float(sum(values("precipitation", antecedent_indices))) if antecedent_indices else None,
-            "snowfall_event_day_mm": float(sum(values("snowfall", event_indices))) if event_indices else None,
-            "snow_depth_event_day_max_m": max(values("snow_depth", event_indices), default=None),
-            "temperature_event_day_mean_c": mean("temperature_2m", event_indices),
-            "soil_temperature_event_day_mean_c": mean("soil_temperature_0_to_7cm", event_indices),
-            "soil_moisture_event_day_mean_m3m3": mean("soil_moisture_0_to_7cm", event_indices),
-            "soil_moisture_deep_event_day_mean_m3m3": mean("soil_moisture_28_to_100cm", event_indices),
-        }
-    except Exception as exc:
-        return {"weather_source_status": "unavailable: {}: {}".format(type(exc).__name__, exc)}
+    from backend.ml.archive_weather import acquire_archive
+    return await acquire_archive(client,event)
 
 
 async def fetch_usgs(client: httpx.AsyncClient, event: EventCandidate) -> Dict[str, Any]:
@@ -603,9 +550,23 @@ async def fetch_usgs(client: httpx.AsyncClient, event: EventCandidate) -> Dict[s
             "longitude": event.longitude, "maxradiuskm": 250, "minmagnitude": 2.5,
             "orderby": "magnitude",
         }
-        response = await client.get(USGS_FDSN, params=params, timeout=12.0)
-        response.raise_for_status()
-        features = response.json().get("features") or []
+        import hashlib
+        cache=Path(__file__).resolve().parents[2]/'data/source_catalogs/seismic_archive'
+        key=hashlib.sha256(json.dumps(params,sort_keys=True).encode()).hexdigest()
+        retained=cache/(key+'.json')
+        if retained.exists():payload=json.loads(retained.read_text())['response']
+        else:
+            if not hasattr(client,'_terra_seismic_lock'):
+                client._terra_seismic_lock=asyncio.Lock();client._terra_seismic_next=0.
+            async with client._terra_seismic_lock:
+                loop=asyncio.get_running_loop()
+                await asyncio.sleep(max(0.,client._terra_seismic_next-loop.time()))
+                client._terra_seismic_next=loop.time()+.75
+            response = await client.get(USGS_FDSN, params=params, timeout=12.0)
+            response.raise_for_status();payload=response.json()
+            cache.mkdir(parents=True,exist_ok=True)
+            retained.write_text(json.dumps({'request':params,'url':str(response.url),'response':payload}))
+        features = payload.get("features") or []
         if not features:
             return {"usgs_source_status": "live_no_matching_earthquake", "usgs_event_count": 0, "usgs_max_magnitude": None, "pga_attenuation_proxy_g": 0.0}
         ranked = []
@@ -661,9 +622,8 @@ async def fetch_soil_properties(client: httpx.AsyncClient, event: EventCandidate
 
 
 def _soil_values_to_fractions(values: Mapping[str, Any], source: str, quality: str) -> Dict[str, Any]:
-    sand = float(values["sand_g_kg"]) / 1000.0
-    clay = float(values["clay_g_kg"]) / 1000.0
-    organic = float(values["soc_g_kg"]) * 1.724 / 1000.0
+    derived = derive_soil_properties(values)
+    sand, clay, organic = (derived[k] for k in ('sand_fraction','clay_fraction','organic_matter_fraction'))
     return {
         "soilgrids_source_status": source,
         "soil_property_source": source,
@@ -691,7 +651,13 @@ def populate_physics_features(base: Dict[str, Any], terrain_result: Any) -> None
     """Fill the 14 model columns using observed values plus explicit fallbacks."""
     cells = list(terrain_result.cells.values()) if terrain_result is not None and not isinstance(terrain_result, BaseException) and terrain_result.cells else []
     if cells:
-        nearest = min(cells, key=lambda cell: haversine_km(base["latitude"], base["longitude"], cell.latitude, cell.longitude))
+        nearby = [c for c in cells if haversine_km(base["latitude"],base["longitude"],c.latitude,c.longitude)<=1.0]
+        nearest = min(cells, key=lambda c:(c.cell_id != base.get("h3_cell_id"), haversine_km(base["latitude"],base["longitude"],c.latitude,c.longitude), str(c.cell_id)))
+        base["report_neighborhood_slope_p90_context_only"] = float(np.percentile([c.slope_deg for c in nearby],90)) if nearby else None
+        base["terrain_selection_policy"] = "labeled_h3_cell_or_nearest_source_coordinate; no slope-based selection"
+        base["representative_terrain_cell_id"] = str(nearest.cell_id)
+        base["representative_elevation_m"] = float(getattr(nearest,'elevation_m',base.get('terrain_elevation_m') or 0.))
+        base["representative_terrain_candidate_count"] = len(nearby or cells)
         slope = float(nearest.slope_deg)
         curvature = float(nearest.profile_curvature)
         twi = max(0.01, float(nearest.twi))
@@ -700,52 +666,67 @@ def populate_physics_features(base: Dict[str, Any], terrain_result: Any) -> None
         slope, curvature, twi = 15.0, 0.0, 6.0
         base.setdefault("terrain_source_status", "unavailable; explicit terrain feature fallback used")
 
-    moisture = base.get("soil_moisture_event_day_mean_m3m3")
-    porosity = 1.0 - float(base.get("bulk_density_g_cm3") or 1.45) / 2.65
-    saturation = float(np.clip(float(moisture) / max(porosity, 0.05), 0.0, 1.0)) if moisture is not None else 0.50
-    rain = float(base.get("rain_event_day_mm") or 0.0)
-    snow_depth = float(base.get("snow_depth_event_day_max_m") or 0.0)
-    air_temp = float(base["temperature_event_day_mean_c"] if base.get("temperature_event_day_mean_c") is not None else 10.0)
-    soil_temp = float(base["soil_temperature_event_day_mean_c"] if base.get("soil_temperature_event_day_mean_c") is not None else air_temp)
-    pga = float(base.get("pga_attenuation_proxy_g") or 0.0)
-    soil = estimate_pedotransfer(slope, curvature, twi, float(moisture) * 100.0 if moisture is not None else None)
-    for key in ("sand_fraction", "clay_fraction", "organic_matter_fraction", "bulk_density_g_cm3"):
-        if base.get(key) is None:
+    soil = estimate_pedotransfer(slope, curvature, twi)
+    fallback = ('estimate' in str(base.get('soil_property_source', '')) or
+                'prior' in str(base.get('soil_property_source', '')) or
+                any(base.get(key) is None for key in ('sand_fraction','clay_fraction','organic_matter_fraction','bulk_density_g_cm3')))
+    if fallback:
+        for key in ('sand_fraction','clay_fraction','organic_matter_fraction','bulk_density_g_cm3'):
             base[key] = soil[key]
-            base["soil_property_source"] = "topographic_climatic_pedotransfer_estimate"
-            base["soil_property_quality"] = "estimated_not_measured"
-
+        base['soil_property_source'] = soil['source']
+        base['soil_property_quality'] = 'static_prior_not_measured'
+    moisture = base.get('soil_moisture_72h_max_m3m3', base.get('soil_moisture_event_day_mean_m3m3'))
+    porosity = 1.0 - float(base['bulk_density_g_cm3']) / 2.65
+    base['soil_porosity_estimate'] = porosity
+    if moisture is None or not math.isfinite(float(moisture)) or not 0 <= float(moisture) <= porosity:
+        base.update({name:None for name in FEATURE_NAMES})
+        base['p_failure_physical'] = None
+        base['physics_inputs_json'] = None
+        base['physics_feature_quality'] = 'unavailable_missing_or_incompatible_moisture_porosity'
+        base['physics_feature_error'] = 'Cannot infer absolute saturation from missing or incompatible volumetric moisture'
+        return
+    saturation = float(moisture) / porosity
+    rain = float(base.get('rain_effective_storm_mm', base.get('rain_event_day_mm')) or 0.)
+    snow_depth = float(base.get('snow_depth_72h_max_m', base.get('snow_depth_event_day_max_m')) or 0.)
+    air_temp = float(base['temperature_event_day_mean_c'] if base.get('temperature_event_day_mean_c') is not None else 10.)
+    soil_temp = float(base['soil_temperature_event_day_mean_c'] if base.get('soil_temperature_event_day_mean_c') is not None else air_temp)
+    pga = float(base.get('pga_attenuation_proxy_g') or 0.)
     high_twi = [cell for cell in cells if float(cell.twi) >= 14.5]
     river_distance = min((haversine_km(nearest.latitude, nearest.longitude, cell.latitude, cell.longitude) * 1000.0 for cell in high_twi), default=9999.0) if cells else 9999.0
-    burn = 0.0
-    vegetation = 0.50
+    burn = float(base.get("historical_burn_severity") or 0.0)
+    vegetation = float(base["historical_ndvi"] if base.get("historical_ndvi") is not None else 0.50)
+    cycles = float(base.get("freeze_thaw_cycles_7d") or 0.)
+    warming = float(base.get("warming_delta_c") or 0.)
+    road = float(base["historical_road_cut_distance_m"] if base.get("historical_road_cut_distance_m") is not None else 9999.)
     inputs = PhysicsInputs(
         sand_fraction=float(base["sand_fraction"]), clay_fraction=float(base["clay_fraction"]),
         organic_matter_fraction=float(base["organic_matter_fraction"]), bulk_density_g_cm3=float(base["bulk_density_g_cm3"]),
         slope_deg=slope, twi=twi, soil_saturation_fraction=saturation, rain_24h_mm=rain,
         storm_duration_hr=24.0, snow_depth_m=snow_depth, air_temperature_c=air_temp,
-        soil_temperature_c=soil_temp, freeze_thaw_cycles_7d=0.0, burn_severity=burn,
-        ndvi_norm=vegetation, pga_g=pga, road_cut_distance_m=9999.0, river_distance_m=river_distance, profile_curvature=curvature, elevation_m=float(base.get("terrain_elevation_m") or 0), latitude_deg=float(base.get("latitude") or 0),
+        soil_temperature_c=soil_temp, freeze_thaw_cycles_7d=cycles, burn_severity=burn,
+        warming_delta_c=warming, baseline_air_temperature_c=air_temp-warming, observed_snow_depth_m=snow_depth,
+        ndvi_norm=vegetation, pga_g=pga, road_cut_distance_m=road, river_distance_m=river_distance, profile_curvature=curvature, elevation_m=float(base.get("representative_elevation_m") or base.get("terrain_elevation_m") or 0), latitude_deg=float(base.get("latitude") or 0),
     )
     state = MultiCausalEngine().compute(inputs)
-    row_features = {
-        "fs_static_prior": float(state.fs_static[0]), "fs_dynamic": float(state.fs_dynamic[0]), "p_f_fosm": float(state.p_failure_fosm[0]), "p_failure_physical": float(state.p_failure_physical[0]),
-        "psi_head_m": float(state.pore_pressure_head_m[0]), "newmark_dn_cm": float(state.newmark_displacement_cm[0]),
-        "slope_max_deg": slope, "twi": twi, "soil_saturation": float(state.local_saturation[0]),
-        "rain_24h_mm": float(state.equivalent_water_mm[0]), "snowmelt_mm_day": float(state.snowmelt_mm_day[0]), "pga_g": pga,
-        "thaw_degradation": float(1.0 - state.thaw_factor[0]), "burn_severity": float(state.effective_burn_severity[0]),
-        "toe_undercut_mult": float(state.toe_undercut_multiplier[0]), "profile_curvature": curvature,
-    }
+    from backend.physics.features import physics_feature_matrix
+    row_features = dict(zip(FEATURE_NAMES, map(float,physics_feature_matrix(inputs,state,np.array([curvature]))[0])))
+    row_features.update(fs_static_prior=float(state.fs_static[0]),p_failure_physical=float(state.p_failure_physical[0]))
     base.update(row_features)
     base["physics_inputs_json"] = json.dumps(asdict(inputs), sort_keys=True)
     base["physics_feature_provenance"] = {
         "soil": base.get("soil_property_source", soil["source"]),
-        "saturation": "Open-Meteo event-day moisture / estimated porosity" if moisture is not None else "0.50 fallback; event-day soil moisture unavailable",
-        "historical_vegetation_and_burn": "not time-matched; vegetation=0.50 and burn=0.0 explicit defaults",
-        "road_cut_distance_m": "9999.0 default; no historical road-cut geometry linked to this event row",
+        "saturation": "Open-Meteo 72h peak moisture / estimated porosity" if moisture is not None else "0.50 fallback; peak soil moisture unavailable",
+        "storm_forcing": "72h peak rolling 24h liquid rain plus 15% of remaining inclusive 7-day rain; same rule for all labels; not an observed instantaneous 24h depth",
+        "storm_window_quality": base.get("storm_window_quality", "legacy_event_day_fallback"),
+        "historical_vegetation_and_burn": "time-matched fields when supplied; otherwise vegetation=0.50 and burn=0.0 explicit missing-data defaults",
+        "road_cut_distance_m": "time-matched distance when supplied; otherwise 9999.0 missing-geometry default",
         "river_distance_m": "distance to nearest event-window DEM H3 cell with TWI >= 14.5" if high_twi else "9999.0; no high-TWI DEM cell in sample",
-        "weather": base.get("weather_source_status", "unavailable")
+        "weather": base.get("weather_source_status", "unavailable"),
+        "freeze_thaw": base.get("freeze_thaw_quality", "unavailable; zero fallback"),
+        "warming": "event-day minus preceding 7-day mean, applied label-blind; missing values use zero",
+        "terrain": "Labeled H3 cell or nearest source coordinate, never selected by slope; point/footprint location uncertainty retained"
     }
+    base["physics_feature_error"] = None
     base["physics_feature_quality"] = "complete_with_explicit_defaults" if not cells or moisture is None else "complete_with_proxy_inputs"
 
 
@@ -768,7 +749,7 @@ async def enrich_one(event: EventCandidate, client: httpx.AsyncClient, dem: DEMP
         weather_task = fetch_archive(client, event)
         usgs_task = fetch_usgs(client, event)
         soil_task = fetch_soil_properties(client, event)
-        terrain_task = dem.process(event.latitude, event.longitude, 0.4, client)
+        terrain_task = dem.process(event.latitude, event.longitude, 1.2, client)
         weather, seismic, soil, terrain_result = await asyncio.gather(weather_task, usgs_task, soil_task, terrain_task, return_exceptions=True)
     if not isinstance(weather, BaseException):
         base.update(weather)
@@ -830,6 +811,7 @@ async def enrich_temporal_control(
     original_row: Mapping[str, Any],
     client: httpx.AsyncClient,
     semaphore: asyncio.Semaphore,
+    allow_date_search: bool = True,
 ) -> Dict[str, Any]:
     """Reuse static terrain/soil provenance and fetch only date-specific control data."""
     base = dict(original_row)
@@ -844,7 +826,17 @@ async def enrich_temporal_control(
     base["label_source"] = event.label_source
     base["label_quality"] = event.label_quality
     async with semaphore:
-        weather, seismic = await asyncio.gather(fetch_archive(client, event), fetch_usgs(client, event))
+        from backend.ml.archive_weather import acquire_archive
+        from dataclasses import replace
+        weather = await acquire_archive(client,event,search_days=30 if allow_date_search else 0)
+        selected=weather.get("weather_selected_date",event.event_date)
+        event=replace(event,event_date=selected)
+        seismic = ({k:v for k,v in original_row.items() if k.startswith(('usgs_', 'pga_', 'earthquake_'))}
+                   if selected==original_row.get('event_date') and str(original_row.get('usgs_source_status','')).startswith('live_')
+                   else await fetch_usgs(client,event))
+    base["control_original_date"] = base.get("control_original_date") or base["event_date"]
+    base["event_date"] = event.event_date
+    base["control_date_selection"] = "nearest complete effective storm <=35 mm day in 30-day pre-offset search" if allow_date_search else "frozen holdout date; no reselection"
     base.update(weather)
     base.update(seismic)
     try:
@@ -852,13 +844,16 @@ async def enrich_temporal_control(
         terrain_cell = SimpleNamespace(
             cell_id=base["h3_cell_id"], latitude=event.latitude, longitude=event.longitude,
             elevation_m=float(base.get("terrain_elevation_m") or 0.0),
-            slope_deg=float(base.get("terrain_slope_deg") or 15.0),
+            slope_deg=float(base["terrain_slope_deg"] if base.get("terrain_slope_deg") is not None else 15.0),
             profile_curvature=float(base.get("terrain_profile_curvature") or 0.0),
             twi=float(base.get("terrain_twi") or 6.0),
         )
         populate_physics_features(base, SimpleNamespace(cells={terrain_cell.cell_id: terrain_cell}))
     except Exception as exc:
         base["physics_feature_error"] = "{}: {}".format(type(exc).__name__, exc)
+    from backend.ml.pinls import quiescent_control
+    base["quiescent_control_verified"] = quiescent_control(base)
+    base["control_verification_scope"] = "Reanalysis and modeled stability only; not surveyed intact ground"
     return base
 
 

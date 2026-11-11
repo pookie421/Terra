@@ -1,0 +1,12 @@
+# TERRA-SHIELD engineering context
+
+TERRA-SHIELD targets global landslide hazard intelligence competitive with NASA LHASA 2.0. Regional case studies support a global validation program; they do not redefine product scope. Read `docs/current_status.md`, `docs/global_source_audit.md` and `ROADMAP.md` before scientific or provider changes. Read `docs/FRONTEND_SPEC.md` before frontend/API integration changes.
+
+- Critique upstream products and project coefficients. Authentic API output is not necessarily an observation or locally accurate value. Record units, native space/time/depth support, product versions, timing, transformations, uncertainty, fallback provenance and applicability.
+- Keep full conditional physical columns, sensitivity and conditional routing available without boreholes through explicitly labeled reference priors. Do not relabel assumptions as measurements or claim calibrated probabilities from FOSM alone.
+- Fix physically absurd behavior through general mathematics, input semantics and evidence. Do not add location-specific gates, score targets, invented labels, outcome-selected terrain, control-date searches or holdout-driven adjustments to make examples pass.
+- Compare models using shared cohorts, whole-event/spatial/time isolation, representative backgrounds and issue-time inputs. Preserve failed experiments and missingness/coverage. The current fusion underperforms rainfall-only; do not conceal that result or claim LHASA parity from its metrics.
+- Root source is canonical. Refresh portable copies with `scripts/sync_training_bundle.py`; do not independently edit mirrored implementations. Run deterministic checks appropriate to the change; live network sweeps require an explicit task need and must be distinguished from fixtures.
+- Keep raw corpora, weights, provider archives, local notes and credentials out of Git. Publish methods, source provenance, tests and concise honest results. Frontend readiness, engineering consistency, global predictive skill and operational readiness are separate claims.
+
+- The frontend is live-first: fullscreen online imagery/terrain, arbitrary coordinate scanning, read-only observed telemetry and provider-driven automatic 72h forecast states. Do not add manual weather sliders, fixed-location presets or replay-first boot behavior. Bind the displayed map, selected cell and Qwen conversation to exact scan/state IDs.

@@ -1,64 +1,90 @@
-# TERRA-SHIELD API
+# TERRA-SHIELD live analysis API
 
-Install the project dependencies and start the local service from the repository root:
+Start FastAPI with `python -m uvicorn backend.api.main:app --host 127.0.0.1 --port 8000`. In a second terminal run `npm ci` and `npm run dev` from `frontend/`. Vite proxies `/api` to that local service. The browser starts on the online world map without a preset scan, replay, or manual weather controls.
 
-```bash
-python -m pip install -r requirements.txt
-uvicorn backend.api.main:app --host 127.0.0.1 --port 8000
-```
+The current feature-fusion model is `physics_informed_initiation_v2_features`; the physical reference contract is `pedotransfer_reference_column_v1`. The older model's fixed FOSM `base_margin` is superseded. [Current methods and measured results](docs/feature_fusion_phase3.md) distinguish learned and mechanically coupled scores.
 
-The service exposes:
+## Automatic coordinate or place scan
 
-- `GET /api/v1/scan` — live H3 polygons, hotspot summary, source status, and runout lines. Pass `lat` and `lon` together to scan coordinates, or provide a place name for live geocoding.
-- `POST /api/v1/agent/chat` — accepts `message`, `current_query`, `agency_mode`, and `sliders`. It checks Ollama for `terra-shield-qwen`, then a Qwen2.5 model, and falls back to the deterministic live tools when Ollama is unavailable.
-- `GET /api/v1/validation/report` — returns the latest Stage 1–4 validation report.
-- `POST /api/v1/export/cap-xml` — returns a CAP 1.2 XML `Test` message with `Private` scope.
-
-Example scan:
-
-```bash
-curl 'http://127.0.0.1:8000/api/v1/scan?query=Wayanad&rain_delta_mm=180'
-```
-
-Example agent request:
-
-```bash
-curl -X POST 'http://127.0.0.1:8000/api/v1/agent/chat' \
+```sh
+curl -X POST http://127.0.0.1:8000/api/v1/scan \
   -H 'Content-Type: application/json' \
-  -d '{"message":"Wayanad +180 mm rain","current_query":"Chooralmala, Wayanad","agency_mode":"LOCAL_EOC","sliders":{}}'
+  -d '{"latitude":45.901,"longitude":7.718}'
 ```
 
-The API reports empty GeoJSON collections when live terrain sources return no land cells. Runout parameters are explicitly marked uncalibrated. The scientific report records the source label limits and held-out event group used for Stage 2.
+A place search submits `{"query":"place name"}` to the same route. Raw coordinates bypass named-place geocoding and retain an explicit coordinate label when no place name is known. Legacy `lat`/`lon` aliases are supported; conflicting aliases are rejected. `autonomous` defaults to true and rejects manual rainfall/duration perturbations. The browser sends only the requested location.
 
-Training and artifact-import instructions are in [training/README.md](training/README.md).
+`GET /api/v1/health` checks the local engine and actual learned-artifact availability without acquiring environmental providers. A healthy physical service can report `model_ready=false`; trained weights are required for learned scores.
 
-Current source telemetry is in `location.nasa_telemetry` and `location.reliability_report`, including live-query or fallback COOLR count provenance and independent cached 100 km counts. The source badge remains `TIER_2_PARTIAL_PROXY`. Agent replies expose `briefing_guard`; unverified prose is replaced or withheld. Measured reference results are documented in [evaluation](docs/current_status.md); generated reports remain local.
+A scan returns:
 
-## Output contract
+- `scan_id`, `scenario_id`, response schema/version, location and source timestamps.
+- `source_status`: actual availability, live/cache/fallback modes, provider errors and recorded latency. Fourteen channels do not imply fourteen independent measurements or fourteen successful responses.
+- `live_inputs`: the actual observed model window, including 24h liquid rain, preceding nonoverlapping 144h rain, 24h mean surface moisture, soil properties and provenance, catalog-based PGA proxy and modeled river discharge.
+- `h3_geojson`, `terrain_geojson`, full physical and learned cell records, a coherent selected hotspot, conditional runout and automatic forecast metadata.
 
-`fs_dynamic` is the mechanical Mohr-Coulomb FS. Post-fire `p_failure_m1` stays separate in the physical probability union; the old compatibility yield-index field does not govern FS. `lateral_resistance_kpa` is retained as zero for compatibility. Snowpack, joint-temperature, soil strength and runout inputs include disclosed scenario assumptions.
+Requested display/H3 resolution does not improve native source accuracy. Polar terrain limits, provisional coastal masking and provider outages remain explicit domain/coverage limitations. Coordinates are accepted globally; a cell outside available terrain coverage cannot receive invented topography.
 
-`location.bedrock_lithology` exposes the Macrostrat mapped unit and assumed strength adjustment. `location.river_discharge` exposes modeled GloFAS flow and the seven-day surge ratio. Neither is a local ground measurement. Source statuses distinguish `LIVE`, `CACHED`, `FALLBACK` and supplied-coordinate `PROVIDED` states. Provider deadlines are configurable with a 15-second minimum inside a 60-second ingestion budget.
+## Physical columns and learned scores
 
-Cells expose `conformal_interval_90`, `uncertainty_width`, `bivariate_class`, `conformal_target` and `uncertainty_status`. Ensemble-scaled intervals target binary event labels, not true-probability confidence bounds. They may be [0,1]; spatial dependence invalidates an unconditional nominal coverage guarantee.
+`physical_assessment.cells` exposes corrected slope/TWI, uncapped `fs_mid`, `fs_low`, `fs_high`, `fs_interval`, pressure initialization, material/hydraulic inputs, joint covariance, Jacobian, variance allocation, critical rainfall deficit and provenance. Missing boreholes use declared reference priors; they do not disable the physical column or conditional routing. Exactly zero driving shear has a specific status and undefined FS.
 
-Critical summaries use steep candidate cells where available. Whole-viewport percentiles and the selected hotspot are different statistics. The first two `numbers_that_matter` cards are mechanical FS and the blended score; four distinct mechanism cards follow. Cause percentages are heuristic stress allocations, not causal inference.
+`physics_informed_assessment.cells` joins the same cells' mathematical and source features. It includes the conditional `score`, `learned_trigger_score`, `mechanical_admissibility`, four ablation scores and model explanations. The learned score and its mechanical coupling must not be confused with one another or with globally calibrated event probability. Compatibility fields named `max_p_failure` still denote an experimental sampled-population score. `operational_warning_ready` is false; CAP export remains HTTP 409.
 
-`summary.kinematics_top_hotspot` includes `cascading_dbi`, `impoundment_status` and optional dam/catchment geometry. Unknown geometry remains null. No observed dam is inferred from a channel intersection alone.
+Current source PGA can support the stable-block Newmark regression where applicable. An earthquake catalog proxy is not measured local shaking or a forecast of future earthquakes. Snow, burn and erosion mechanisms retain their source/domain requirements; the interface does not fabricate those measurements.
 
-If terrain is unavailable, geometry is empty and the hazard verdict is `UNAVAILABLE`. Successfully fetched weather, NASA, river and bedrock telemetry is still returned. Compatibility metric placeholders are marked `available: false`; do not display their numeric zeros as observations.
+## Automatic 72-hour horizons
 
-Agent `briefing_guard` preserves valid numeric-grounded prose as `VERIFIED_LLM_PROSE`; offline prose uses `VERIFIED_TEMPLATE`. Rejected numeric prose is replaced or withheld. This guard does not independently verify names, semantics or recommendations.
+`predictive_forecast_72h` uses downloaded future hourly forcing and available ensemble information. Its `views` list identifies `now`, `t24`, `t48`, `t72` and `peak`, with elapsed hour, valid time and state metadata. `paths.p50.hourly` contains the sector minimum-FS trajectory. If an actual ensemble is absent, deterministic-only forcing is explicitly identified; there is no invented 1.5× storm masquerading as P90.
 
-`engineering_ready` and `pretraining_ready` require matching full-system, randomized, boundary and Phase 4 forecast engineering reports. Empirical score/latency targets remain separate. Local readiness reports, [evaluation](docs/current_status.md) and the [roadmap](ROADMAP.md) describe the scope. A Git clone does not include the ignored local datasets or trained model.
+```text
+GET /api/v1/scans/{scan_id}/forecast/t24
+GET /api/v1/scans/{scan_id}/forecast/t48
+GET /api/v1/scans/{scan_id}/forecast/t72
+GET /api/v1/scans/{scan_id}/forecast/peak
+```
 
+Each route materializes a full, state-bound scan payload with projected per-cell columns, uncertainty, learned scores, GeoJSON and conditional routing. It reuses the acquired provider snapshot. The browser replaces the map and inspector with that returned state; it does not merely change a time label.
 
-## Hourly forecast and uncertainty
+`peak` means the hour of minimum sector nominal FS on the P50 forcing path, explicitly labeled `minimum_sector_nominal_fs_p50`. It is not a claim that all hourly ML predictions have been searched or that failure will occur at that time. Missing future forcing leaves current columns intact and shows a forecast-specific reason. Ensemble quantiles describe forcing, not calibrated landslide uncertainty or coherent storm members.
 
-`GET /api/v1/scan` accepts `inject_forecast_storm_mm`, `storm_arrival_hour` (default 18), and `storm_duration_hours` (default 12). Injection explicitly sets forecast T+0 rain, intensity and pressure head to zero and replaces future liquid rainfall. It returns `initial_condition_quality=SYNTHETIC_CALM_NOT_LIVE` and `observed_current_risk_t0_pct` separately; the live scan summary remains unchanged. Antecedent moisture and non-rain triggers remain, so a low T+0 score is not guaranteed. The interval must fit in 0..72 hours. The default case uses forecast weather. Five forecast days are requested and the first 72 future hours selected. Missing hourly soil temperature falls back to air temperature and is enumerated in `soil_temperature_fallback_hours`; missing air or liquid rainfall keeps ordinary forecasts unavailable.
+## Inspect the displayed state
 
-`predictive_forecast_72h` contains current and peak P50/P90 scores, minimum FS, peak hour, threshold-crossing hour, lead hours, selected hourly rows, and both complete 73-state paths. Crossing uses the first regional FS<1 or score>=65%; an already-critical initial state reports zero lead. Missing forcing yields UNAVAILABLE. These are hourly scenario crossings, not observed or validated failure times. Pointwise P90 forcing is not a 90% failure probability or a worst-case bound; fallback spread is explicitly marked 1.5× deterministic forcing.
+```text
+GET /api/v1/inspect/{scan_id}/{h3_index}?scenario_id={scenario_id}
+GET /api/v1/scans/{scan_id}/scenarios/{scenario_id}/cells/{h3_index}
+GET /api/v1/scans/{scan_id}/scenarios/{scenario_id}/runout/{h3_index}
+GET /api/v1/scans/{scan_id}/scenarios/{scenario_id}
+```
 
-Per-cell `epistemic_interval_90` (fractions) and `epistemic_interval_90_pct` (percentages) describe a normal fold/FOSM spread proxy with unvalidated coverage. `conformal_binary_label_interval` remains separate. `physical_cause_pct` and `shap_cause_pct` disclose both attribution components. Shared SHAP features are split equally across the five display groups, not identified as causal effects.
+Use the displayed `scenario_id`, including for forecast views. The inspection alias can select the latest state when no scenario is supplied; explicit identity avoids ambiguity. Retained states are bounded in memory; expired identifiers return 404. Provider refresh creates a new scan.
 
-Named scans query live Open-Meteo geocoding first. A failed lookup can use the explicit known-coordinate fallback, marked `available=false`, `mode=FALLBACK`. Source statuses include `cache_policy` and `cache_trace`; any cache hit makes the whole source `CACHED`. API ingestion is live-first, with disclosed unexpired memory-cache fallback on provider failure.
+The runout payload contains three declared friction/xi/depth scenarios, their coordinates, peak velocities, corridor cell IDs and stop reasons. Release is hypothetical unless independently established. H3 routing has no entrainment or mass conservation; boundary stops can truncate travel.
+
+## State-grounded, multi-turn Qwen chat
+
+```json
+{
+  "message": "Explain this cell's uncertainty and source quality, then fly to it.",
+  "scan_id": "returned-scan-id",
+  "scenario_id": "displayed-state-id",
+  "selected_h3_index": "cell-in-this-scan",
+  "autonomous": true,
+  "history": [
+    {"role": "user", "content": "What controls the mechanical margin?"},
+    {"role": "assistant", "content": "Prior verified response."}
+  ]
+}
+```
+
+Submit to `POST /api/v1/chat` (`/api/chat` and `/api/v1/agent/chat` remain aliases). History is bounded to twelve messages. The server validates the selected cell and supplies current column/envelope, mathematical features, forecast/state identity, conditional corridor and provider provenance. In autonomous mode, chat cannot invent forcing changes; returned map actions are limited to validated inspection/fly commands.
+
+The response includes `clean_markdown`, `briefing_guard`, active IDs, `bound_claims`, `numeric_audit_passed` and `ui_action.actions`. Qwen returns structured prose with numeric JSON-pointer bindings; the server verifies/render these values. Valid output is `VERIFIED_LLM_PROSE`. When the local model service cannot be reached, `VERIFIED_TEMPLATE` is an explicit deterministic fallback with service-error metadata. A responding service without compatible weights is `MODEL_UNAVAILABLE`; invalid generated prose is withheld after retry. Templates and model prose are visibly distinct.
+
+The frontend retains conversation messages with state identity, displays numeric citations, and rejects stale responses/actions after a coordinate, horizon or selected-cell change. Actual Qwen weights and CUDA/QLoRA execution require target-machine testing; mocked protocol checks do not establish language-model quality.
+
+## Research compatibility and publication
+
+Optional sourced site records (`ground_columns`) can override cohesion, friction angle, unit weight, depth, head, conductivity and diffusivity at their exact H3 cell. Records retain units, source/method and validity dates where applicable. Missing fields remain labeled priors; invalid overrides are disclosed per cell.
+
+Legacy scenario and replay endpoints remain research utilities. They are not the autonomous frontend workflow. Raw corpora, cached providers, generated reports and model weights stay outside the source Git release; prepared local training bundles include source-reviewed materials. See [training workflow](docs/training_workflow.md) and [source/API critique](docs/global_source_audit.md).
