@@ -83,6 +83,8 @@ The response includes `clean_markdown`, `briefing_guard`, active IDs, `bound_cla
 
 The frontend retains conversation messages with state identity, displays numeric citations, and rejects stale responses/actions after a coordinate, horizon or selected-cell change. Actual Qwen weights and CUDA/QLoRA execution require target-machine testing; mocked protocol checks do not establish language-model quality.
 
+The default local model service is `http://localhost:11434`. Set `TERRA_QWEN_URL` before starting the backend to select another Ollama-compatible endpoint, such as `http://127.0.0.1:11435` for `scripts/serve_qwen_copilot.py --port 11435`. The [RTX 5070 Ti guide](docs/windows_5070ti.md) covers native QLoRA, adapter serving and optional GGUF/Ollama export. Both the assistant request context and trained context are capped at 8192 tokens; the direct adapter server rejects an overflowing prompt plus reserved completion without truncation.
+
 ## Research compatibility and publication
 
 Optional sourced site records (`ground_columns`) can override cohesion, friction angle, unit weight, depth, head, conductivity and diffusivity at their exact H3 cell. Records retain units, source/method and validity dates where applicable. Missing fields remain labeled priors; invalid overrides are disclosed per cell.

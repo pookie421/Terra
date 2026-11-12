@@ -1,12 +1,14 @@
-# Feature-based physics fusion, global context and Windows/Qwen training
+# Feature fusion, Windows CUDA and Qwen2.5 training
 
-The active experiment uses corrected metric terrain, conditional reference columns and a four-way grouped ablation. See [implementation and results](https://github.com/pookie421/Terra/blob/main/docs/feature_fusion_phase3.md). The original source observations, labels, dates and holdout manifest are preserved. Unresolved footprints are separated from initiation supervision rather than converted to stable negatives.
+The active experiment uses corrected metric terrain, conditional reference columns and a four-way grouped ablation. [Implementation and results](feature_fusion_phase3.md) describe its evidence. Original source observations, labels, dates and holdout membership remain preserved. Unresolved footprints are separated from initiation supervision rather than converted to stable negatives.
 
-The target is a global system competitive with LHASA 2.0. This small retrospective experiment is a development check within that program, not evidence of global parity. Follow the [source and API audit](https://github.com/pookie421/Terra/blob/main/docs/global_source_audit.md) when changing inputs, assumptions or datasets.
+The target is a global system competitive with LHASA 2.0. This retrospective development experiment does not establish global parity. Follow the [source/API audit](global_source_audit.md) when changing inputs, assumptions or datasets. Hardware optimization does not justify changing cohorts, choosing outcomes or concealing the broader benchmark's inferior fusion results.
 
-A Git clone includes canonical source, small test fixtures and the approved pretrained runtime artifact. Starting the application requires no retraining; follow the [setup guide](SETUP.md) and [model card](../artifacts/MODEL_CARD.md). Raw observations, cached provider archives and generated training frames are not distributed. Reproducing the retained results requires those source-reviewed local materials. `sync_training_bundle.py` generates prepared local bundles; `training/` and `windows_5070ti_trainer/` are ignored, not tracked source mirrors. Runtime CI checks the packaged model and deterministic contracts; two retained-corpus tests explicitly skip without their required local frame/cache. Full artifact verification needs the corpus and model outputs.
+A clone includes canonical source, small test fixtures and the approved pretrained runtime artifact. **Starting the application does not require training**: use the [setup guide](SETUP.md) and [model card](../artifacts/MODEL_CARD.md). Raw observations, provider archives and generated training frames remain local. Reproducing the retained results requires the source-reviewed corpus, not just the runtime model.
 
-**Research reproduction only:** first provision the retained source corpus and original manifests. The following commands are not a fresh-clone setup path. From the canonical repository root:
+## Prepare source-linked inputs
+
+The commands below are research reproduction, not a fresh-clone setup path. First provision the retained corpus and original manifests at the canonical root.
 
 ```sh
 python scripts/rebuild_metric_terrain.py --fetch
@@ -19,50 +21,86 @@ python scripts/finalize_readiness.py
 python scripts/sync_training_bundle.py
 ```
 
-The optional terrain stage is canonical-root preparation: its job list uses preserved original derived-cache locations. The prepared Windows bundle already includes the corrected metric terrain and raw tiles; the nightly `run_training.bat --qlora` path does not invoke that legacy job-list stage or require obsolete derived caches in its current data directory. The terrain stage downloads only tiles required by retained locations and is restartable. Subsequent stages use local raw weather/terrain with network connections disabled. All 1,611 observations receive rebuilt physical context. Initiation fitting uses 186 matched observations, ten grouping components, identical five outer folds and the original sixteen-row rainfall holdout. Full component embargo precedes target/feature selection. This is retrospective development evaluation, not an untouched prospective benchmark.
+The optional terrain stage downloads only tiles required by the retained locations and is restartable. Prepared Windows bundles already include current metric terrain and raw tiles; `run_training.bat --qlora` does not rerun the legacy derived-cache job list. Subsequent fitting uses retained local weather/terrain with provider acquisition disabled.
 
-`train_rainfall_baseline.py` now delegates to the four-way trainer. Both `training/` and `windows_5070ti_trainer/` are generated from root source/data/models, with matching hash manifests. Edit root source and rerun synchronization. Complete standalone system/randomized audits also expect generated mirrors and must run after synchronization, not directly from a fresh source checkout. Original v14 model/results remain archived and do not control live inference.
+All 1,611 observations retain rebuilt physical context. Initiation fitting uses 186 matched observations, ten components, identical five outer folds and the original sixteen-row development holdout. Seventy-one unresolved footprints remain separate from initiation supervision. Full-component embargo precedes target/feature selection. Event-date forcing can follow failure, report points are uncertain, and absence controls are not surveyed stable slopes; this is not an untouched prospective benchmark.
 
-## Windows RTX execution
+`train_rainfall_baseline.py` delegates to the four-way trainer. The model uses ordinary fold-prevalence initialization, never a per-row FOSM `base_margin`. Learned trigger and conditional mechanical scores remain separate. Grouped inner selection stays inside fitting partitions and disjoint components calibrate offsets; legacy Optuna flags are rejected. GPU execution does not authorize new controls or holdout-driven tuning.
 
-Use Python 3.11 or 3.12 and run `run_training.bat` from the copied bundle. It installs the pinned numerical stack and PyTorch CUDA build before actual XGBoost/PyTorch kernel and train/save/reload smoke tests. Requested CUDA execution fails if it silently falls back to CPU.
+## Native Windows 11 / RTX 5070 Ti
 
-```sh
-python train.py --smoke-only --check-torch
-python train.py --device cuda
-python train.py --device cpu --smoke-only
+The target is an NVIDIA RTX 5070 Ti, Blackwell `sm_120`, with 16 GB VRAM. The [hardware guide](windows_5070ti.md) gives the complete launcher, diagnostic and serving commands. Use Python 3.11 or 3.12 and a compatible NVIDIA driver.
+
+From a prepared `windows_5070ti_trainer/` bundle:
+
+```bat
+run_training.bat --smoke-only
+run_training.bat --smoke-test
+run_training.bat --qlora
 ```
 
-The feature-based model uses fold-prevalence initialization, never a per-row unscaled FOSM `base_margin`. Learned trigger and conditional mechanical scores remain separate in the report.
+- `--smoke-only` checks XGBoost's requested CUDA execution and same-model save/reload prediction parity without fitting the retained corpus.
+- `--smoke-test` installs/checks the QLoRA stack, tests the longest complete trajectory, then exits without a corpus fit.
+- `--qlora` runs the complete CUDA XGBoost experiment, broader proxy benchmark, instruction regeneration, mandatory QLoRA memory gate and full adapter fit.
 
-Default training rebuilds the current four-way experiment, the multi-regime proxy benchmark and the instruction corpus. No dataset acquisition or control-date search occurs during fitting. Candidate regularization/depth settings and feature-group weights are predeclared; grouped inner selection stays inside each fitting partition and disjoint components calibrate offsets. Optional legacy Optuna flags are rejected. CPU verification does not establish that native Windows, the RTX 5070 Ti or QLoRA works on the target machine. Cross-device prediction comparisons require declared numerical tolerances and a fresh verification report.
+`run_training.bat --llm-only` intentionally skips classifier fitting for an existing prepared instruction corpus. `run_training.bat --cpu` is the explicit XGBoost CPU path; it cannot be combined with QLoRA. Equivalent canonical entry points live in `scripts/`.
 
-## CUDA XGBoost plus Qwen2.5 QLoRA
+The launcher preserves a working CUDA installation or repairs it using official PyTorch **2.7.1 / CUDA 12.8** wheels from `https://download.pytorch.org/whl/cu128`. It checks actual kernels and reports GPU name, memory, capability, compiled architectures and native BF16 support. Version strings or CUDA visibility alone do not certify `sm_120` execution. QLoRA additionally exercises bitsandbytes NF4 and optimizer kernels; silent CPU or FP16 fallback is rejected.
 
-The primary instruction file is `data/sft_context_trajectories.jsonl`. It has 594 distinct source cell/date traces after full-component holdout exclusion and deduplication. The former nominal-600 filename is a compatibility alias, not a claim of 600 distinct examples. Traces include physical envelopes, mathematical context, conditional runout, fourteen-source provenance and JSON-pointer numeric bindings. Calibration rows may appear; this is not independent LLM evaluation.
+`requirements-qwen.txt` pins Transformers 4.57.6, PEFT 0.17.1, bitsandbytes 0.48.2, Accelerate 1.10.1 and Safetensors 0.6.2. Torch is bootstrapped separately so a dependency install cannot silently replace an active CUDA build with an unsuitable wheel. Native fused PyTorch **SDPA** is the default. Unsloth, Triton and source-compiled `flash-attn` are not mandatory dependencies. The standalone Qwen trainer's optional `--attention-backend flash_attention_2` requires an importable build, a successful active-GPU forward/backward kernel check and the same longest-trajectory gate; no source compilation or hidden fallback is attempted.
 
-Run **`run_training.bat --qlora`** from the prepared `windows_5070ti_trainer/` directory to execute the complete requested path: install dependencies, verify actual CUDA kernels, fit XGBoost, run the global proxy benchmark, regenerate the instruction corpus, then train Qwen2.5 QLoRA. It does not drop or defer the QLoRA stage. For an intentional LLM-only resume, `python train.py --llm-only` skips the XGBoost stage but still performs its requested CUDA/PyTorch checks. The model and SFT context are 8192 tokens; tokenization preflight rejects oversized examples rather than silently truncating tool evidence. Adapter weights are retained before optional merged/GGUF conversion, and conversion outcomes are recorded separately. Actual Qwen weights, QLoRA and Windows CUDA were not exercised on this CPU host.
+CUDA XGBoost uses `tree_method="hist"`, `device="cuda"`, and rejects an effective CPU device. The same saved model must reproduce predictions exactly after reload on the same configured device. Optional CPU/CUDA inference comparisons have explicit tolerances; independently trained CPU and GPU trees are not claimed bit-identical. The ensemble, ablation report and SHA-256 artifact manifest retain the existing source/cohort identity.
 
-Artifact checks re-extract corrected features, verify hashes and unchanged source labels/manifests, inspect component isolation, reproduce metrics, reconstruct model explanations, verify numeric bindings and run deterministic equation/provider/state tests with network disabled. Engineering readiness and predictive validity remain separate fields.
+## QLoRA memory policy and instruction evidence
 
-## Live application integration
+The primary instruction file is `data/sft_context_trajectories.jsonl`: 594 distinct source cell/date traces after full-component holdout exclusion and deduplication. The former nominal-600 filename is a compatibility alias, not 600 distinct examples. Traces contain physical envelopes, mathematical context, conditional routing, fourteen-source provenance and numeric JSON-pointer bindings. Calibration rows may appear; these traces are not an independent assistant evaluation.
 
-The browser product follows [FRONTEND_SPEC.md](https://github.com/pookie421/Terra/blob/main/docs/FRONTEND_SPEC.md): arbitrary-coordinate/map-click scans and automatic source-driven forecast horizons. Research replay/export scripts and analyst perturbation APIs are not the frontend boot workflow. Keep original source weather distinct from user-generated research perturbations.
+Every run resolves an immutable Qwen2.5 base revision, hashes the corpus and tokenizes complete trajectories. The context limit remains **8192 tokens**, and oversize trajectories fail before model loading rather than being truncated. Short examples use **dynamic per-batch padding**, not static 8192-token padding; real EOS tokens remain supervised, and only padding/masked positions use label `-100`.
 
-The installed fusion contract is `physics_informed_initiation_v2_features`; the physical reference remains `pedotransfer_reference_column_v1`. Keep version names and model/SFT hashes consistent when copying artifacts to the live API or Ollama workflow. Successful CPU fitting, a browser build and a CUDA smoke each verify different things; none alone certifies predictive skill or an operational warning system.
+The enforced training policy is BF16, TF32-enabled FP32 matmul, NF4 four-bit weights with double quantization and BF16 compute, batch size one, eight-step gradient accumulation, length grouping, non-reentrant gradient checkpointing, `paged_adamw_8bit`, pinned host memory and zero dataloader workers. The loss averages causal-token losses within each microbatch; the trainer averages those microbatches over the accumulation window. No worker-spawn or tokenizer-pickling path is needed on Windows.
 
-## Current bundle inventory and preservation
+A full `[1, 8192, 152064]` FP32 logits tensor would occupy about 4.98 decimal GB before its gradient-related storage. Training therefore bypasses the normal CausalLM logits/loss path. It calls the PEFT-instrumented transformer backbone, keeps the frozen dense vocabulary head in BF16, and computes shifted cross-entropy in bounded token chunks. Backward recomputes one chunk at a time, instead of retaining all chunk logits/graphs. Embedding/head dtypes are restored after PEFT preparation; normalization parameters retain their stability treatment. Real CPU tests compare this loss and its gradients against the dense reference, including padding and chunk boundaries. That mathematical check does not measure CUDA VRAM or certify target kernels.
 
-`python scripts/sync_training_bundle.py --plan` reviews the selected inventory without copying or reading payload contents. Synchronization excludes only the obsolete top-level `terrain_v13_*.json` derived caches. Canonical originals remain untouched; earlier bundle copies move to ignored `archive_snapshots/legacy_terrain_v13/` without being reread or claimed freshly verified. Observations, original benchmark/holdout data, current metric terrain, raw Terrarium tiles, historical weather, seismic archives and retained multi-causal source materials remain selected.
+**Every full fit first runs the mandatory memory gate.** It performs two real paged-optimizer steps on the longest complete trajectory, with eight accumulated forward/backward passes per step. It checks Torch allocated/reserved peaks below **14.5 GB = 14,500,000,000 bytes** and samples free device memory. Trainable adapter parameters, training mode and Python/NumPy/Torch RNG are restored even on failure; smoke updates are not extra training exposure for the longest trace. A failed kernel, non-finite loss/update or memory check stops the fit. Paged optimizer state does not page activations or guarantee that every workload will fit.
 
-Each copied file is atomically staged and SHA-checked against the actual source bytes read. Blocked canonical reads fail with a timeout; stale destination bytes or an archived hash cannot substitute for an unreadable source. The current manifest covers exactly the expected inventory, and both portable copies must match. Previous manifests stay in ignored archives. A failed synchronization does not issue a fresh manifest.
+`smoke_run.json`, `vram_smoke_test.json` and `training_run.json` record the actual dataset/base/fusion hashes, token lengths, policies, package/device versions, measured peaks and outcomes. Prior records/checkpoints are preserved. Corpus-format checks, CPU loss parity and mocked protocol tests are not native Windows/5070 Ti training, measured target VRAM or language-quality evidence. Inspect the target run's records before claiming those checks passed.
 
-The bundle includes the current global-context benchmark and storm-grid diagnostic reports alongside the four-way experiment and artifact verification. These reports remain development evidence, not a globally validated operational model.
+## Serve or export the adapter
 
-## QLoRA environment and export evidence
+Training first saves the adapter and tokenizer with hashes. It does not try to materialize a merged 7B model on the 16 GB GPU, and it does not assume Unsloth-only export methods exist. Existing exports are preserved and never relabeled as newly successful outputs.
 
-Unsloth is imported before TRL/Hugging Face training libraries so its patches run in the intended order. The [upstream Windows installation guide](https://unsloth.ai/docs/get-started/install/windows-installation) describes Core installation with working PyTorch and an actual CUDA test before Unsloth. The prepared launcher performs kernel checks again after QLoRA dependencies are installed. `requirements-qwen.txt` is not a frozen, target-verified environment; actual resolved package, GPU and CUDA versions are recorded in `training_run.json`.
+Direct serving is the shortest post-training path:
 
-That record also captures the dataset/fusion hashes, actual row count, maximum tokenized example length, base revision when exposed, completion status and export outcomes. The 8192-token preflight runs with the actual target tokenizer and rejects oversize traces. CPU corpus-format checks do not certify target tokenization or training.
+```bat
+python serve_qwen_copilot.py
+```
 
-Existing adapter, merged and GGUF exports are preserved under `previous_exports/` before replacement. New adapter weights are saved before optional conversions. A conversion failure is recorded explicitly and leaves the trained adapter available; file existence alone does not prove a fresh successful GGUF export. Loading the resulting model through Ollama and evaluating its real multi-turn/tool behavior are separate checks.
+The generated bundle includes the root-level helper; from the canonical repository use `python scripts/serve_qwen_copilot.py`. It serves Ollama-compatible `/api/tags`, `/api/generate` and `/api/chat` on `127.0.0.1:11434`. It loads the recorded base revision plus the adapter, uses native BF16/NF4 SDPA, and refuses contexts that exceed the declared limit rather than dropping evidence. If Ollama already owns that port, stop it or use the alternate-port/backend configuration in the [hardware guide](windows_5070ti.md).
+
+For an optional Ollama import, use the separate export helper after installing compatible external converters and providing sufficient host RAM:
+
+```bat
+python export_qwen_ollama.py --merge-cpu --llama-cpp D:\llama.cpp --create
+```
+
+Merging/conversion is explicit CPU work, separate from the training VRAM gate. The helper preserves prior files and records merge, conversion, quantization, model/template validation and import results. Externally supplied GGUF files do not prove binding to this adapter. No Qwen base weights, adapter, merged weights or GGUF outputs are committed to Git. Upstream base-model and source-data terms remain applicable.
+
+The backend's selected scan/state/cell and numeric bindings remain authoritative: a running service does **not** automatically produce `VERIFIED_LLM_PROSE`. Only accepted generated output receives that status; fallback, unavailable-model and rejected-prose outcomes remain explicit. Real multi-turn semantic/tool evaluation is a separate requirement.
+
+## Synchronization and offline verification
+
+Root source is canonical. `training/` and `windows_5070ti_trainer/` are ignored generated bundles, not independent tracked implementations. Never patch their scripts separately. Run `python scripts/sync_training_bundle.py --plan` to review the inventory, then run the script without `--plan` to refresh both copies.
+
+Synchronization excludes obsolete top-level `terrain_v13_*.json` derived caches while retaining canonical originals and preserving earlier bundle copies under ignored archives. Observations, original benchmark/holdout data, current metric terrain, raw Terrarium tiles, historical weather, seismic archives and retained multi-causal materials remain selected. Copies are atomic and hashed against actual canonical bytes; unreadable files fail explicitly. Both current manifests must match; stale destinations or prior hashes cannot substitute for successful source reads.
+
+Run the deterministic suite and complete retained-artifact verification where their inputs are present:
+
+```sh
+python -m unittest discover -s tests -v
+python scripts/check_training_artifacts.py
+python scripts/finalize_readiness.py
+```
+
+The checks re-extract current features, verify data/model hashes and grouping, reproduce metrics, reconstruct explanations and verify numeric bindings with provider acquisition disabled. Separate CPU Torch tests validate causal loss, gradients, accumulation and PEFT connectivity. Legacy full-system audit entry points can perform live scans and write historical report formats; they are not a substitute for the current artifact checker. Complete standalone system/randomized audits also require prepared mirrors and their declared inputs.
+
+The bundle carries current benchmark/diagnostic reports as development evidence. A matching manifest, CPU test suite, browser build, CUDA smoke and prospective predictive evaluation establish different things; none alone certifies a global warning system. The active fusion remains `physics_informed_initiation_v2_features`, and the physical reference remains `pedotransfer_reference_column_v1`. The live product follows [FRONTEND_SPEC.md](FRONTEND_SPEC.md): automatic arbitrary-coordinate scans, source-driven forecast states and exact state-bound inspection/chat.

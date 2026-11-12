@@ -56,14 +56,14 @@ class BundleIntegrity(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError,'Timed out reading canonical source'):copy_file(source,destination)
             self.assertEqual(destination.read_bytes(),b'previous data')
 
-    def test_export_preserves_previous_adapter_before_optional_conversion_failure(self):
+    def test_export_preserves_adapter_without_attempting_gpu_merge(self):
         class Model:
-            def save_pretrained(self,path):
+            def save_pretrained(self,path,**kwargs):
                 target=Path(path);target.mkdir(parents=True,exist_ok=True);(target/'adapter.safetensors').write_bytes(b'new adapter')
             def save_pretrained_merged(self,*args,**kwargs):raise RuntimeError('conversion fixture')
             def save_pretrained_gguf(self,*args,**kwargs):raise RuntimeError('conversion fixture')
         class Tokenizer:
-            def save_pretrained(self,path):(Path(path)/'tokenizer.json').write_text('{}')
+            def save_pretrained(self,path,**kwargs):(Path(path)/'tokenizer.json').write_text('{}')
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory)/'model';old=output/'adapter';old.mkdir(parents=True);(old/'adapter.safetensors').write_bytes(b'previous adapter')
             with redirect_stdout(io.StringIO()):
@@ -71,26 +71,17 @@ class BundleIntegrity(unittest.TestCase):
             self.assertEqual((output/'adapter/adapter.safetensors').read_bytes(),b'new adapter')
             self.assertEqual((output/report['previous_exports_preserved']['adapter']/'adapter.safetensors').read_bytes(),b'previous adapter')
             self.assertEqual(report['adapter']['status'],'saved')
-            self.assertEqual(report['gguf']['status'],'failed')
+            self.assertEqual(report['gguf']['status'],'not_run_requires_export_helper')
 
     def test_8192_context_preflight_rejects_oversized_trace_before_training(self):
         class Tokenizer:
-            def apply_chat_template(self,*args,**kwargs):return 'rendered fixture'
-            def __call__(self,*args,**kwargs):return {'input_ids':list(range(8193))}
-        class Dataset:
-            def map(self,render,**kwargs):return {'text':[render({'messages':[]})['text']]}
-        class FastLanguageModel:
-            @staticmethod
-            def from_pretrained(**kwargs):
-                if kwargs['max_seq_length']!=8192:raise AssertionError('Context limit changed')
-                return object(),Tokenizer()
-            @staticmethod
-            def get_peft_model(model,**kwargs):return model
-        def premature_training(**kwargs):raise AssertionError('Oversized input reached the trainer')
+            pad_token_id=0
+            def apply_chat_template(self,*args,**kwargs):return list(range(8193))
         modules={'torch':SimpleNamespace(cuda=SimpleNamespace(is_available=lambda:True)),
-            'unsloth':SimpleNamespace(FastLanguageModel=FastLanguageModel),
-            'datasets':SimpleNamespace(load_dataset=lambda *args,**kwargs:Dataset()),
-            'trl':SimpleNamespace(SFTConfig=premature_training,SFTTrainer=premature_training)}
+            'transformers':SimpleNamespace(
+                AutoConfig=SimpleNamespace(from_pretrained=lambda *args,**kwargs:SimpleNamespace(
+                    model_type='qwen2',_commit_hash='a'*40)),
+                AutoTokenizer=SimpleNamespace(from_pretrained=lambda *args,**kwargs:Tokenizer()))}
         with tempfile.TemporaryDirectory() as directory:
             dataset=Path(directory)/'corpus.jsonl'
             dataset.write_text(json.dumps({'source_event_id':'fixture','messages':[{'role':'tool','content':'evidence'}]})+'\n')

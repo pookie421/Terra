@@ -106,6 +106,8 @@ Use `qwen2.5:7b` instead if appropriate for your hardware. The [official model l
 
 Custom fine-tuned Qwen weights are **not** included. An unreachable Ollama service produces an explicitly verified template fallback (`VERIFIED_TEMPLATE`). A reachable service without a compatible model produces `MODEL_UNAVAILABLE`. Generated prose must still pass grounding checks; installing a base model does not guarantee every response is accepted.
 
+For a trained adapter, use the native [RTX 5070 Ti training and serving guide](windows_5070ti.md). It includes a direct Ollama-compatible server and an optional GGUF export helper. Set `TERRA_QWEN_URL` in the backend environment to change the local model-service address.
+
 ## Troubleshooting
 
 | Symptom | Check |

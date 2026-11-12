@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import math
 import re
 import time
@@ -138,7 +139,7 @@ class TerraShieldQwenAgent:
 
     def __init__(self, scan_service: Optional[GlobalScanService] = None, ollama_url: Optional[str] = None) -> None:
         self.scan_service = scan_service or GlobalScanService()
-        self.ollama_url = (ollama_url or "http://localhost:11434").rstrip("/")
+        self.ollama_url = (ollama_url or os.environ.get("TERRA_QWEN_URL") or "http://localhost:11434").rstrip("/")
         self._availability_error=None
 
     async def scan_global_location(

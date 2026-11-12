@@ -103,7 +103,7 @@ async def chat_active(agent,message,scan_id,scenario_id,sliders,agency_mode,sele
         async with httpx.AsyncClient(timeout=45.) as client:
             for attempt in range(2):
                 try:
-                    response=await client.post(agent.ollama_url+'/api/chat',json={'model':model,'messages':messages,'stream':False,'format':'json','options':{'temperature':.1,'num_ctx':16384}})
+                    response=await client.post(agent.ollama_url+'/api/chat',json={'model':model,'messages':messages,'stream':False,'format':'json','options':{'temperature':.1,'num_ctx':8192}})
                     response.raise_for_status();candidate=response.json()['message']['content']
                     text,claims=verify_and_render(json.loads(candidate),e);break
                 except httpx.TransportError as exc:

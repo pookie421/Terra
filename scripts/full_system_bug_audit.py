@@ -2,7 +2,7 @@
 """Audit engineering invariants separately from empirical benchmark targets.
 
 Default runs live REST scans and records responses. --offline runs local checks only
-and cannot authorize pretraining. CUDA/Unsloth execution needs a compatible CUDA environment.
+and cannot authorize pretraining. CUDA/QLoRA execution needs a compatible CUDA environment.
 """
 from __future__ import annotations
 import argparse
@@ -125,11 +125,17 @@ def feature_contract():
     for package in ('ml','physics','realtime'):
         for path in (ROOT/'backend'/package).glob('*.py'):
             assert path.read_bytes()==(ROOT/'training/backend'/package/path.name).read_bytes(),str(path.relative_to(ROOT))
-    trainer=(ROOT/'training/train.py').read_text()
-    assert 'from backend.ml.global_xgb import FEATURE_NAMES, MONOTONE_VECTOR' in trainer
+    # The portable entry point delegates to the active context trainer.  Its
+    # byte parity is the contract; requiring an unused legacy-schema import
+    # would make a valid current bundle fail this audit.
+    assert (ROOT/'training/train.py').read_bytes()==(ROOT/'scripts/train_gpu.py').read_bytes()
+    from backend.ml.physics_informed import NAMES as context_features
     from backend.ml.global_xgb import make_base_estimator
     assert make_base_estimator(min_child_weight=7.0).get_params()['min_child_weight']==7.0
-    return {'features':list(FEATURE_NAMES),'signs':list(MONOTONE_VECTOR),'bundle_code_identical':True}
+    return {'features':list(FEATURE_NAMES),'signs':list(MONOTONE_VECTOR),
+            'active_context_features':list(context_features),
+            'scope':'Legacy feature compatibility and canonical current trainer parity',
+            'bundle_code_identical':True}
 
 def dataset_isolation():
     import pyarrow.parquet as pq
@@ -175,29 +181,75 @@ def dataset_isolation():
             'note':'Inventory absence negatives unverified; counts are cells, not independent events.'}
 
 def windows_exports():
+    # Importing these canonical helpers does not import/download the GPU stack.
+    # The same files must be present byte-for-byte in the generated Windows bundle.
     path=ROOT/'training/train_qwen25_agent.py'
-    spec=importlib.util.spec_from_file_location('qwen_export_audit',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-    tree=ast.parse(path.read_text());values={}
-    for node in ast.walk(tree):
-        if isinstance(node,ast.Call):
-            for kw in node.keywords:
-                if kw.arg in ('num_proc','dataset_num_proc','dataloader_num_workers'):values[kw.arg]=ast.literal_eval(kw.value)
-    assert values=={'num_proc':1,'dataset_num_proc':1,'dataloader_num_workers':0}
-    assert '__name__ == "__main__"' in path.read_text()
-    assert '__name__ == "__main__"' in (ROOT/'training/train.py').read_text()
+    runtime_path=ROOT/'training/scripts/qlora_runtime.py'
+    assert path.read_bytes()==(ROOT/'scripts/train_qwen25_agent.py').read_bytes()
+    assert runtime_path.read_bytes()==(ROOT/'scripts/qlora_runtime.py').read_bytes()
+    spec=importlib.util.spec_from_file_location('qwen_export_audit',path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    runtime_spec=importlib.util.spec_from_file_location('qwen_runtime_audit',runtime_path)
+    runtime=importlib.util.module_from_spec(runtime_spec);runtime_spec.loader.exec_module(runtime)
+    values=runtime.training_policy()
+    expected={'per_device_train_batch_size':1,'gradient_accumulation_steps':8,
+        'group_by_length':True,'bf16':True,'fp16':False,'tf32':True,
+        'gradient_checkpointing':True,'gradient_checkpointing_kwargs':{'use_reentrant':False},
+        'optim':'paged_adamw_8bit','dataloader_num_workers':0,
+        'dataloader_pin_memory':True,'dataloader_persistent_workers':False}
+    assert all(values.get(key)==value for key,value in expected.items()),values
+    assert runtime.MAX_SEQUENCE_LENGTH==8192 and runtime.VRAM_LIMIT_BYTES==14_500_000_000
+    # Exercise the collator's actual padding/masking logic without importing CUDA.
+    # This mocks only tensor construction; numerical loss/gradient parity has a
+    # separate real-PyTorch test and target-device smoke.
+    torch_mock=SimpleNamespace(long=np.int64,tensor=lambda rows,dtype:np.asarray(rows,dtype=dtype))
+    missing=object();previous_torch=sys.modules.get('torch',missing)
+    try:
+        sys.modules['torch']=torch_mock
+        batch=runtime.DynamicCausalCollator(pad_token_id=0)([
+            {'input_ids':[5,0,7]}, {'input_ids':[8]}])
+    finally:
+        if previous_torch is missing:sys.modules.pop('torch',None)
+        else:sys.modules['torch']=previous_torch
+    assert batch['input_ids'].shape==(2,3), 'Short examples must not be padded to 8192'
+    np.testing.assert_array_equal(batch['labels'],[[5,0,7],[8,-100,-100]])
+    np.testing.assert_array_equal(batch['attention_mask'],[[1,1,1],[1,0,0]])
+    def has_main_guard(source):
+        for node in ast.parse(source.read_text()).body:
+            if not isinstance(node,ast.If) or not isinstance(node.test,ast.Compare):continue
+            test=node.test
+            if (isinstance(test.left,ast.Name) and test.left.id=='__name__'
+                and len(test.ops)==1 and isinstance(test.ops[0],ast.Eq)
+                and len(test.comparators)==1 and isinstance(test.comparators[0],ast.Constant)
+                and test.comparators[0].value=='__main__'):return True
+        return False
+    assert has_main_guard(path) and has_main_guard(ROOT/'training/train.py')
     calls=[]
     class Model:
-        def save_pretrained(self,path):calls.append('adapter');Path(path).mkdir(parents=True);(Path(path)/'adapter_model.safetensors').write_bytes(b'audit mock')
-        def save_pretrained_merged(self,path,tokenizer,save_method):calls.append('merged');Path(path).mkdir();(Path(path)/'model.safetensors').write_bytes(b'audit mock')
-        def save_pretrained_gguf(self,*a,**kw):calls.append('gguf');raise RuntimeError('Injected converter failure')
+        def save_pretrained(self,path,**kwargs):
+            calls.append('adapter');Path(path).mkdir(parents=True,exist_ok=True)
+            (Path(path)/'adapter_model.safetensors').write_bytes(b'audit mock')
+        def save_pretrained_merged(self,*args,**kwargs):
+            raise AssertionError('Native Windows export must not require an Unsloth-only merge method')
+        def save_pretrained_gguf(self,*args,**kwargs):
+            raise AssertionError('GGUF conversion is an explicit optional export-helper stage')
     class Tokenizer:
         def save_pretrained(self,path):(Path(path)/'tokenizer.json').write_text('{}')
     with tempfile.TemporaryDirectory() as tmp:
-        out=Path(tmp)/'lora';result=module.export_trained_model(Model(),Tokenizer(),out,Path(tmp)/'model.gguf')
-        assert calls==['adapter','merged','gguf'] and result['gguf']['status']=='failed'
-        assert result['adapter']['status']==result['merged_16bit']['status']=='saved'
+        out=Path(tmp)/'lora';previous=out/'adapter';previous.mkdir(parents=True)
+        (previous/'adapter_model.safetensors').write_bytes(b'previous adapter')
+        result=module.export_trained_model(Model(),Tokenizer(),out,Path(tmp)/'model.gguf')
+        assert calls==['adapter'] and result['adapter']['status']=='saved'
+        assert result['gguf']['status']=='not_run_requires_export_helper'
+        assert result['merged_16bit']['status']=='not_run_requires_export_helper'
+        assert (out/'adapter/adapter_model.safetensors').read_bytes()==b'audit mock'
+        archived=out/result['previous_exports_preserved']['adapter']/'adapter_model.safetensors'
+        assert archived.read_bytes()==b'previous adapter'
         assert (out/'export_manifest.json').exists()
-    return {'workers':values,'gguf_failure_retains_weights':True,'execution':'mocked export failure; CUDA/Unsloth not installed in the reference evaluation'}
+    return {'training_policy':expected,'context_limit':runtime.MAX_SEQUENCE_LENGTH,
+        'dynamic_padding_and_masking':'passed with mocked tensor construction',
+        'prior_adapter_preserved':True,'adapter_export_without_unsloth':True,
+        'execution':'Offline policy/collation/export checks; not CUDA, VRAM, model-quality or GGUF-conversion certification'}
 
 def portability():
     bad=[];files=0

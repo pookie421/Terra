@@ -23,9 +23,14 @@ ARTIFACTS=('global_multi_causal_xgb.pkl','global_multi_causal_xgb.metadata.json'
  'sft_trajectory_report.json','lhasa_benchmark_suite.json','reference_verification.json','ACTIVE_REPORTS.md',
  'rainfall_source_baseline.pkl','rainfall_baseline_report.json','physics_informed_models.pkl',
  'physics_informed_ablation_report.json','metric_terrain_rebuild.json','phase1_phase2_report.json',
- 'context_observation_coverage.json','global_context_benchmark.json','storm_grid_diagnostics.json')
+ 'context_observation_coverage.json','global_context_benchmark.json','storm_grid_diagnostics.json',
+ 'MODEL_CARD.md','runtime_manifest.json','hardware_preflight.json','gpu_smoke_test.json','training_artifact_manifest.json')
 ALIASES=(('scripts/train_gpu.py','train.py'),('scripts/train_qwen25_agent.py','train_qwen25_agent.py'),
- ('scripts/run_training.bat','run_training.bat'),('requirements-training.txt','requirements.txt'),
+ ('scripts/run_training.bat','run_training.bat'),
+ ('scripts/serve_qwen_copilot.py','serve_qwen_copilot.py'),
+ ('scripts/export_qwen_ollama.py','export_qwen_ollama.py'),
+ ('scripts/hardware_preflight.py','hardware_preflight.py'),
+ ('constraints-runtime.txt','constraints-runtime.txt'),('requirements-training.txt','requirements.txt'),
  ('requirements-training.txt','requirements-training.txt'),('requirements-qwen.txt','requirements-qwen.txt'),
  ('requirements-geo.txt','requirements-geo.txt'),('docs/training_workflow.md','README.md'),
  ('LICENSE','LICENSE'),('THIRD_PARTY_NOTICES.md','THIRD_PARTY_NOTICES.md'),

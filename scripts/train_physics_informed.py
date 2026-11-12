@@ -21,6 +21,23 @@ from backend.realtime.dem_processor import TERRAIN_VERSION
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
+def verify_reload_parity(models,restored,x,device):
+    """Exact same-device original/reload check, distinct from CPU/GPU tolerance."""
+    if tuple(models)!=KINDS or tuple(restored)!=KINDS or not len(x):
+        raise ValueError('Parity verification requires the complete four-model ensemble and nonempty inputs')
+    proof={'status':'passed','comparison':'exact same-device original versus reloaded ensemble',
+           'device':device,'rows':len(x),'models':{}}
+    for kind,model in models.items():
+        for tree,_ in restored[kind].folds:tree.set_params(device=device)
+        before=model.predict_proba(x);after=restored[kind].predict_proba(x)
+        if not np.isfinite(before).all() or not np.isfinite(after).all():
+            raise RuntimeError('Non-finite saved-model verification for '+kind)
+        np.testing.assert_array_equal(before,after)
+        proof['models'][kind]={'status':'exact','prediction_sha256':hashlib.sha256(before.tobytes()).hexdigest(),
+                              'maximum_absolute_difference':float(np.max(np.abs(before-after)))}
+    return proof
+
+
 def run(root=ROOT,device='cpu'):
     data=root/'data';art=root/'artifacts'
     from backend.release import invalidate_readiness
@@ -63,7 +80,16 @@ def run(root=ROOT,device='cpu'):
         assert not {r[field] for r in train}&{r[field] for r in hold}
     models={k:ContextModel(k,device).fit(x,y,g) for k in KINDS}
     path=art/'physics_informed_models.pkl';temporary=path.with_suffix('.pkl.tmp')
-    joblib.dump(models,temporary);temporary.replace(path)
+    joblib.dump(models,temporary)
+    # Verify the actual trained ensemble before replacing the current artifact.
+    # Portable model IO does not promise that a restored runtime device persists.
+    restored=joblib.load(temporary)
+    try:
+        parity=verify_reload_parity(models,restored,np.asarray([row['features'] for row in train+hold],float),device)
+        temporary.replace(path)
+    except BaseException:
+        if temporary.exists():temporary.unlink()
+        raise
     xx=np.asarray([r['features'] for r in hold],float)
     report={'version':VERSION,'terrain_version':TERRAIN_VERSION,'features':list(NAMES),'network_used':False,
         'primary_model':'Physics-Informed ML','selection':'Scientific thesis declared before evaluating corrected cohort; no holdout winner selection',
@@ -97,6 +123,7 @@ def run(root=ROOT,device='cpu'):
         'gravity_release_admissibility':'Conditional necessary-condition score under declared lognormal moments; not a calibrated event probability'}
     dest=data/'physics_informed_training.json';dest.write_text(json.dumps({'version':VERSION,'train':train,'holdout':hold},indent=2,allow_nan=False)+'\n')
     report['dataset_sha256']=sha(dest)
+    report['save_reload_prediction_parity']=parity
     (art/'physics_informed_ablation_report.json').write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
     (art/'scientific_validation_report.json').write_text(json.dumps(report,indent=2,allow_nan=False)+'\n')
     print(json.dumps(report['cross_validation'],indent=2));return report

@@ -101,7 +101,7 @@ The current **`physics_informed_initiation_v2_features`** model learns from sour
 | API routes, state IDs and chat | [API reference](API_USAGE.md) |
 | Physical assumptions | [Physics methods](docs/physics_sources.md) |
 | Pretrained artifact and compatibility | [Model card](artifacts/MODEL_CARD.md) |
-| Training and optional Windows/CUDA/QLoRA | [Training workflow](docs/training_workflow.md) |
+| Training and optional Windows/CUDA/QLoRA | [Training workflow](docs/training_workflow.md) · [RTX 5070 Ti guide](docs/windows_5070ti.md) |
 | Contribute and validate | [Contributing](CONTRIBUTING.md) |
 | Product and research direction | [Frontend specification](docs/FRONTEND_SPEC.md) · [Roadmap](ROADMAP.md) |
 
