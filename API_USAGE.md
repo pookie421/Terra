@@ -14,7 +14,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/scan \
 
 A place search submits `{"query":"place name"}` to the same route. Raw coordinates bypass named-place geocoding and retain an explicit coordinate label when no place name is known. Legacy `lat`/`lon` aliases are supported; conflicting aliases are rejected. `autonomous` defaults to true and rejects manual rainfall/duration perturbations. The browser sends only the requested location.
 
-`GET /api/v1/health` checks the local engine and actual learned-artifact availability without acquiring environmental providers. A healthy physical service can report `model_ready=false`; trained weights are required for learned scores.
+`GET /api/v1/health` checks the local engine and actual learned-artifact availability without acquiring environmental providers. A healthy physical service can report `model_ready=false`; the approved pretrained weights are included in a normal clone. Install with `-c constraints-runtime.txt`, preserve `artifacts/physics_informed_models.pkl`, and restart the backend after replacing it. See [setup](docs/SETUP.md).
 
 A scan returns:
 
@@ -87,4 +87,4 @@ The frontend retains conversation messages with state identity, displays numeric
 
 Optional sourced site records (`ground_columns`) can override cohesion, friction angle, unit weight, depth, head, conductivity and diffusivity at their exact H3 cell. Records retain units, source/method and validity dates where applicable. Missing fields remain labeled priors; invalid overrides are disclosed per cell.
 
-Legacy scenario and replay endpoints remain research utilities. They are not the autonomous frontend workflow. Raw corpora, cached providers, generated reports and model weights stay outside the source Git release; prepared local training bundles include source-reviewed materials. See [training workflow](docs/training_workflow.md) and [source/API critique](docs/global_source_audit.md).
+Legacy scenario and replay endpoints remain research utilities. They are not the autonomous frontend workflow. Raw corpora, cached providers, generated reports and legacy/optional weights stay outside Git. The small approved runtime ML artifact is included; see its [model card](artifacts/MODEL_CARD.md). Generated local training bundles include source-reviewed materials and are not tracked source mirrors. See [training workflow](docs/training_workflow.md) and [source/API critique](docs/global_source_audit.md).

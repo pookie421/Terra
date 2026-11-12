@@ -75,7 +75,7 @@ export default function App(){
   }
   function exportScan(){if(!scan)return;const url=URL.createObjectURL(new Blob([JSON.stringify(scan,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=`terra-${scan.scan_id}-${scan.scenario_id}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   return <div className={`command-center ${scan?'has-scan':''}`}>
-    <MapCanvas scan={scan} selected={selected} onSelect={id=>selectCell(id)} onScanCoordinate={(latitude,longitude)=>void startScan({latitude,longitude})} handle={map} runout={route} layer={layer} busy={!!busy}/>
+    <MapCanvas scan={scan} selected={selected} onSelect={id=>selectCell(id)} onScanCoordinate={(latitude,longitude)=>void startScan({latitude,longitude})} handle={map} runout={route} layer={layer}/>
     <header className="command-bar glass" aria-label="Map workspace tools">
       <form className="global-search" onSubmit={search}>
         <Search size={18}/><input ref={searchInput} aria-label="Search any place or latitude, longitude" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search a place or coordinates"/>

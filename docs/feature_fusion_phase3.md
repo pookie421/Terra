@@ -67,7 +67,7 @@ The retained Monaco diagnostic sweep at added rain `[0,1,10,50,100,300]` remains
 
 ## Live-first frontend and automatic forecasts
 
-[FRONTEND_SPEC.md](FRONTEND_SPEC.md) is the product contract. `frontend/` uses Vite, React 18, TypeScript, Tailwind, MapLibre and Lucide. The full-viewport world map loads Esri imagery and Terrarium terrain immediately, with pitch 55 and exaggeration 1.35. The obsidian glass HUD uses Inter and JetBrains Mono. Compiled Terrarium terrain is not uniformly measured at 30 m accuracy everywhere.
+[FRONTEND_SPEC.md](FRONTEND_SPEC.md) is the product contract. `frontend/` uses Vite, React 18, TypeScript, Tailwind, MapLibre and Lucide. The full-viewport world map loads Esri imagery and Terrarium terrain immediately, with pitch 55 and exaggeration 1.35. The restrained dark workspace uses readable Inter labels, with technical metadata in expandable details. Compiled Terrarium terrain is not uniformly measured at 30 m accuracy everywhere.
 
 Map clicks, a map-center button, coordinates and place-name search request a live scan. There are no manual weather sliders, fixed-city dropdown or replay-first boot. Existing H3 cells are selectable; map layers expose conditional fusion, FS, slope and pressure. Read-only source telemetry distinguishes fresh, cached, fallback and unavailable values.
 

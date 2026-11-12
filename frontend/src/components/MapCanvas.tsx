@@ -23,8 +23,6 @@ interface Props {
   handle:MutableRefObject<MapHandle|null>;
   runout?:Runout;
   layer:MapLayer;
-  onCenterChange?:(latitude:number,longitude:number)=>void;
-  busy?:boolean;
 }
 
 const LAYER_META:Record<MapLayer,{label:string;left:string;right:string;gradient:string}>={
@@ -73,13 +71,13 @@ function localGeometry(geometry:Geometry,anchor:number):Geometry {
   }
 }
 
-export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handle,runout,layer,onCenterChange}:Props){
+export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handle,runout,layer}:Props){
   const host=useRef<HTMLDivElement>(null),map=useRef<maplibregl.Map|null>(null),reticle=useRef<maplibregl.Marker|null>(null);
-  const callbacks=useRef({onSelect,onScanCoordinate,onCenterChange});
+  const callbacks=useRef({onSelect,onScanCoordinate});
   const current=useRef({scan,selected,runout,layer});
   const previousScan=useRef<string|null>(null);
   const [error,setError]=useState(''),[ready,setReady]=useState(false);
-  callbacks.current={onSelect,onScanCoordinate,onCenterChange};
+  callbacks.current={onSelect,onScanCoordinate};
   current.current={scan,selected,runout,layer};
 
   function markTarget(latitude:number,lon:number){
@@ -158,9 +156,7 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
     map.current=m;
     m.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'bottom-right');
     m.addControl(new maplibregl.ScaleControl({unit:'metric'}),'bottom-left');
-    const notifyCenter=()=>{const c=m.getCenter();callbacks.current.onCenterChange?.(c.lat,longitude(c.lng));};
-    m.on('load',()=>{setReady(true);setError('');updateLayers();notifyCenter();if(current.current.scan)fitCurrent();});
-    m.on('moveend',notifyCenter);
+    m.on('load',()=>{setReady(true);setError('');updateLayers();if(current.current.scan)fitCurrent();});
     m.on('click',event=>{
       if(!Number.isFinite(event.lngLat.lat)||!Number.isFinite(event.lngLat.lng))return;
       const hits=m.getLayer('hexagons')?m.queryRenderedFeatures(event.point,{layers:['hexagons']}):[];

@@ -193,8 +193,9 @@ class Providers(OfflineAsync):
 
 
 class LiveContract(OfflineAsync):
-    @unittest.skipUnless((ROOT/'artifacts/physics_informed_models.pkl').exists(),
-                         'Requires retained local physics-informed model artifact')
+    @unittest.skipUnless((ROOT/'artifacts/physics_informed_models.pkl').exists() and
+                         (ROOT/'data/source_catalogs/terrain_metric_v1/1cbdcbe18000bb510cdd1bc19fde85d3b9db91d3b3da54909f85099d64a26d86.json').exists(),
+                         'Requires retained model and corrected local Monaco terrain cache')
     async def test_retained_monaco_fusion_scores(self):
         raw=hydrate(GlobalScan,json.loads((ROOT/'tests/fixtures/monaco_physics_context.json').read_text())['snapshot'])
         service=GlobalScanService();before=await service.scan(_snapshot=raw)

@@ -4,9 +4,9 @@ The active experiment uses corrected metric terrain, conditional reference colum
 
 The target is a global system competitive with LHASA 2.0. This small retrospective experiment is a development check within that program, not evidence of global parity. Follow the [source and API audit](https://github.com/pookie421/Terra/blob/main/docs/global_source_audit.md) when changing inputs, assumptions or datasets.
 
-A Git clone contains portable source and small test fixtures, not raw observations, cached provider archives, generated training frames or learned weights. Reproducing the retained results requires those source-reviewed local materials. `sync_training_bundle.py` copies them into prepared local bundles; pushing the source mirror does not upload them. Source-only CI can verify deterministic contracts, with two explicit learned-artifact skips; full artifact verification requires the retained corpus and model outputs.
+A Git clone includes canonical source, small test fixtures and the approved pretrained runtime artifact. Starting the application requires no retraining; follow the [setup guide](SETUP.md) and [model card](../artifacts/MODEL_CARD.md). Raw observations, cached provider archives and generated training frames are not distributed. Reproducing the retained results requires those source-reviewed local materials. `sync_training_bundle.py` generates prepared local bundles; `training/` and `windows_5070ti_trainer/` are ignored, not tracked source mirrors. Runtime CI checks the packaged model and deterministic contracts; two retained-corpus tests explicitly skip without their required local frame/cache. Full artifact verification needs the corpus and model outputs.
 
-From the canonical repository root:
+**Research reproduction only:** first provision the retained source corpus and original manifests. The following commands are not a fresh-clone setup path. From the canonical repository root:
 
 ```sh
 python scripts/rebuild_metric_terrain.py --fetch
@@ -21,7 +21,7 @@ python scripts/sync_training_bundle.py
 
 The optional terrain stage is canonical-root preparation: its job list uses preserved original derived-cache locations. The prepared Windows bundle already includes the corrected metric terrain and raw tiles; the nightly `run_training.bat --qlora` path does not invoke that legacy job-list stage or require obsolete derived caches in its current data directory. The terrain stage downloads only tiles required by retained locations and is restartable. Subsequent stages use local raw weather/terrain with network connections disabled. All 1,611 observations receive rebuilt physical context. Initiation fitting uses 186 matched observations, ten grouping components, identical five outer folds and the original sixteen-row rainfall holdout. Full component embargo precedes target/feature selection. This is retrospective development evaluation, not an untouched prospective benchmark.
 
-`train_rainfall_baseline.py` now delegates to the four-way trainer. Both `training/` and `windows_5070ti_trainer/` are generated from root source/data/models, with matching hash manifests. Edit root source and rerun synchronization. Original v14 model/results remain archived and do not control live inference.
+`train_rainfall_baseline.py` now delegates to the four-way trainer. Both `training/` and `windows_5070ti_trainer/` are generated from root source/data/models, with matching hash manifests. Edit root source and rerun synchronization. Complete standalone system/randomized audits also expect generated mirrors and must run after synchronization, not directly from a fresh source checkout. Original v14 model/results remain archived and do not control live inference.
 
 ## Windows RTX execution
 

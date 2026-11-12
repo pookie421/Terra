@@ -1,6 +1,6 @@
 # Physical methods, provenance and applicability
 
-The active path is `backend/physics/reference_context.py` through `backend/api/reference_assessment.py`. Versioned contracts and implementation details are in [the active methods report](phase1_phase2_implementation.md). The [source/API audit](global_source_audit.md) evaluates the evidence behind inputs and coefficients.
+The active path is `backend/physics/reference_context.py` through `backend/api/reference_assessment.py`, using the `pedotransfer_reference_column_v1` contract. This page describes the current equations and assumptions; [feature-fusion results](feature_fusion_phase3.md) cover the coupled ML experiment. The [source/API audit](global_source_audit.md) evaluates the evidence behind inputs and coefficients.
 
 ## Published methods and project assumptions
 
@@ -38,4 +38,4 @@ Voellmy xi uses m/s²; energy evolves along each constant edge with drag proport
 
 Legacy mechanism references include [Jibson's Newmark regression](https://pubs.usgs.gov/sim/3077/downloads/3077_pamphlet.pdf), [the USGS Staley post-fire model](https://ghsc.code-pages.usgs.gov/lhp/pfdf/guide/models/s17.html), and [Gartner conditional volume](https://ghsc.code-pages.usgs.gov/lhp/pfdf/guide/models/g14.html). Their stable-block, catchment, severity and forcing requirements remain applicable. Catalog magnitude, RGB color and a river-discharge ratio do not supply those missing measurements. Legacy compatibility zeros require their applicability flags; they are not evidence of hazard absence.
 
-The [archived v14 methods](archive/physics_sources_2026_11_06.md) preserve earlier implementations and limitations. Current uncertainty, FS and runout semantics are those above and in the [API contract](../API_USAGE.md).
+The [research history](research_history.md) preserves earlier methods, failed experiments and the superseded measurement-only response, with links to the complete original records. Current uncertainty, FS and runout semantics are those above and in the [API contract](../API_USAGE.md).

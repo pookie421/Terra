@@ -1,0 +1,8 @@
+# Compatible numerical stack for the bundled ContextModel pickle snapshot.
+# Install with: python -m pip install -r requirements.txt -c constraints-runtime.txt
+# See artifacts/MODEL_CARD.md before replacing these versions.
+xgboost==2.1.4
+scikit-learn==1.6.1
+numpy==2.0.2
+scipy==1.13.1
+joblib==1.5.3

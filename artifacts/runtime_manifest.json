@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "artifact": "physics_informed_models.pkl",
+  "bytes": 901814,
+  "sha256": "ff70502e82cdd3cb57dbfc141478336c144234f6ed6eb1d059393aac377fcf0c",
+  "model_version": "physics_informed_initiation_v2_features",
+  "terrain_version": "metric_specific_area_bounded_1000m_v1",
+  "physics_version": "pedotransfer_reference_column_v1",
+  "source_implementation_commit": "0a5912bffb22c9f157a563db6aef5a4a04cad165",
+  "components": [
+    "Rainfall-Only",
+    "Physics-Only",
+    "Weather+Terrain ML",
+    "Physics-Informed ML"
+  ],
+  "feature_names": [
+    "rain_24h_mm",
+    "rain_prior_6d_mm",
+    "soil_moisture_0_7cm_mean_m3m3",
+    "slope_deg",
+    "twi",
+    "profile_curvature",
+    "fs_mid",
+    "fs_low",
+    "fs_high",
+    "shear_friction_ratio",
+    "cohesion_stability_number",
+    "pore_pressure_ratio",
+    "critical_pressure_ratio_deficit",
+    "critical_rainfall_deficit_ratio",
+    "fosm_reference_score",
+    "fosm_log10_p",
+    "log_fs_mid",
+    "critical_rain_deficit_mm",
+    "pressure_head_m",
+    "newmark_displacement_cm",
+    "newmark_available",
+    "rain_to_critical_deficit_ratio",
+    "effective_shear_stress_surge",
+    "gravity_release_admissibility",
+    "critical_rain_attainable"
+  ],
+  "training_environment": {
+    "python": "3.9.6",
+    "numpy": "2.0.2",
+    "sklearn": "1.6.1",
+    "xgboost": "2.1.4",
+    "device": "cpu"
+  },
+  "runtime_constraints": "../constraints-runtime.txt",
+  "training_rows": 186,
+  "training_components": 10,
+  "development_holdout_rows": 16,
+  "feature_frame_sha256": "0c98a16a02519d40040d9b5f989204dcb56b7b0de109aa2c9ce9e490398cbaec",
+  "retained_observations_sha256": "c8dbd95ceb3bc0a3d80efc993bed2da1bf6ce8c7ace3d11ab6beda037fe96490",
+  "holdout_manifest_sha256": "ebc107383924bcf262af3284b151211e8200bddc2c91660d1de08f8e603f5cf1",
+  "temporal_development_cv": {
+    "Rainfall-Only": {
+      "roc_auc": 0.8952480055497747,
+      "brier_score": 0.08644038455723296
+    },
+    "Physics-Only": {
+      "roc_auc": 0.5931321540062434,
+      "brier_score": 0.44126725282505347
+    },
+    "Weather+Terrain ML": {
+      "roc_auc": 0.9043241993294022,
+      "brier_score": 0.09112932624234718
+    },
+    "Physics-Informed ML": {
+      "roc_auc": 0.9026477049369869,
+      "brier_score": 0.11830666555314882
+    }
+  },
+  "separate_multiregime_proxy_benchmark": {
+    "fit_rows": 510,
+    "components": 34,
+    "scores": {
+      "Rainfall-Only": {
+        "roc_auc": 0.7842439078669189,
+        "brier_score": 0.17715792848280584
+      },
+      "Physics-Only": {
+        "roc_auc": 0.4795339299623265,
+        "brier_score": 0.49598447665129036
+      },
+      "Weather+Terrain ML": {
+        "roc_auc": 0.77126484286827,
+        "brier_score": 0.18163649411003338
+      },
+      "Physics-Informed ML": {
+        "roc_auc": 0.6865631308715764,
+        "brier_score": 0.2450683702755085
+      }
+    }
+  },
+  "raw_training_records_included": false,
+  "independent_predictive_validation": false,
+  "operational_warning_ready": false,
+  "custom_qwen_weights_included": false
+}

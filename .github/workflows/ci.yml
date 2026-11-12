@@ -12,9 +12,29 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - run: python -m pip install -r requirements.txt
+      - run: python -m pip install -r requirements.txt -c constraints-runtime.txt
+      - name: Verify bundled engines without provider requests
+        run: |
+          python - <<'PY'
+          import asyncio, hashlib, json, socket
+          from pathlib import Path
+          from unittest.mock import patch
+          import numpy as np
+          manifest = json.loads(Path('artifacts/runtime_manifest.json').read_text())
+          model = Path('artifacts') / manifest['artifact']
+          assert hashlib.sha256(model.read_bytes()).hexdigest() == manifest['sha256']
+          with patch.object(socket.socket, 'connect', side_effect=AssertionError('No provider requests in setup check')):
+              from backend.api.main import engine_health, scan_service
+              from backend.ml.physics_informed import NAMES
+              health = asyncio.run(engine_health())
+              assert health['model_ready'] and health['physics_reference_available'], health
+              sample = np.zeros((1, len(NAMES)))
+              sample[:, NAMES.index('gravity_release_admissibility')] = 1.
+              assert all(np.isfinite(m.predict_proba(sample)).all() for m in scan_service.context_models.values())
+          print(health)
+          PY
       - run: python -m unittest discover -s tests -v
-      - run: python -m compileall -q backend scripts training
+      - run: python -m compileall -q backend scripts
   frontend:
     runs-on: ubuntu-latest
     defaults:
