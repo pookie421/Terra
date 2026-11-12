@@ -1,5 +1,6 @@
 """Offline policy checks and real CPU loss/gradient equivalence; no model downloads."""
 import copy
+import hashlib
 from contextlib import ExitStack
 import importlib.util
 import json
@@ -12,13 +13,31 @@ from unittest.mock import patch
 import numpy as np
 from scripts.qlora_runtime import (training_policy, TokenizedTraces, tokenize_trajectories,
     DynamicCausalCollator, chunked_causal_loss, backbone_loss, VRAM_LIMIT_BYTES)
-from scripts.train_qwen25_agent import _memory_result, _trainer_class, longest_trajectory_smoke
+from scripts.train_qwen25_agent import _memory_result, _trainer_class, longest_trajectory_smoke, corpus_provenance
 
 TORCH = importlib.util.find_spec('torch') is not None
 HF = TORCH and importlib.util.find_spec('transformers') is not None and importlib.util.find_spec('peft') is not None
 
 
 class Policies(unittest.TestCase):
+    def test_every_qwen_entry_path_requires_honest_corpus_binding(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); (root/'data').mkdir(); (root/'artifacts').mkdir()
+            dataset = root/'data/sft_context_trajectories.jsonl'; dataset.write_bytes(b'fixture corpus')
+            digest = hashlib.sha256(dataset.read_bytes()).hexdigest()
+            fusion = root/'artifacts/physics_informed_models.pkl'; fusion.write_bytes(b'old model')
+            proof = {'sha256': digest, 'fusion_model_sha256': hashlib.sha256(fusion.read_bytes()).hexdigest(), 'rows': 1}
+            report = root/'artifacts/sft_trajectory_report.json'; report.write_text(json.dumps(proof))
+            self.assertEqual(corpus_provenance(dataset, digest, 1)['fusion_model_sha256'], proof['fusion_model_sha256'])
+            fusion.write_bytes(b'new model')
+            with self.assertRaisesRegex(ValueError, 'actual fusion model'):
+                corpus_provenance(dataset, digest, 1)
+            with self.assertRaisesRegex(ValueError, 'matching provenance report'):
+                corpus_provenance(dataset, '0'*64, 1)
+            custom = root/'data/custom.jsonl'; custom.write_bytes(b'custom corpus')
+            result = corpus_provenance(custom, hashlib.sha256(custom.read_bytes()).hexdigest(), 1)
+            self.assertEqual(result, {'fusion_binding_status': 'unverified_custom_corpus'})
+
     def test_windows_memory_policy(self):
         p = training_policy()
         self.assertEqual(p['per_device_train_batch_size'], 1)

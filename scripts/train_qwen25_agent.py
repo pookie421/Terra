@@ -72,6 +72,31 @@ def atomic_json(path, value):
     temporary.replace(path)
 
 
+def corpus_provenance(dataset_path, dataset_sha256, row_count):
+    """Bind retained SFT to its actual fusion model on every trainer entry path."""
+    dataset_path = Path(dataset_path)
+    artifacts = dataset_path.parent.parent / 'artifacts'
+    report_path = artifacts / 'sft_trajectory_report.json'
+    if report_path.exists():
+        report_bytes = report_path.read_bytes()
+        report = json.loads(report_bytes)
+        if report.get('sha256') == dataset_sha256:
+            fusion = artifacts / 'physics_informed_models.pkl'
+            if not fusion.exists():
+                raise ValueError('SFT provenance requires its recorded fusion artifact')
+            fusion_sha = hashlib.sha256(fusion.read_bytes()).hexdigest()
+            if report.get('fusion_model_sha256') != fusion_sha or report.get('rows') != row_count:
+                raise ValueError('SFT provenance differs from the actual fusion model or trajectory count; regenerate the corpus')
+            return {'fusion_binding_status': 'verified_against_corpus_report',
+                    'fusion_model_sha256': fusion_sha,
+                    'sft_trajectory_report_sha256': hashlib.sha256(report_bytes).hexdigest()}
+    if dataset_path.name == 'sft_context_trajectories.jsonl':
+        raise ValueError('Retained SFT corpus is missing a matching provenance report; regenerate and verify it before training')
+    # A custom corpus can train without a fusion claim. Directory proximity
+    # alone must never make its adapter claim the neighboring model's hash.
+    return {'fusion_binding_status': 'unverified_custom_corpus'}
+
+
 def export_trained_model(model: Any, tokenizer: Any, output_dir: Path, gguf_path: Path,
                          metadata=None) -> Dict[str, Any]:
     """Save the adapter first; CPU GGUF conversion is a separate explicit helper.
@@ -286,6 +311,7 @@ def train_qwen25(dataset_path: Path, output_dir: Path, gguf_path: Path, smoke_te
     os.environ.setdefault('TOKENIZERS_PARALLELISM', 'false')
     digest = hashlib.sha256(dataset_path.read_bytes()).hexdigest()
     row_count = validate_chatml(dataset_path)
+    provenance = corpus_provenance(dataset_path, digest, row_count)
     from transformers import AutoConfig, AutoTokenizer
     config = AutoConfig.from_pretrained(base_model, revision=base_revision, local_files_only=local_files_only,
                                        trust_remote_code=False)
@@ -320,9 +346,7 @@ def train_qwen25(dataset_path: Path, output_dir: Path, gguf_path: Path, smoke_te
     for package in ('torch', 'transformers', 'peft', 'accelerate', 'bitsandbytes', 'safetensors'):
         try: metadata['packages'][package] = version(package)
         except PackageNotFoundError: metadata['packages'][package] = None
-    fusion = dataset_path.parent.parent / 'artifacts/physics_informed_models.pkl'
-    if fusion.exists():
-        metadata['fusion_model_sha256'] = hashlib.sha256(fusion.read_bytes()).hexdigest()
+    metadata.update(provenance)
     output_dir.mkdir(parents=True, exist_ok=True)
     record = output_dir / ('smoke_run.json' if smoke_test or smoke_only else 'training_run.json')
     if record.exists():
