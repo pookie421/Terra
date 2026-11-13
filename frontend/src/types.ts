@@ -3,6 +3,9 @@ export type ModelName='Physics-Informed ML'|'Physics-Only'|'Weather+Terrain ML'|
 export const MODELS:ModelName[]=['Physics-Informed ML','Physics-Only','Weather+Terrain ML','Rainfall-Only'];
 export type PredictionModel='terra_physics_ml'|'nasa_lhasa_2'|'physics_only'|'weather_terrain_ml'|'rainfall_only';
 export const PREDICTION_MODELS:PredictionModel[]=['terra_physics_ml','nasa_lhasa_2','physics_only','weather_terrain_ml','rainfall_only'];
+// Keep every accepted action ID above; only these three are primary model choices.
+export const PRIMARY_PREDICTION_MODELS:PredictionModel[]=['terra_physics_ml','nasa_lhasa_2','rainfall_only'];
+export const DIAGNOSTIC_MODELS:PredictionModel[]=['physics_only','weather_terrain_ml'];
 export type MapLayer='probability'|'fs_mid'|'lhasa_2'|'nisar_radar'|'slope'|'pore_pressure';
 export const MAP_LAYERS:MapLayer[]=['probability','fs_mid','lhasa_2','nisar_radar','slope','pore_pressure'];
 export interface Cell {
@@ -65,6 +68,11 @@ export interface ActionOutcome {step:number;type:string;status:'completed'|'fail
 export interface BoundClaim {name:string;path:string;value:number}
 export interface ChatReply {scan_id:string|null;scenario_id:string|null;active_prediction_model?:PredictionModel;clean_markdown:string;briefing_guard:string;bound_claims?:BoundClaim[];model_error?:string;ui_action?:{actions:Action[]};updated_scan_data?:Scan;thought_steps?:ThoughtStep[]}
 export interface Health {status?:string;engine?:string;model_ready?:boolean;model_version?:string;[key:string]:unknown}
+export interface Connections {
+  scope:'deployment';
+  assistant:{provider:string;model:string|null;configured:boolean;mode:string;requires_personal_key:false};
+  earthdata:{configured:boolean;requires_personal_key:false};
+}
 export const SOURCES=['geocoding','terrarium_dem','open_meteo','nasa_power','soilgrids','usgs','overpass','eonet_wildfires','eonet_landslides','coolr','river','bedrock','ensemble','satellite','nasa_lhasa','nisar'];
 export const SOURCE_LABELS:Record<string,string>={geocoding:'Location',terrarium_dem:'Terrain',open_meteo:'Weather',nasa_power:'NASA POWER',soilgrids:'SoilGrids',usgs:'USGS seismic',overpass:'OpenStreetMap',eonet_wildfires:'EONET fires',eonet_landslides:'EONET landslides',coolr:'NASA COOLR',river:'GloFAS rivers',bedrock:'Bedrock geology',ensemble:'Weather ensemble',satellite:'Satellite imagery',nasa_lhasa:'NASA LHASA',nisar:'NISAR L-SAR'};
 export function cellIn(scan:Scan,id:string):Cell|undefined {

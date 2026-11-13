@@ -1,4 +1,4 @@
-import type {Scan,ChatReply,Cell,Runout,Health,HorizonKey,PredictionModel} from './types';
+import type {Scan,ChatReply,Cell,Runout,Health,HorizonKey,PredictionModel,Connections} from './types';
 const base=(import.meta.env.VITE_API_URL as string|undefined)?.replace(/\/$/,'')??'';
 export class ApiHttpError extends Error {
   readonly status:number;
@@ -28,6 +28,7 @@ async function request<T>(path:string,body?:unknown,signal?:AbortSignal,timeoutM
 }
 export const api={
   health:()=>request<Health>('/api/v1/health',undefined,undefined,6000),
+  connections:(signal?:AbortSignal)=>request<Connections>('/api/v1/connections',undefined,signal,6000),
   scan:(location:string|{latitude:number;longitude:number},signal?:AbortSignal)=>request<Scan>('/api/v1/scan',typeof location==='string'?{query:location}:location,signal),
   forecast:(scanId:string,key:HorizonKey,signal?:AbortSignal)=>request<Scan>(`/api/v1/scans/${encodeURIComponent(scanId)}/forecast/${key}`,undefined,signal),
   inspect:(scan:Scan,id:string,signal?:AbortSignal)=>request<Cell&{physics_informed_assessment?:Cell}>(`/api/v1/inspect/${scan.scan_id}/${id}?scenario_id=${scan.scenario_id}`,undefined,signal,15000),

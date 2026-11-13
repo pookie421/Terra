@@ -1,10 +1,11 @@
 import {useEffect,useRef,useState} from 'react';
-import {Search,ArrowUpRight,Crosshair,Download,MessageSquare,LoaderCircle,ChevronDown,Send,Check,AlertCircle,Layers3,Navigation,MapPin,X,Clock3,ExternalLink,Database} from 'lucide-react';
+import {Search,ArrowUpRight,Crosshair,Download,MessageSquare,LoaderCircle,ChevronDown,Send,Check,AlertCircle,Layers3,Navigation,MapPin,X,Clock3,ExternalLink,Settings2} from 'lucide-react';
 import MapCanvas,{type MapHandle} from './components/MapCanvas';
+import ConnectionStatus from './components/ConnectionStatus';
 import {api,ApiHttpError} from './api';
 import {executeActions} from './actionExecutor';
 import {criticalCell,LAYER_LABELS,modelLabel,nasaDescription,predictionScore,MODEL_LABELS} from './modelPresentation';
-import {cellIn,coord,fmt,HORIZONS,PREDICTION_MODELS,SOURCES,SOURCE_LABELS,type ActionOutcome,type BoundClaim,type Cell,type ForecastHour,type Health,type HorizonKey,type MapLayer,type PredictionModel,type Provider,type Runout,type Scan,type ThoughtStep} from './types';
+import {cellIn,coord,fmt,HORIZONS,PRIMARY_PREDICTION_MODELS,DIAGNOSTIC_MODELS,SOURCES,SOURCE_LABELS,type ActionOutcome,type BoundClaim,type Cell,type ForecastHour,type Health,type HorizonKey,type MapLayer,type PredictionModel,type Provider,type Runout,type Scan,type ThoughtStep} from './types';
 interface Message{id?:string;role:'assistant'|'user';text:string;guard?:string;claims?:BoundClaim[];state?:string|null;cell?:string;model?:PredictionModel;error?:string;steps?:ThoughtStep[];outcomes?:ActionOutcome[];executing?:boolean;executionError?:string}
 const time=(value?:string|null)=>{if(!value)return 'Awaiting source time';const d=new Date(value);return Number.isNaN(d.valueOf())?value:d.toLocaleString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+' UTC';};
 const labels=LAYER_LABELS;
@@ -19,9 +20,10 @@ export default function App(){
   const [scan,setScan]=useState<Scan|null>(null),[baseline,setBaseline]=useState<Scan|null>(null),[selected,setSelected]=useState(''),[inspected,setInspected]=useState<Cell>(),[route,setRoute]=useState<Runout>();
   const [query,setQuery]=useState(''),[busy,setBusy]=useState(''),[error,setError]=useState(''),[engine,setEngine]=useState<'connecting'|'active'|'offline'>('connecting'),[health,setHealth]=useState<Health>();
   const [horizon,setHorizon]=useState<HorizonKey>('now'),[layer,setLayer]=useState<MapLayer>('probability'),[predictionModel,setPredictionModel]=useState<PredictionModel>('terra_physics_ml');
-  const [provider,setProvider]=useState<string|null>(null),[sourcesOpen,setSourcesOpen]=useState(false),[chat,setChat]=useState<Message[]>([]),[draft,setDraft]=useState(''),[chatBusy,setChatBusy]=useState(false),[copilotOpen,setCopilotOpen]=useState(false),[comparison,setComparison]=useState(''),[mobilePanel,setMobilePanel]=useState<'sector'|'cell'|null>(null);
+  const [provider,setProvider]=useState<string|null>(null),[sourcesOpen,setSourcesOpen]=useState(false),[optionsOpen,setOptionsOpen]=useState(false),[chat,setChat]=useState<Message[]>([]),[draft,setDraft]=useState(''),[chatBusy,setChatBusy]=useState(false),[copilotOpen,setCopilotOpen]=useState(false),[comparison,setComparison]=useState(''),[mobilePanel,setMobilePanel]=useState<'sector'|'cell'|null>(null);
   const map=useRef<MapHandle|null>(null),epoch=useRef(0),request=useRef<AbortController|null>(null),chatEnd=useRef<HTMLDivElement>(null),searchInput=useRef<HTMLInputElement>(null),latest=useRef<Scan|null>(scan),baselineRef=useRef<Scan|null>(baseline);
   const selection=useRef(selected),modelRef=useRef(predictionModel),chatRequest=useRef<AbortController|null>(null),chatSequence=useRef(0),chatInput=useRef<HTMLTextAreaElement|null>(null);
+  const optionsPanel=useRef<HTMLElement|null>(null),optionsTrigger=useRef<HTMLButtonElement|null>(null);
   latest.current=scan;selection.current=selected;baselineRef.current=baseline;modelRef.current=predictionModel;
   const cell=inspected?.h3_index===selected?inspected:scan?cellIn(scan,selected):undefined;
   const secondary=scan&&comparison?cellIn(scan,comparison):undefined;
@@ -33,7 +35,8 @@ export default function App(){
   const allocations=Object.entries(cell?.uncertainty_variance_allocation??{}).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
   const maxAllocation=Math.max(1e-12,...allocations.map(([,v])=>Math.abs(v))),feed=provider?scan?.source_status[provider]:undefined;
   useEffect(()=>{let cancelled=false;const check=()=>api.health().then(value=>{if(!cancelled){setHealth(value);setEngine('active');}}).catch(()=>{if(!cancelled)setEngine('offline');});void check();const timer=setInterval(check,30000);return()=>{cancelled=true;clearInterval(timer);request.current?.abort();chatSequence.current++;chatRequest.current?.abort();};},[]);
-  useEffect(()=>{const key=(event:KeyboardEvent)=>{const target=event.target as HTMLElement;if(event.key==='/'&&!['INPUT','TEXTAREA'].includes(target.tagName)){event.preventDefault();searchInput.current?.focus();}if(event.key==='Escape'){setProvider(null);setSourcesOpen(false);setMobilePanel(null);setCopilotOpen(false);}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[]);
+  useEffect(()=>{const key=(event:KeyboardEvent)=>{const target=event.target as HTMLElement;if(event.key==='/'&&!['INPUT','TEXTAREA'].includes(target.tagName)){event.preventDefault();searchInput.current?.focus();}if(event.key==='Escape'){if(optionsPanel.current?.contains(target))optionsTrigger.current?.focus();setProvider(null);setSourcesOpen(false);setOptionsOpen(false);setMobilePanel(null);setCopilotOpen(false);}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[]);
+  useEffect(()=>{if(!optionsOpen)return;const dismiss=(event:PointerEvent)=>{const target=event.target as Node;if(!optionsPanel.current?.contains(target)&&!optionsTrigger.current?.contains(target))setOptionsOpen(false);};document.addEventListener('pointerdown',dismiss);return()=>document.removeEventListener('pointerdown',dismiss);},[optionsOpen]);
   useEffect(()=>{if(chat.length||chatBusy)chatEnd.current?.scrollIntoView({block:'nearest',behavior:'smooth'});},[chat,chatBusy]);
   useEffect(()=>{
     setInspected(undefined);setRoute(undefined);if(!scan||!selected)return;
@@ -88,7 +91,7 @@ export default function App(){
   }
   function selectModel(model:PredictionModel,agent=false){if(!agent)cancelChat();modelRef.current=model;setPredictionModel(model);setLayer('probability');}
   function selectLayer(next:MapLayer,agent=false){if(!agent)cancelChat();setLayer(next);}
-  function openCopilot(){setCopilotOpen(true);requestAnimationFrame(()=>chatInput.current?.focus({preventScroll:true}));}
+  function openCopilot(){setOptionsOpen(false);setCopilotOpen(true);requestAnimationFrame(()=>chatInput.current?.focus({preventScroll:true}));}
   function renderAction(){return new Promise<void>(resolve=>{let done=false;const finish=()=>{if(!done){done=true;clearTimeout(timer);resolve();}};const timer=setTimeout(finish,150);requestAnimationFrame(()=>requestAnimationFrame(finish));});}
   async function send(event:React.FormEvent){event.preventDefault();if(!draft.trim()||chatBusy||busy)return;
     const current=latest.current,text=draft.trim(),identity=current?.scenario_id??null,cellId=selection.current,scanId=current?.scan_id??null,model=modelRef.current;
@@ -125,42 +128,51 @@ export default function App(){
         <Search size={18}/><input ref={searchInput} aria-label="Search any place or latitude, longitude" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search a place or coordinates"/>
         <kbd>/</kbd><button type="submit" title="Search and scan" aria-label="Search and scan"><ArrowUpRight size={18}/></button>
       </form>
-      <button className="scan-center" onClick={()=>map.current?.scanCenter()}><Crosshair size={16}/><span>Scan map view</span></button>
-      <div className="toolbar-actions">
-        {scan&&<button className={`toolbar-button ${sourcesOpen?'active':''}`} onClick={()=>setSourcesOpen(v=>!v)} aria-label="Data sources" title="Data sources" aria-expanded={sourcesOpen} aria-controls="source-panel"><Database size={16}/><span>Sources</span></button>}
-        <button className={`toolbar-button ${copilotOpen?'active':''}`} type="button" onClick={openCopilot} aria-label="Open assistant" title="Assistant" aria-expanded={copilotOpen} aria-controls="assistant-drawer"><MessageSquare size={16}/><span>Assistant</span></button>
-        {scan&&<button className="toolbar-button export-button" onClick={exportScan} title="Export analysis" aria-label="Export analysis"><Download size={17}/></button>}
+      <button className="scan-center" title="Scan current map view" aria-label="Scan current map view" onClick={()=>map.current?.scanCenter()}><Crosshair size={16}/><span>Scan map view</span></button>
+      <div className="toolbar-model">
+        <label htmlFor="prediction-model">Prediction model</label>
+        <select id="prediction-model" aria-label="Prediction model" value={PRIMARY_PREDICTION_MODELS.includes(predictionModel)?predictionModel:''} onChange={e=>selectModel(e.target.value as PredictionModel)}>
+          {!PRIMARY_PREDICTION_MODELS.includes(predictionModel)&&<option value="" disabled>Diagnostic: {MODEL_LABELS[predictionModel]}</option>}
+          {PRIMARY_PREDICTION_MODELS.map(model=><option key={model} value={model}>{MODEL_LABELS[model]}</option>)}
+        </select>
       </div>
-      {engine==='offline'&&<span className="connection-error" role="status"><AlertCircle size={14}/>Service unavailable</span>}
+      <div className="toolbar-actions">
+        <button className={`toolbar-button ${copilotOpen?'active':''}`} type="button" onClick={openCopilot} aria-label="Open assistant" title="Assistant" aria-expanded={copilotOpen} aria-controls="assistant-drawer"><MessageSquare size={16}/><span>Assistant</span></button>
+        <button ref={optionsTrigger} className={`toolbar-button options-trigger ${optionsOpen?'active':''}`} type="button" onClick={()=>{setOptionsOpen(v=>!v);setCopilotOpen(false);}} aria-label="Options" title="Options" aria-expanded={optionsOpen} aria-controls="options-panel"><Settings2 size={16}/><span>Options</span><ChevronDown size={13}/></button>
+      </div>
+      {engine==='offline'&&<span className="connection-error" role="status" aria-label="Service unavailable" title="Service unavailable"><AlertCircle size={14}/><span>Service unavailable</span></span>}
     </header>
 
-    {sourcesOpen&&scan&&<section id="source-panel" className="source-popover glass" aria-label="Data sources">
-      <div className="popover-title"><h2>Data sources</h2><button onClick={()=>setSourcesOpen(false)} aria-label="Close data sources"><X size={18}/></button></div>
-      <p className="support-note">Availability and accuracy vary by source. Select a source for its provenance.</p>
-      <div className="source-list">{SOURCES.map(name=>{const p=scan.source_status[name];return <button key={name} className={provider===name?'selected':''} onClick={()=>setProvider(v=>v===name?null:name)} aria-expanded={provider===name}><span>{SOURCE_LABELS[name]}</span><small className={tone(p)}>{providerLabel(p)}</small></button>;})}</div>
-      {provider&&<div className="source-detail"><h3>{feed?.provider??SOURCE_LABELS[provider]}</h3><p>{feed?.error??'Source provenance refers to the current scan. Availability does not establish local measurement accuracy.'}</p><dl className="telemetry"><div><dt>Source mode</dt><dd>{stateOf(feed)}</dd></div><div><dt>Retrieved</dt><dd>{time(feed?.fetched_at_utc)}</dd></div><div><dt>Fetch time</dt><dd>{feed?.latency_ms==null?'Not recorded':fmt(feed.latency_ms,0)+' ms'}</dd></div><div><dt>Age</dt><dd>{feed?.age_seconds==null?'Not reported':fmt(feed.age_seconds,0)+' s'}</dd></div></dl></div>}
-      <a className="text-link" href="https://github.com/pookie421/Terra/blob/main/docs/global_source_audit.md" target="_blank" rel="noreferrer">Source methods and limitations <ExternalLink size={13}/></a>
+    {optionsOpen&&<section ref={optionsPanel} id="options-panel" className="options-popover glass" aria-label="Workspace options">
+      <div className="popover-title"><h2>Options</h2><button onClick={()=>setOptionsOpen(false)} aria-label="Close options"><X size={18}/></button></div>
+      <div className="options-section options-layer"><label htmlFor="map-layer">Map layer</label><select id="map-layer" disabled={!scan} value={layer} onChange={e=>selectLayer(e.target.value as MapLayer)}>{(Object.keys(labels) as MapLayer[]).map(key=><option key={key} value={key}>{labels[key]}</option>)}</select>{!scan&&<p className="support-note">Scan a location to inspect result layers.</p>}</div>
+      <details className="options-section disclosure" open={sourcesOpen} onToggle={event=>setSourcesOpen(event.currentTarget.open)}><summary>Sources<ChevronDown size={15}/></summary>
+        {scan?<><p className="support-note">Select a provider for current availability and provenance.</p>
+          <div className="source-list">{SOURCES.map(name=>{const p=scan.source_status[name];return <button key={name} className={provider===name?'selected':''} onClick={()=>setProvider(v=>v===name?null:name)} aria-expanded={provider===name}><span>{SOURCE_LABELS[name]}</span><small className={tone(p)}>{providerLabel(p)}</small></button>;})}</div>
+          {provider&&<div className="source-detail"><h3>{feed?.provider??SOURCE_LABELS[provider]}</h3><p>{feed?.error??'Source provenance refers to the current scan. Availability does not establish local measurement accuracy.'}</p><dl className="telemetry"><div><dt>Source mode</dt><dd>{stateOf(feed)}</dd></div><div><dt>Retrieved</dt><dd>{time(feed?.fetched_at_utc)}</dd></div><div><dt>Fetch time</dt><dd>{feed?.latency_ms==null?'Not recorded':fmt(feed.latency_ms,0)+' ms'}</dd></div><div><dt>Age</dt><dd>{feed?.age_seconds==null?'Not reported':fmt(feed.age_seconds,0)+' s'}</dd></div></dl></div>}
+        </>:<p className="support-note">Provider results appear after a scan.</p>}
+        <a className="text-link" href="https://github.com/pookie421/Terra/blob/main/docs/global_source_audit.md" target="_blank" rel="noreferrer">Source methods and limitations <ExternalLink size={13}/></a>
+      </details>
+      <details className="options-section disclosure"><summary>Connections<ChevronDown size={15}/></summary><ConnectionStatus/></details>
+      <details className="options-section disclosure" open={DIAGNOSTIC_MODELS.includes(predictionModel)||undefined}><summary>Advanced diagnostics<ChevronDown size={15}/></summary>
+        <p className="support-note">Inspect individual model components. Selecting a diagnostic updates the map and assistant context to that exact model.</p>
+        <div className="diagnostic-models">{DIAGNOSTIC_MODELS.map(model=><button key={model} className={predictionModel===model?'active':''} aria-pressed={predictionModel===model} onClick={()=>selectModel(model)}>{MODEL_LABELS[model]}{predictionModel===model&&<Check size={13}/>}</button>)}</div>
+        <p className="support-note">These are diagnostic components, not additional primary models. Choose a primary model from the toolbar to return.</p>
+      </details>
+      <div className="options-section"><button className="options-export" disabled={!scan} onClick={exportScan}><Download size={15}/>Export analysis<span>JSON</span></button></div>
     </section>}
 
-    {!scan&&<section className="welcome-card glass"><h1>Explore an area</h1><p>Search a location or click the map to view landslide estimates and the 72-hour forecast.</p><div className="engine-section"><label htmlFor="prediction-model-start">Prediction model</label><select id="prediction-model-start" value={predictionModel} onChange={e=>selectModel(e.target.value as PredictionModel)}>{PREDICTION_MODELS.map(model=><option key={model} value={model}>{MODEL_LABELS[model]}</option>)}</select></div><button className="welcome-assistant" onClick={openCopilot}><MessageSquare size={14}/>Ask the assistant to navigate</button></section>}
+    {!scan&&<section className="welcome-card glass"><h1>Explore an area</h1><p>Search a place or select any point on the map to scan live conditions and the automatic forecast.</p><button className="welcome-assistant" onClick={openCopilot}><MessageSquare size={14}/>Navigate with the assistant</button></section>}
     {scan&&<>
       <div className="sector-context">
         <h1 title={scan.location.display_name}>{locationTitle}</h1>
         <p>{time(currentView?.valid_time_utc??scan.generated_at_utc)}</p>
-        <div className="layer-switch glass" role="group" aria-label="Map layer">{(Object.keys(labels) as MapLayer[]).map(k=><button className={layer===k?'active':''} aria-pressed={layer===k} key={k} onClick={()=>selectLayer(k)}>{labels[k]}</button>)}</div>
-        {scan.nisar&&<button className="radar-context glass" onClick={()=>{setSourcesOpen(true);setProvider('nisar');}}><Database size={12}/>NISAR L-SAR · {scan.nisar.mode==='METADATA_LIVE'?'metadata':cell?.nisar_coherence!=null?'measured subset':'source context'}</button>}
       </div>
       <aside className={`hud-panel sector-panel glass ${mobilePanel==='sector'?'mobile-open':''}`} aria-label="Area overview">
         <div className="panel-title"><h2>Area overview</h2></div>
-        <section className="panel-section engine-section">
-          <label htmlFor="prediction-model">Prediction model</label>
-          <select id="prediction-model" value={predictionModel} onChange={e=>selectModel(e.target.value as PredictionModel)}>{PREDICTION_MODELS.map(model=><option key={model} value={model}>{model==='nasa_lhasa_2'&&scan.nasa_lhasa?.label?scan.nasa_lhasa.label:MODEL_LABELS[model]}</option>)}</select>
-          <p className="support-note">{predictionModel==='nasa_lhasa_2'?nasaDescription(scan):'Terrain-informed estimates with inspectable physics and conditional runout.'}</p>
-          <details className="nested-details"><summary>Resolution and scope</summary><p className="support-note">Terrain elevation sources are nominally 30 m where available. H3 resolution-9 cells average about 0.1 km² and span hundreds of metres. NASA LHASA rasters are about 1 km; sampling one pixel into several H3 cells preserves its original support.</p><p className="support-note">Finer terrain and radar context do not establish greater predictive skill. Compare shared cells, issue times and coverage.</p>{scan.nasa_lhasa&&<dl className="telemetry"><div><dt>NASA product</dt><dd>{scan.nasa_lhasa.product_version?.startsWith('NOT_')?'Served version unverified':scan.nasa_lhasa.product_version??'Served version unverified'}</dd></div><div><dt>NASA valid time</dt><dd>{scan.nasa_lhasa.valid_time_utc?time(scan.nasa_lhasa.valid_time_utc):'Not declared by service'}</dd></div><div><dt>Source mode</dt><dd>{scan.nasa_lhasa.provenance??scan.nasa_lhasa.mode??'Unavailable'}</dd></div></dl>}</details>
-        </section>
         <section className="panel-section">
           <div className="sector-score"><span>Peak model score</span><strong className={peakScore!=null&&peakScore>=.65?'red':''}>{fmt(peakScore,2)}</strong></div>
-          <p className="active-model-label">{modelLabel(scan,predictionModel)}</p>
+          <p className="active-model-label">{DIAGNOSTIC_MODELS.includes(predictionModel)?'Diagnostic · ':''}{modelLabel(scan,predictionModel)}</p>
           <div className="summary-interval"><span>Lowest factor of safety</span><b>{fmt(minColumn?.fs_mid)}</b><small>Central estimate</small></div>
           <button className="hud-button" disabled={!hotspot} onClick={()=>hotspot&&selectCell(hotspot.h3_index,true)}><Navigation size={15}/>View critical area<ArrowUpRight size={15}/></button>
           <p className="support-note">{peakScore===null?'No supported score for this model and time.':predictionModel==='nasa_lhasa_2'?nasaDescription(scan):'Experimental scores; physical columns use reference soil assumptions.'}</p>
@@ -173,16 +185,16 @@ export default function App(){
           {forecast?.reason&&<p className="support-note amber">{forecast.reason}</p>}
           {predictionModel==='nasa_lhasa_2'&&horizon!=='now'&&<p className="support-note">NASA “Tomorrow” is a daily product, not an exact T+24h forecast. Unsupported later horizons remain unavailable.</p>}
         </section>
-        <details className="panel-section disclosure observed-section" open><summary>Current conditions<ChevronDown size={15}/></summary>
+        <details className="panel-section disclosure observed-section"><summary>Current conditions<ChevronDown size={15}/></summary>
           <dl className="telemetry"><Metric label="Rain · last 24h" value={inputs?.rain_24h_mm} unit="mm" digits={1}/><Metric label="Rain · preceding 6 days" value={inputs?.rain_prior_6d_mm} unit="mm" digits={1}/><Metric label="Surface moisture · 24h mean" value={inputs?.surface_moisture_m3m3} unit="m³/m³" digits={3}/></dl>
           <details className="nested-details"><summary>Soil and other inputs</summary><dl className="telemetry"><Metric label="Clay · 0–30 cm" value={numeric(soil,'clay_g_kg')==null?undefined:numeric(soil,'clay_g_kg')!/10} unit="%"/><Metric label="Sand · 0–30 cm" value={numeric(soil,'sand_g_kg')==null?undefined:numeric(soil,'sand_g_kg')!/10} unit="%"/><Metric label="Bulk density" value={numeric(soil,'bdod_kg_m3')} unit="kg/m³"/><Metric label="Organic carbon" value={numeric(soil,'soc_g_kg')} unit="g/kg"/><Metric label="USGS PGA · catalog proxy" value={inputs?.pga_proxy_g} unit="g" digits={4}/><Metric label="River discharge · modeled" value={inputs?.river_discharge_m3_s} unit="m³/s"/></dl><p className="support-note">Soil source: {String(soil?.source??'Unavailable').replaceAll('_',' ')}<br/>Weather: {time(inputs?.weather_valid_time_utc)}</p></details>
         </details>
-        <details className="panel-section disclosure model-section" open><summary>Model comparison<ChevronDown size={15}/></summary>
-          <div className="comparison-pair"><div><span>Terra · Physics + ML</span><strong>{fmt(predictionScore(cell,'terra_physics_ml'))}</strong><small>Conditional initiation score</small></div><div><span>{modelLabel(scan,'nasa_lhasa_2')}</span><strong>{fmt(predictionScore(cell,'nasa_lhasa_2'))}</strong><small>{cell?.official_score!=null||cell?.lhasa_probability!=null?'Official raster value':'Reference / unavailable'}</small></div></div>
-          {PREDICTION_MODELS.map(model=>{const score=predictionScore(cell,model);return <div className={`model-row ${predictionModel===model?'primary':''}`} key={model}><div><button onClick={()=>selectModel(model)}>{modelLabel(scan,model)}</button><b>{fmt(score,2)}</b></div><div className={`model-track ${score===null?'missing':''}`}><i style={{width:`${Math.max(0,Math.min(100,(score??0)*100))}%`}}/></div></div>;})}
-          <p className="support-note">Same selected H3 cell; native input support and score meanings differ. This display is not a matched predictive benchmark. {nasaDescription(scan)}</p>
+        <details className="panel-section disclosure model-section"><summary>Selected-cell comparison<ChevronDown size={15}/></summary>
+          {PRIMARY_PREDICTION_MODELS.map(model=>{const score=predictionScore(cell,model);return <div className={`model-row ${predictionModel===model?'primary':''}`} key={model}><div><button onClick={()=>selectModel(model)}>{modelLabel(scan,model)}</button><b>{fmt(score,2)}</b></div><div className={`model-track ${score===null?'missing':''}`}><i style={{width:`${Math.max(0,Math.min(100,(score??0)*100))}%`}}/></div></div>;})}
+          <details className="nested-details"><summary>Component diagnostics</summary>{DIAGNOSTIC_MODELS.map(model=>{const score=predictionScore(cell,model);return <div className={`model-row ${predictionModel===model?'primary':''}`} key={model}><div><button onClick={()=>selectModel(model)}>{modelLabel(scan,model)}</button><b>{fmt(score,2)}</b></div><div className={`model-track ${score===null?'missing':''}`}><i style={{width:`${Math.max(0,Math.min(100,(score??0)*100))}%`}}/></div></div>;})}</details>
+          <p className="support-note">Same selected cell; input support and score meanings differ. This is not a matched predictive benchmark. {nasaDescription(scan)}</p>
         </details>
-        <details className="panel-section disclosure analysis-details"><summary>Analysis details<ChevronDown size={15}/></summary><dl className="telemetry"><div><dt>Scan</dt><dd>{scan.scan_id}</dd></div><div><dt>State</dt><dd>{scan.scenario_id}</dd></div><div><dt>Minimum FS · low / central / high</dt><dd>{[minColumn?.fs_low,minColumn?.fs_mid,minColumn?.fs_high].map(v=>fmt(v)).join(' / ')}</dd></div><div><dt>Minimum FS cell</dt><dd>{minColumn?.h3_index}</dd></div><div><dt>Grid cells</dt><dd>{scan.physical_assessment.cells.length}</dd></div><div><dt>Elevation range</dt><dd>{range(scan.physical_assessment.cells.map(c=>c.elevation_m))} m</dd></div><div><dt>Slope range</dt><dd>{range(scan.physical_assessment.cells.map(c=>c.slope_deg))}°</dd></div><div><dt>Model</dt><dd>{health?.model_version??'Not reported'}</dd></div></dl><p className="support-note">Research estimates, not operational warnings.</p></details>
+        <details className="panel-section disclosure analysis-details"><summary>Analysis details<ChevronDown size={15}/></summary><dl className="telemetry"><div><dt>Scan</dt><dd>{scan.scan_id}</dd></div><div><dt>State</dt><dd>{scan.scenario_id}</dd></div><div><dt>Minimum FS · low / central / high</dt><dd>{[minColumn?.fs_low,minColumn?.fs_mid,minColumn?.fs_high].map(v=>fmt(v)).join(' / ')}</dd></div><div><dt>Minimum FS cell</dt><dd>{minColumn?.h3_index}</dd></div><div><dt>Grid cells</dt><dd>{scan.physical_assessment.cells.length}</dd></div><div><dt>Elevation range</dt><dd>{range(scan.physical_assessment.cells.map(c=>c.elevation_m))} m</dd></div><div><dt>Slope range</dt><dd>{range(scan.physical_assessment.cells.map(c=>c.slope_deg))}°</dd></div><div><dt>Model</dt><dd>{health?.model_version??'Not reported'}</dd></div></dl><p className="support-note">Research estimates, not operational warnings.</p>          <details className="nested-details"><summary>Resolution and scope</summary><p className="support-note">Terrain elevation sources are nominally 30 m where available. H3 resolution-9 cells average about 0.1 km² and span hundreds of metres. NASA LHASA rasters are about 1 km; sampling one pixel into several H3 cells preserves its original support.</p><p className="support-note">Finer terrain and radar context do not establish greater predictive skill. Compare shared cells, issue times and coverage.</p>{scan.nasa_lhasa&&<dl className="telemetry"><div><dt>NASA product</dt><dd>{scan.nasa_lhasa.product_version?.startsWith('NOT_')?'Served version unverified':scan.nasa_lhasa.product_version??'Served version unverified'}</dd></div><div><dt>NASA valid time</dt><dd>{scan.nasa_lhasa.valid_time_utc?time(scan.nasa_lhasa.valid_time_utc):'Not declared by service'}</dd></div><div><dt>Source mode</dt><dd>{scan.nasa_lhasa.provenance??scan.nasa_lhasa.mode??'Unavailable'}</dd></div></dl>}</details></details>
       </aside>
 
       <aside className={`hud-panel cell-panel glass ${mobilePanel==='cell'?'mobile-open':''}`} aria-label="Selected location">
@@ -208,7 +220,7 @@ export default function App(){
       <div className="panel-title"><h2>Assistant</h2><button onClick={()=>setCopilotOpen(false)} aria-label="Close assistant"><X size={18}/></button></div>
       <p className="assistant-context">{scan?modelLabel(scan,predictionModel)+' · '+locationTitle:'Search or scan a location from this conversation.'}</p>
       <div className="chat-log" aria-live="polite">
-        {!chat.length&&<div className="chat-empty"><p>Ask about the current evidence or navigate the workspace in several steps.</p><button onClick={()=>setDraft(scan?'Compare Terra with NASA LHASA on the riskiest cell here.':'Take me to 11.548, 76.134 and inspect the steepest cell.')}><ArrowUpRight size={14}/>{scan?'Compare prediction models':'Navigate and inspect terrain'}</button></div>}
+        {!chat.length&&<div className="chat-empty"><p>Ask about the current evidence or navigate the workspace in several steps.</p><button onClick={()=>setDraft(scan?'Compare Terra with NASA LHASA on the riskiest cell here.':'Help me choose a location to scan.')}><ArrowUpRight size={14}/>{scan?'Compare prediction models':'Navigate and inspect terrain'}</button></div>}
         {chat.map((m,index)=><article className={`chat-message ${m.role}`} key={m.id??index}>
           {m.guard&&<span title={m.guard} className={'verification '+(m.guard==='VERIFIED_LLM_PROSE'?'verified':m.guard==='VERIFIED_TEMPLATE'?'template':'failed')}>{m.guard==='VERIFIED_LLM_PROSE'||m.guard==='VERIFIED_TEMPLATE'?<Check size={12}/>:<AlertCircle size={12}/>} {m.guard==='VERIFIED_LLM_PROSE'?'Verified response':m.guard==='VERIFIED_TEMPLATE'?'Verified fallback':m.guard.toLowerCase().replaceAll('_',' ')}</span>}
           <p>{m.text}</p>
@@ -216,7 +228,7 @@ export default function App(){
           {!!m.outcomes?.length&&<details className="agent-outcomes" open><summary>Execution results</summary><ol>{m.outcomes.map(outcome=><li key={outcome.step} className={outcome.status==='failed'?'amber':''}>{outcome.status==='completed'?<Check size={13}/>:<AlertCircle size={13}/>}<span>{outcome.summary}</span></li>)}</ol></details>}
           {m.executing&&<p className="chat-thinking"><LoaderCircle size={13} className="spin"/>Executing the next workspace action…</p>}
           {m.executionError&&<p className="execution-error" role="status">{m.executionError}</p>}
-          {(m.state||m.error||m.claims?.length||m.outcomes?.length)&&<details className="claim-citations"><summary>Response details</summary>{m.guard&&<p>{m.guard}</p>}{m.error&&<p className="amber">Local model service: {m.error}</p>}{m.state&&<p>Prose evidence state: {m.state}<br/>Cell: {m.cell}<br/>Model: {m.model}</p>}{m.claims?.map(c=><div key={c.name}><code>{c.path}</code><b>{fmt(c.value,5)}</b></div>)}{m.outcomes?.map(outcome=><p key={outcome.step}>Action {outcome.step}: {outcome.scan_id??'No scan'} / {outcome.scenario_id??'No forecast state'}</p>)}</details>}
+          {(m.state||m.error||m.claims?.length||m.outcomes?.length)&&<details className="claim-citations"><summary>Response details</summary>{m.guard&&<p>{m.guard}</p>}{m.error&&<p className="amber">Assistant service: {m.error}</p>}{m.state&&<p>Prose evidence state: {m.state}<br/>Cell: {m.cell}<br/>Model: {m.model}</p>}{m.claims?.map(c=><div key={c.name}><code>{c.path}</code><b>{fmt(c.value,5)}</b></div>)}{m.outcomes?.map(outcome=><p key={outcome.step}>Action {outcome.step}: {outcome.scan_id??'No scan'} / {outcome.scenario_id??'No forecast state'}</p>)}</details>}
         </article>)}
         {chatBusy&&!chat.some(m=>m.executing)&&<div className="chat-thinking"><LoaderCircle size={14} className="spin"/>Checking the request and current evidence…</div>}<div ref={chatEnd}/>
       </div>

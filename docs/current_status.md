@@ -6,7 +6,7 @@ TERRA-SHIELD targets a global, autonomous landslide hazard and forecast platform
 
 | Area | Current behavior | Evidence gap |
 |---|---|---|
-| Frontend | Full-screen satellite/terrain map, five-model switcher, selected-cell comparison, NASA/radar layers, automatic forecast horizons and cell inspection | Integration at tested locations does not establish uniform global coverage, equal score calibration or predictive validity |
+| Frontend | Full-screen satellite/terrain map, three primary models, advanced comparisons, compact Options, automatic forecast horizons and cell inspection | Integration at tested locations does not establish uniform global coverage, equal score calibration or predictive validity |
 | Terrain | Metric Mercator spacing on both axes; corrected aspect; no mechanical slope floor; specific-area TWI with bounded 1 km contributing paths | Compiled DEM accuracy, bounded drainage support, provisional elevation land mask, polar coverage and independent GIS comparison |
 | Physics | `pedotransfer_reference_column_v1`, antecedent storage, transient response, uncapped FS, sensitivity envelope and joint FOSM | Strength/depth/state/covariance priors and structural error need independent validation |
 | ML | `physics_informed_initiation_v2_features`; ordinary prevalence initialization, source/mechanical/interaction features, grouped inner selection/calibration | Sample selection, uncertain labels and conditional coupling still limit interpretation |
@@ -14,7 +14,7 @@ TERRA-SHIELD targets a global, autonomous landslide hazard and forecast platform
 | NISAR | Public CMR discovery, acquisition/product metadata, optional local/authenticated raster subsets and `nisar_context_features_v1` | Metadata is not a radar measurement; the active 25-feature classifier has no newly fitted SAR weights or demonstrated SAR skill gain |
 | Runout | Conditional Voellmy release, three scenarios, corridors, unique asset intersections and boundary flags | Coarse routing without entrainment or mass conservation; no independent motion validation |
 | Forecast | Automatic source-driven 72-hour column/ML projections and selectable horizon states | Forecast-as-issued skill, uncertainty coverage and useful warning lead time remain unverified |
-| Co-pilot | Verified numeric bindings, public action summaries and eight ordered app-control actions; location planning works before the first scan | Deterministic plans and protocol tests do not establish real fine-tuned Qwen quality or semantic/tool reliability |
+| Co-pilot | Local or operator-configured hosted compatible API; verified numeric bindings, public summaries and eight ordered actions; planning before the first scan | Protocol tests do not establish a particular model's answer quality, semantic/tool reliability or global hazard skill |
 | Training | Default Windows launcher chains CUDA XGBoost, linked SFT regeneration, immutable Qwen download, measured-memory gate, QLoRA and direct serving | Actual Windows/RTX 5070 Ti/QLoRA execution and target VRAM use require the GPU; CPU checks cannot certify them |
 
 The frontend follows [FRONTEND_SPEC.md](FRONTEND_SPEC.md): no manual perturbation sliders, fixed-city dropdown or replay-first boot. Legacy analyst/replay APIs and fixtures remain reproducibility tools; they do not drive the live product by default.
@@ -23,7 +23,7 @@ Missing boreholes select exposed reference priors, preserving physical columns, 
 
 ## NASA, radar and app-control integration
 
-The map selects Physics-Informed ML, NASA LHASA, Physics-Only, Weather+Terrain ML or Rainfall-Only while preserving the same scanned location and inspected cell. H3 resolution 9 averages about **0.105 km² per cell**; these cells are not 30 m pixels. The nominal 30 m DEM input, coarser environmental forcing, H3 aggregation and NASA's roughly 1 km geographic pixels have different support. Display detail is not evidence of superior prediction.
+The primary map choices are Terra In House Model (the existing Physics-Informed ML), NASA LHASA and Rainfall baseline. Physics-only and weather/terrain comparisons remain advanced diagnostics, while all views preserve the same scanned location and inspected cell. H3 resolution 9 averages about **0.105 km² per cell**; these cells are not 30 m pixels. The nominal 30 m DEM input, coarser environmental forcing, H3 aggregation and NASA's roughly 1 km geographic pixels have different support. Display detail is not evidence of superior prediction.
 
 `nasa_lhasa.py` samples Today, Tomorrow and Global Landslide Susceptibility at native support under one 3.5-second budget. The public endpoints do not declare an exact served LHASA version or issue/valid time; the upstream repository's newer version is not assigned to those rasters. Official output and an explicitly unvalidated project fallback remain separate. In mixed coverage, the NASA critical-cell selection uses official values when any exist, rather than ranking them against unlike fallback indices. The relative Tomorrow product is not guaranteed to align with exactly T+24h; NASA T+48h/T+72h predictions are not fabricated. This display is not a matched LHASA skill benchmark.
 

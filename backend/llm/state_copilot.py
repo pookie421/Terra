@@ -1,6 +1,7 @@
 """Qwen co-pilot grounded in an immutable scan/scenario, with path-bound claims."""
 import json,math,re
 import httpx
+from .model_client import chat_json_content, connection_summary, AssistantServiceError, AssistantConfigurationError
 from .app_actions import (H3_TOKEN, MODELS, SCHEMA_VERSION, action_envelope, cell_registry,
                           plan_actions, public_steps, validate_actions)
 
@@ -199,8 +200,7 @@ async def chat_active(agent,message,scan_id,scenario_id,sliders,agency_mode,sele
         async with httpx.AsyncClient(timeout=45.) as client:
             for attempt in range(2):
                 try:
-                    response=await client.post(agent.ollama_url+'/api/chat',json={'model':model,'messages':messages,'stream':False,'format':'json','options':{'temperature':.1,'num_ctx':8192,'num_predict':1536}})
-                    response.raise_for_status();candidate=response.json()['message']['content']
+                    candidate=await chat_json_content(client,model,messages,lambda:agent.ollama_url)
                     payload=json.loads(candidate);verified_text,verified_claims=verify_and_render(payload,e)
                     if 'ui_action' in payload:
                         candidate_actions=payload['ui_action']
@@ -212,6 +212,8 @@ async def chat_active(agent,message,scan_id,scenario_id,sliders,agency_mode,sele
                         shared['action_guard']='VERIFIED_LLM_ACTIONS'
                     text,claims=verified_text,verified_claims
                     break
+                except (AssistantServiceError,AssistantConfigurationError) as exc:
+                    service_error=str(exc);break
                 except httpx.TransportError as exc:
                     service_error=type(exc).__name__;break
                 except (ValueError,KeyError,IndexError,TypeError,httpx.HTTPError) as exc:
@@ -219,7 +221,7 @@ async def chat_active(agent,message,scan_id,scenario_id,sliders,agency_mode,sele
         if text is None and service_error:
             text=template(e);guard='VERIFIED_TEMPLATE'
         elif text is None:
-            return {'scan_id':scan['scan_id'],'scenario_id':scan['scenario_id'],'clean_markdown':'Local model prose failed evidence verification; structured scan remains available.',
+            return {'scan_id':scan['scan_id'],'scenario_id':scan['scenario_id'],'clean_markdown':'Assistant prose failed evidence verification; structured scan remains available.',
                 'numeric_audit_passed':False,'briefing_guard':'WITHHELD_UNVERIFIED_LLM_PROSE','verification_error':error,
                 'model_name':model,'model_tier':tier,'updated_scan_data':scan,'tool_calls':[],**shared}
         else:guard='VERIFIED_LLM_PROSE'
@@ -229,5 +231,5 @@ async def chat_active(agent,message,scan_id,scenario_id,sliders,agency_mode,sele
         claims.extend({'name':k,'path':'/selected_cell/prediction_scores/'+k,'value':v} for k,v in (e['selected_cell'].get('prediction_scores') or {}).items() if isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v))
     return {'scan_id':scan['scan_id'],'scenario_id':scan['scenario_id'],'clean_markdown':text,'numeric_audit_passed':True,
         'briefing_guard':guard,'bound_claims':claims,'model_error':service_error,
-        'fallback_reason':'LOCAL_MODEL_SERVICE_UNAVAILABLE' if service_error else None,'model_name':model,'model_tier':tier,
+        'fallback_reason':('LOCAL_MODEL_SERVICE_UNAVAILABLE' if connection_summary()['provider']=='ollama' else 'ASSISTANT_SERVICE_UNAVAILABLE') if service_error else None,'model_name':model,'model_tier':tier,
         'updated_scan_data':scan,'tool_calls':[{'tool_name':'inspect_active_scan','arguments':{'scan_id':scan['scan_id'],'scenario_id':scan['scenario_id']}}],**shared}

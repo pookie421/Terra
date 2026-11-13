@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {executeActions,resolveCell} from '../.test-build/actionExecutor.js';
-import {mapValue,predictionScore,modelLabel} from '../.test-build/modelPresentation.js';
+import {criticalCell,mapValue,predictionScore,modelLabel,MODEL_LABELS} from '../.test-build/modelPresentation.js';
+import {PRIMARY_PREDICTION_MODELS,DIAGNOSTIC_MODELS,PREDICTION_MODELS} from '../.test-build/types.js';
 
 function scan(id='origin',state=id,cells=[cell('flat',3,.2),cell('steep',41,.8)]){
   return {scan_id:id,scenario_id:state,location:{latitude:0,longitude:0},physical_assessment:{cells},h3_geojson:{type:'FeatureCollection',features:cells.map(properties=>({type:'Feature',geometry:{type:'Point',coordinates:[0,0]},properties}))}};
@@ -46,6 +47,33 @@ test('a named location chain works before the first scan',async()=>{
   const {current,handlers}=workspace(null);
   await executeActions(reply(null,[{type:'search_location',query:'Unnamed valley'},{type:'inspect_cell',target:'riskiest'}]),handlers);
   assert.deepEqual(current.calls,[['search','Unnamed valley'],['inspect','steep']]);
+});
+
+test('three primary choices retain explicit diagnostic IDs and requested labels',()=>{
+  assert.deepEqual(PRIMARY_PREDICTION_MODELS,['terra_physics_ml','nasa_lhasa_2','rainfall_only']);
+  assert.deepEqual(PRIMARY_PREDICTION_MODELS.map(id=>MODEL_LABELS[id]),['Terra In House Model','NASA LHASA','Rainfall baseline']);
+  assert.deepEqual(DIAGNOSTIC_MODELS,['physics_only','weather_terrain_ml']);
+  assert.deepEqual(new Set([...PRIMARY_PREDICTION_MODELS,...DIAGNOSTIC_MODELS]),new Set(PREDICTION_MODELS));
+});
+
+test('legacy diagnostic actions keep their exact model instead of remapping to a primary choice',async()=>{
+  const original=scan(),{current,handlers}=workspace(original);
+  const outcomes=await executeActions(reply(original,[{type:'select_prediction_model',model:'physics_only'},{type:'select_prediction_model',model:'weather_terrain_ml'},{type:'select_prediction_model',model:'rainfall_only'}]),handlers);
+  assert.deepEqual(current.calls,[['model','physics_only'],['model','weather_terrain_ml'],['model','rainfall_only']]);
+  assert.ok(outcomes.every(outcome=>outcome.status==='completed'));
+  assert.equal(current.model,'rainfall_only');
+});
+
+test('diagnostic critical cells use their own component scores',()=>{
+  const a={...cell('a',10,.9),ablation_scores:{'Physics-Only':.8,'Weather+Terrain ML':.1,'Rainfall-Only':.2}};
+  const b={...cell('b',20,.1),ablation_scores:{'Physics-Only':.2,'Weather+Terrain ML':.9,'Rainfall-Only':.7}};
+  const current=scan('components','components',[a,b]);
+  assert.equal(predictionScore(a,'physics_only'),.8);
+  assert.equal(predictionScore(a,'weather_terrain_ml'),.1);
+  assert.equal(predictionScore(a,'rainfall_only'),.2);
+  assert.equal(criticalCell(current,'physics_only').h3_index,'a');
+  assert.equal(criticalCell(current,'weather_terrain_ml').h3_index,'b');
+  assert.equal(criticalCell(current,'rainfall_only').h3_index,'b');
 });
 
 test('stale response identity is rejected before any application mutation',async()=>{

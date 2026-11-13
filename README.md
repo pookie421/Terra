@@ -26,7 +26,7 @@ Global landslide analysis with a 3D map, conditional physics, machine learning a
 | Pretrained ML engine | Yes — [`artifacts/physics_informed_models.pkl`](artifacts/physics_informed_models.pkl), about 0.9 MB | Current feature-fusion model and its four model comparisons; runs on CPU |
 | Web application & API | Yes — [`frontend/`](frontend/) and [`backend/api/`](backend/api/) | Global satellite terrain, coordinate scanning, forecasts, cell inspection and source provenance |
 | NASA comparison & NISAR | Integration included; live coverage/subsets vary | Separately labeled NASA raster/reference scores and radar metadata or measured subsets |
-| Qwen assistant | Integration included; language-model weights optional | Ordered app controls and source-bound prose through Ollama or the direct adapter server, with explicit fallback status |
+| Assistant | Hosted API or optional local model | Ordered app controls and source-bound prose with the same evidence checks and explicit fallback status |
 
 **You do not need to train a model, download the retained research corpus, or have a GPU to start the application.** The bundled ML artifact is an experimental research model, not a globally validated warning system. See its [model card and checksum](artifacts/MODEL_CARD.md).
 
@@ -66,11 +66,11 @@ If the map opens but analysis cannot connect, follow the [connection checklist](
 ## Use the workspace
 
 1. **Choose an area.** Search for a place or `latitude, longitude`, click unscanned terrain, or use **Scan map view**. A place name is optional.
-2. **Choose a model.** The overview switches the map/readout among Physics + ML, NASA LHASA, Physics reference, Weather + terrain ML and Rainfall only. NASA rasters and unvalidated reference estimates remain visibly distinct. [Comparison and radar semantics](docs/nasa_radar_comparison.md).
+2. **Choose a model.** The main selector offers **Terra In House Model**, **NASA LHASA** and **Rainfall baseline**. Physics-only and weather/terrain comparisons remain advanced diagnostics. NASA rasters and unvalidated reference estimates remain visibly distinct. [Comparison and radar semantics](docs/nasa_radar_comparison.md).
 3. **Inspect a location.** Click a returned hexagon. The inspector shows slope, the factor-of-safety envelope and pressure head; physical details, NISAR context and routing assumptions expand on demand.
 4. **Explore the forecast.** Switch between **Now**, **+24h**, **+48h**, **+72h** and **Peak**. These update the in-house map and assessment from provider forecasts. Peak means the lowest forecast sector factor of safety. NASA's daily products do not supply a fabricated 72-hour forecast.
-5. **Check the evidence.** Open **Sources** for availability, retrieval times and fallback provenance. Model comparison and analysis details are in the overview. On smaller screens, use **Map**, **Overview** and **Inspect**.
-6. **Ask or export.** The **Assistant** can navigate before the first scan and execute ordered model/horizon/layer/cell actions. For example: “Take me to 11.548, 76.134, switch to NASA LHASA and then back to TERRA-SHIELD, and inspect the steepest cliff.” Public action summaries and actual execution results are distinct. Optional [Qwen setup](docs/SETUP.md#optional-use-a-local-qwen-assistant) is separate from the physics and ML engines; the [Windows trainer](docs/windows_5070ti.md) can start the saved adapter server automatically.
+5. **Check the evidence.** **Options** groups map layers, Sources, Connections, export and diagnostics. Sources retains availability, retrieval times and fallback provenance. On smaller screens, use **Map**, **Overview** and **Inspect**.
+6. **Ask or export.** The **Assistant** can navigate before the first scan and execute ordered model/horizon/layer/cell actions. Public action summaries and actual execution results are distinct. The deployment owner can configure a hosted assistant with `python scripts/configure_assistant.py`; visitors do not need personal keys. [Assistant connections and local alternatives](docs/assistant_connections.md). The [Windows trainer](docs/windows_5070ti.md) remains optional.
 
 There are no manual weather sliders or fixed-city scan defaults. Provider failures and missing inputs remain visible; acceptance of a coordinate does not guarantee valid terrain or forcing everywhere.
 

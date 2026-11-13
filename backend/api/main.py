@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -47,6 +48,18 @@ async def engine_health():
         'model_ready':ready,'model_version':VERSION if ready else None,
         'physics_reference_available':True,'environmental_acquisition':'ON_DEMAND',
         'operational_warning_ready':False}
+
+
+@app.get('/api/v1/connections')
+async def connection_settings():
+    """Redacted deployment settings, not a provider health check or key editor."""
+    from backend.llm.model_client import connection_summary
+    return {'scope':'deployment','assistant':connection_summary(),
+        'earthdata':{'configured':bool(os.environ.get('EARTHDATA_TOKEN')),
+                    'requires_personal_key':False},
+        'public_feeds':{'requires_personal_key':False},
+        'configuration_scope':'The deployment owner configures shared credentials. Availability is checked when used.',
+        'setup_document':'docs/assistant_connections.md'}
 
 
 class AgentChatRequest(BaseModel):

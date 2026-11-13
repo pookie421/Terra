@@ -1,6 +1,6 @@
 import {MODELS,cellIn,type Cell,type MapLayer,type PredictionModel,type PredictionModelInfo,type Scan} from './types.js';
 
-export const MODEL_LABELS:Record<PredictionModel,string>={terra_physics_ml:'Terra · Physics + ML',nasa_lhasa_2:'NASA LHASA · ~1 km',physics_only:'Physics only · FS / FOSM',weather_terrain_ml:'Weather + terrain ML',rainfall_only:'Rainfall only'};
+export const MODEL_LABELS:Record<PredictionModel,string>={terra_physics_ml:'Terra In House Model',nasa_lhasa_2:'NASA LHASA',physics_only:'Physics only',weather_terrain_ml:'Weather + terrain ML',rainfall_only:'Rainfall baseline'};
 const MODEL_ABLATION:Partial<Record<PredictionModel,typeof MODELS[number]>>={terra_physics_ml:'Physics-Informed ML',physics_only:'Physics-Only',weather_terrain_ml:'Weather+Terrain ML',rainfall_only:'Rainfall-Only'};
 export const LAYER_LABELS:Record<MapLayer,string>={probability:'Model score',fs_mid:'Factor of safety',lhasa_2:'NASA / reference',nisar_radar:'Radar coherence',slope:'Slope',pore_pressure:'Pressure head'};
 export const finite=(value:unknown):number|null=>typeof value==='number'&&Number.isFinite(value)?value:null;
@@ -16,7 +16,7 @@ export function modelLabel(scan:Scan|null,model:PredictionModel):string {
     if(nasa?.mode?.includes('REFERENCE'))return 'NASA / coarse reference';
     return nasa?.label??modelInfo(scan,model)?.label??MODEL_LABELS[model];
   }
-  return modelInfo(scan,model)?.label??MODEL_LABELS[model];
+  return MODEL_LABELS[model];
 }
 export function predictionScore(cell:Cell|undefined,model:PredictionModel):number|null {
   if(!cell)return null;

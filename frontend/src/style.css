@@ -50,7 +50,11 @@ h2, h3 { font-size: inherit; font-weight: 600; }
 .toolbar-actions { display: flex; align-items: center; gap: 3px; margin-left: auto; }
 .toolbar-button { color: #b9bfc8; }
 .toolbar-button.active { background: #ffffff0c; color: #e2e5e9; }
-.export-button { padding-left: 10px; padding-right: 10px; }
+.toolbar-model { width: 196px; flex-shrink: 0; }
+.toolbar-model label { display: block; color: var(--muted); font-size: 10px; margin-bottom: 3px; }
+.toolbar-model select, .options-layer select { width: 100%; min-width: 0; padding: 6px 24px 6px 9px; border: 1px solid var(--line); border-radius: 5px; background: #20252c; color: var(--ink); font: inherit; font-size: 12px; cursor: pointer; }
+.toolbar-model select { height: 31px; }
+.toolbar-model select:focus-visible, .options-layer select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .connection-error { display: flex; align-items: center; gap: 6px; color: var(--amber); font-size: 11px; }
 .welcome-card { position: fixed; left: 24px; top: 96px; width: 296px; padding: 20px; z-index: 3; }
 .welcome-card h1 { font-size: 18px; font-weight: 500; letter-spacing: -.3px; }
@@ -162,10 +166,21 @@ h2, h3 { font-size: inherit; font-weight: 600; }
 .chat-form textarea::placeholder { color: var(--subtle); }
 .chat-form button { display: grid; place-items: center; width: 30px; height: 30px; background: #3a424d; color: #e0e5ec; border-radius: 4px; }
 .chat-thinking { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); margin: 12px 0; }
-.source-popover { position: fixed; z-index: 25; right: 16px; top: 84px; width: 380px; max-height: calc(100dvh - 108px); overflow-y: auto; scrollbar-width: thin; padding: 18px; }
+.options-popover { position: fixed; z-index: 25; right: 16px; top: 88px; width: 352px; max-height: calc(100dvh - 112px); overflow-y: auto; scrollbar-width: thin; padding: 18px 18px 0; }
 .popover-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .popover-title h2 { font-size: 15px; font-weight: 500; }
 .popover-title button { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 4px; color: var(--muted); }
+.options-section { border-top: 1px solid var(--line); padding: 16px 0; }
+.options-section:first-of-type { margin-top: 15px; }
+.options-layer label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.options-section.disclosure[open] > summary { margin-bottom: 12px; }
+.diagnostic-models { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; }
+.diagnostic-models button { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 5px; text-align: left; font-size: 12px; }
+.diagnostic-models button.active { background: #a4bdd512; border-color: #a4bdd555; }
+.options-export { display: flex; align-items: center; gap: 9px; width: 100%; font-size: 12px; border-radius: 4px; padding: 4px 0; }
+.options-export span { margin-left: auto; color: var(--subtle); font-size: 10px; }
+.connection-loading { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; margin-top: 13px; }
+.inline-button { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; padding: 0; }
 .source-list { margin: 14px 0; }
 .source-list button { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; min-height: 35px; padding: 7px 8px; border-radius: 4px; font-size: 12px; }
 .source-list button.selected { background: #ffffff09; }
@@ -274,7 +289,7 @@ h2, h3 { font-size: inherit; font-weight: 600; }
   .mobile-panel-switch button { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; min-width: 90px; padding: 7px 10px; color: var(--muted); border-radius: 4px; font-size: 12px; }
   .mobile-panel-switch button.active { color: #e2e7ed; background: #ffffff0d; }
   .error-banner, .acquisition { bottom: 88px; }
-  .source-popover { right: 12px; top: 80px; }
+  .options-popover { right: 12px; top: 84px; }
 }
 @media (max-width: 720px) {
   .assistant-drawer { left: 12px; right: auto; top: 128px; bottom: 88px; width: calc(100vw - 24px); }
@@ -282,11 +297,18 @@ h2, h3 { font-size: inherit; font-weight: 600; }
   .global-search { flex: 1 0 100%; }
   .global-search input { font-size: 12px; }
   .global-search kbd { display: none; }
-  .scan-center { font-size: 12px; min-height: 32px; padding: 6px 8px; }
-  .toolbar-actions { margin-left: auto; gap: 2px; }
-  .toolbar-button { min-height: 32px; padding: 6px 8px; }
+  .scan-center { font-size: 12px; min-height: 32px; width: 32px; padding: 6px; }
+  .scan-center span { display: none; }
+  .toolbar-model { width: auto; flex: 1; min-width: 116px; }
+  .toolbar-model label { display: none; }
+  .toolbar-model select { font-size: 11px; padding-left: 7px; }
+  .toolbar-actions { margin-left: 0; gap: 0; }
+  .toolbar-button { min-height: 32px; width: 32px; padding: 6px; }
   .toolbar-button span { display: none; }
+  .options-trigger span { display: none; }
+  .options-trigger > svg:last-child { display: none; }
   .connection-error { font-size: 10px; margin-left: auto; }
+  .connection-error > span { display: none; }
   .welcome-card { top: 132px; left: 20px; width: 272px; padding: 18px; }
   .sector-context { top: 140px; left: 22px; right: 24px; }
   .sector-context h1 { font-size: 19px; }
@@ -298,7 +320,7 @@ h2, h3 { font-size: inherit; font-weight: 600; }
   .world-map-legend { right: 20px; bottom: 110px; width: 160px; font-size: 10px; }
   .has-scan .world-map-tools { right: 20px; bottom: 242px; }
   .has-scan .maplibregl-ctrl-bottom-right { right: 12px !important; bottom: 295px !important; }
-  .source-popover { top: 128px; right: 12px; width: calc(100vw - 24px); max-height: calc(100dvh - 152px); }
+  .options-popover { top: 128px; right: 12px; width: calc(100vw - 24px); max-height: calc(100dvh - 152px); }
   .mobile-panel-switch { bottom: 18px; }
   .mobile-panel-switch button { min-width: 84px; font-size: 11px; }
   .map-notice { bottom: 185px; font-size: 11px; }

@@ -1,4 +1,4 @@
-"""Three-tier Ollama tool agent with a deterministic live-scan fallback."""
+"""State-bound assistant with local or hosted prose and deterministic app plans."""
 
 from __future__ import annotations
 
@@ -138,7 +138,7 @@ def _location_from_message(message: str) -> str:
 
 
 class TerraShieldQwenAgent:
-    """Select a local Qwen model when available and ground every briefing in tools."""
+    """Select the configured assistant service and ground briefings in scan evidence."""
 
     def __init__(self, scan_service: Optional[GlobalScanService] = None, ollama_url: Optional[str] = None) -> None:
         self.scan_service = scan_service or GlobalScanService()
@@ -234,11 +234,27 @@ class TerraShieldQwenAgent:
         return await chat_active(self,message,scan['scan_id'],scan['scenario_id'],{},agency_mode,selected_h3_index,history,autonomous,active_prediction_model)
     async def _available_model(self) -> Tuple[Optional[str], int]:
         self._availability_error=None
+        from .model_client import assistant_config, AssistantConfigurationError
+        try:config=assistant_config()
+        except AssistantConfigurationError:
+            self._availability_error='AssistantConfigurationError'
+            return None,3
+        if config.provider=='openai_compatible':
+            if not config.configured:
+                self._availability_error='HostedAssistantNotConfigured'
+                return None,3
+            # Configuration is not proof of provider availability or prose quality.
+            # Those are checked by the actual bounded, verified chat request.
+            return config.model,0
         try:
             async with httpx.AsyncClient(timeout=1.25) as client:
                 response = await client.get(self.ollama_url + "/api/tags")
                 response.raise_for_status()
                 names = [str(item.get("name", "")) for item in response.json().get("models", [])]
+            if config.model:
+                if config.model in names:return config.model,2
+                self._availability_error='ConfiguredLocalModelNotFound'
+                return None,3
             custom = next((name for name in names if name.split(":", 1)[0].lower() == "terra-shield-qwen"), None)
             if custom:
                 return custom, 1

@@ -16,6 +16,8 @@ A place search submits `{"query":"place name"}` to the same route. Raw coordinat
 
 `GET /api/v1/health` checks the local engine and actual learned-artifact availability without acquiring environmental providers. A healthy physical service can report `model_ready=false`; the approved pretrained weights are included in a normal clone. Install with `-c constraints-runtime.txt`, preserve `artifacts/physics_informed_models.pkl`, and restart the backend after replacing it. See [setup](docs/SETUP.md).
 
+`GET /api/v1/connections` returns redacted deployment-level assistant/Earthdata configuration with `requires_personal_key=false`. It makes no provider request and does not prove availability. There is no public key-writing route. The installation owner uses `python scripts/configure_assistant.py` and restarts with `--env-file .env`; shared visitors need no keys. [Connection setup](docs/assistant_connections.md).
+
 A scan returns:
 
 - `scan_id`, `scenario_id`, response schema/version, location and source timestamps.
@@ -35,7 +37,7 @@ Current source PGA can support the stable-block Newmark regression where applica
 
 ## Selectable models and radar context
 
-The same scan includes five model IDs:
+The primary UI offers Terra In House Model, NASA LHASA and Rainfall baseline. The same scan retains five model IDs for compatibility and advanced diagnostics:
 
 | ID | Displayed estimate |
 |---|---|
@@ -81,9 +83,9 @@ Use the displayed `scenario_id`, including for forecast views. The inspection al
 
 The runout payload contains three declared friction/xi/depth scenarios, their coordinates, peak velocities, corridor cell IDs and stop reasons. Release is hypothetical unless independently established. H3 routing has no entrainment or mass conservation; boundary stops can truncate travel.
 
-## State-grounded, multi-turn Qwen chat
+## State-grounded, multi-turn assistant chat
 
-The model receives one selected physical column, its full covariance/sensitivities, the six largest absolute learned feature contributions and compact provider summaries. Full grids, complete SHAP decompositions and routing geometry remain in the scan/inspection APIs. Recent whole conversation messages are bounded to 2,400 UTF-8 bytes; `history_context` reports any omitted older turns. The current evidence is preserved, and the model server enforces the 8,192-token context with a 1,536-token completion reserve.
+The model receives one selected physical column, its full covariance/sensitivities, the six largest absolute learned feature contributions and compact provider summaries. Full grids, complete SHAP decompositions and routing geometry remain in the scan/inspection APIs. Recent whole conversation messages are bounded to 2,400 UTF-8 bytes; `history_context` reports any omitted older turns. The local adapter server enforces an 8,192-token context with a 1,536-token completion reserve. Hosted calls retain the compact evidence/history and completion cap, subject to the selected provider's context limits.
 
 ```json
 {
@@ -121,7 +123,7 @@ Symbolic targets are `steepest`, `riskiest`, `selected`, `lowest_fs` and `flatte
 
 The response includes `clean_markdown`, `briefing_guard`, active IDs, `bound_claims`, `numeric_audit_passed`, `thought_steps` and `ui_action.actions`. Each public step has `step`, `phase` and `reasoning` fields containing short intent, evidence or action summaries. They are not private model deliberation or proof that an action ran. Execution results are recorded separately by the browser. Qwen returns structured prose with numeric JSON-pointer bindings; the server verifies/render these values. Valid output is `VERIFIED_LLM_PROSE`. When the local model service cannot be reached, `VERIFIED_TEMPLATE` is an explicit deterministic fallback with service-error metadata. A responding service without compatible weights is `MODEL_UNAVAILABLE`; invalid generated prose is withheld after retry. Templates and model prose are visibly distinct.
 
-The frontend retains conversation messages with state/model identity, displays numeric citations, and rejects stale responses/actions after a coordinate, horizon, selected-cell or model change. Actual Qwen weights and CUDA/QLoRA execution require target-machine testing; mocked protocol checks do not establish language-model quality.
+The frontend retains conversation messages with state/model identity, displays numeric citations, and rejects stale responses/actions after a coordinate, horizon, selected-cell or model change. The optional hosted path uses operator-configured `TERRA_LLM_PROVIDER=openai_compatible`, `TERRA_LLM_BASE_URL`, `TERRA_LLM_MODEL` and `TERRA_LLM_API_KEY`; it sends the same bounded evidence through `/chat/completions` and applies the same prose/action guards. Configuration is not a successful live provider test. Actual Qwen weights and CUDA/QLoRA execution require target-machine testing; mocked protocol checks do not establish language-model quality.
 
 The default local model service is `http://localhost:11434`. The turnkey adapter server can choose loopback 8001 when 11434 is occupied and writes `artifacts/qwen_copilot_endpoint.json` for dynamic discovery. An explicit constructor URL or `TERRA_QWEN_URL` overrides that discovery. Only safe loopback endpoint metadata is accepted. The [RTX 5070 Ti guide](docs/windows_5070ti.md) covers training, restart commands and optional GGUF/Ollama export. Both the trained context and direct-server context are capped at 8192 tokens, with up to 1536 completion tokens reserved for the structured reply; overflow is rejected without truncation.
 
