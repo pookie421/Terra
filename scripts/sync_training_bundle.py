@@ -57,8 +57,8 @@ def inventory(root=ROOT):
         for path in sorted((root/directory).rglob('*')):
             if not source_file(path):continue
             relative=path.relative_to(root)
-            if obsolete_terrain(relative):excluded.append(str(relative));continue
-            files[str(relative)]=path
+            if obsolete_terrain(relative):excluded.append(relative.as_posix());continue
+            files[relative.as_posix()]=path
     for source,destination in ALIASES:files[destination]=root/source
     for name in ARTIFACTS:
         path=root/'artifacts'/name
@@ -150,7 +150,7 @@ def main(root=ROOT,plan=False):
                 raise
         for cache in list(target.rglob('__pycache__')):shutil.rmtree(cache)
         expected_managed={relative for relative in files if relative.split('/')[0] in DIRECTORIES}
-        actual_managed={str(path.relative_to(target)) for directory in DIRECTORIES
+        actual_managed={path.relative_to(target).as_posix() for directory in DIRECTORIES
             for path in (target/directory).rglob('*') if source_file(path) and
             not obsolete_terrain(path.relative_to(target))}
         unexpected=actual_managed-expected_managed
