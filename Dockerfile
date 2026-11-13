@@ -23,7 +23,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     MKL_NUM_THREADS=2
 WORKDIR /app
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y ca-certificates libgomp1 libstdc++6 \
+    && apt-get install --no-install-recommends -y ca-certificates libexpat1 libgomp1 libstdc++6 \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 terra \
     && useradd --uid 10001 --gid 10001 --create-home terra \
