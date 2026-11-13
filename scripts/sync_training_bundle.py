@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -91,6 +92,18 @@ def copy_file(source,destination):
     content=read_bytes_bounded(source)
     digest=hashlib.sha256(content).hexdigest()
     destination.parent.mkdir(parents=True,exist_ok=True)
+    # Verify both actual files before avoiding an unnecessary cloud/disk write.
+    # A destination read failure can be repaired from the verified source;
+    # an unreadable source is never replaced by an older destination.
+    locally_materialized=not (getattr(destination.stat(),'st_flags',0) &
+        getattr(stat,'SF_DATALESS',0x40000000)) if destination.exists() else False
+    if locally_materialized and destination.is_file() and not destination.is_symlink():
+        try:
+            current=read_bytes_bounded(destination,timeout=5.,role='existing destination')
+        except RuntimeError:
+            current=None
+        if current is not None and hashlib.sha256(current).hexdigest()==digest:
+            return digest
     temporary=destination.with_name(destination.name+'.sync-tmp')
     try:
         temporary.write_bytes(content)

@@ -28,8 +28,13 @@ def radar_cell(payload, cell_id):
         if not finite(result[key]):result[key] = None
     if result['nisar_coherence'] is not None and not 0 <= result['nisar_coherence'] <= 1:
         result['nisar_coherence'] = None
-    result.update(nisar_granule_count=payload.get('granule_count', 0),
-                  nisar_latest_acquisition_utc=payload.get('latest_acquisition_utc'),
+    # Footprint-aware cell metadata may legitimately be zero or unknown, and a
+    # cell's latest acquisition can predate the newest scan-region granule.
+    # Keep that support intact instead of spreading a regional summary to it.
+    result.update(nisar_granule_count=record.get('nisar_granule_count'),
+                  nisar_latest_acquisition_utc=record.get('nisar_latest_acquisition_utc'),
+                  nisar_region_granule_count=payload.get('granule_count'),
+                  nisar_region_latest_acquisition_utc=payload.get('latest_acquisition_utc'),
                   nisar_measurement_provenance=record.get('measurement_provenance', record.get('provenance')),
                   nisar_mode=payload.get('mode', 'NOT_ACQUIRED'))
     return result

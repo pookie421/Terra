@@ -8,6 +8,7 @@ from unittest.mock import patch
 from backend.api.scan_service import GlobalScanService
 from backend.ml.rainfall_features import utc
 from backend.realtime.dem_processor import TERRAIN_VERSION
+from backend.physics.radar_context import radar_cell, feature_context
 from test_autonomous_api import forcing_fixture
 
 
@@ -61,6 +62,33 @@ class PredictionIntegration(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(row['radar_constraint']['applied'])
             self.assertIsNotNone(row['fosm_variance'])
 
+    async def test_cell_radar_coverage_and_acquisition_are_not_replaced_by_region_summary(self):
+        keys = list(self.raw.terrain.cells)
+        region_time = '2026-11-12T00:00:00Z'
+        old_time = '2026-10-01T00:00:00Z'
+        expected = [(0, None), (None, None), (2, old_time)]
+        self.raw.nisar = {'mode': 'METADATA_LIVE', 'granule_count': 12,
+            'latest_acquisition_utc': region_time,
+            'cells': [{'h3_index': key, 'nisar_granule_count': count,
+                       'nisar_latest_acquisition_utc': acquired}
+                      for key, (count, acquired) in zip(keys, expected)]}
+        now = await self.service.scan(_snapshot=self.raw)
+        by_id = {r['h3_index']: r for r in now['physical_assessment']['cells']}
+        for key, (count, acquired) in zip(keys, expected):
+            with self.subTest(h3_index=key):
+                row = by_id[key]
+                self.assertEqual(row['nisar_granule_count'], count)
+                self.assertEqual(row['nisar_latest_acquisition_utc'], acquired)
+                self.assertEqual(row['nisar_region_granule_count'], 12)
+                self.assertEqual(row['nisar_region_latest_acquisition_utc'], region_time)
+                inspected = self.service.inspect_hexagon(key, now['scan_id'], now['scenario_id'])
+                self.assertEqual(inspected['nisar_granule_count'], count)
+                self.assertEqual(inspected['nisar_latest_acquisition_utc'], acquired)
+                feature = next(f['properties'] for f in now['h3_geojson']['features'] if f['properties']['h3_index'] == key)
+                self.assertEqual(feature['radar_feature_context']['values']['nisar_granule_count'], count)
+        context = feature_context(self.raw.nisar, keys[2], '2026-11-13T00:00:00Z')
+        self.assertEqual(context['values']['nisar_acquisition_age_days'], 43.)
+
     async def test_only_anchored_site_calibration_changes_strength_and_recomputes_ml(self):
         key = '893969a401bffff'
         baseline = await self.service.scan(_snapshot=copy.deepcopy(self.raw))
@@ -84,6 +112,19 @@ class PredictionIntegration(unittest.IsolatedAsyncioTestCase):
         unchanged = next(r for r in rejected['physical_assessment']['cells'] if r['h3_index'] == key)
         self.assertEqual(unchanged['fs_interval'], original['fs_interval'])
         self.assertEqual(unchanged['radar_constraint']['status'], 'RADAR_CALIBRATION_REJECTED_REFERENCE_RETAINED')
+
+
+class RadarMetadataMissingness(unittest.TestCase):
+    def test_unavailable_or_unmapped_metadata_does_not_fabricate_zero_coverage(self):
+        for payload in ({}, {'mode': 'UNAVAILABLE', 'granule_count': 0, 'by_h3': {
+                'cell': {'nisar_granule_count': None, 'nisar_latest_acquisition_utc': None}}},
+                {'mode': 'METADATA_LIVE', 'granule_count': 12,
+                 'latest_acquisition_utc': '2026-11-12T00:00:00Z'}):
+            with self.subTest(mode=payload.get('mode')):
+                row = radar_cell(payload, 'cell')
+                self.assertIsNone(row['nisar_granule_count'])
+                self.assertIsNone(row['nisar_latest_acquisition_utc'])
+                self.assertIsNone(feature_context(payload, 'cell')['values']['nisar_acquisition_age_days'])
 
 
 if __name__ == '__main__':unittest.main()
