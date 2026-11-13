@@ -192,6 +192,8 @@ class GlobalScanService:
                 from .reference_forecast import forecast
                 response['predictive_forecast_72h']=await asyncio.to_thread(forecast,live_scan,self.context_models,ground_columns,physical=response['physical_assessment'],duration_hr=storm_duration_hr)
             response=decorate_forecast(response)
+            from .prediction_models import attach_prediction_models
+            response=attach_prediction_models(response,live_scan)
             key=(response['scan_id'],response['scenario_id'])
             with self._context_lock:
                 self._scan_states[key]={'scan':copy.deepcopy(live_scan),'response':copy.deepcopy(response),'ground_columns':copy.deepcopy(ground_columns),'forecast_origin':True}

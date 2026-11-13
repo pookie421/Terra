@@ -89,3 +89,6 @@ Terra_Full_Archive_Backup/
 !/artifacts/physics_informed_models.pkl
 !/artifacts/MODEL_CARD.md
 !/artifacts/runtime_manifest.json
+# Retained instruction-corpus history stays local alongside the active corpus.
+/data/instruction_history/
+/archive_snapshots/source_read_timeouts/

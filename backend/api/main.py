@@ -59,6 +59,7 @@ class AgentChatRequest(BaseModel):
     selected_h3_index: Optional[str] = None
     history: list[Dict[str,str]] = Field(default_factory=list,max_length=12)
     autonomous: bool = True
+    active_prediction_model: str = Field(default='terra_physics_ml',pattern='^(terra_physics_ml|nasa_lhasa_2|physics_only|weather_terrain_ml|rainfall_only)$')
 
 
 class CapXmlRequest(BaseModel):
@@ -140,14 +141,20 @@ async def get_scan(
 @app.post("/api/chat")
 async def agent_chat(request: AgentChatRequest) -> Dict[str, Any]:
     try:
-        return sanitize_json(await agent.chat(
+        result=await agent.chat(
             request.message,
             current_query=request.current_query,
             agency_mode=request.agency_mode,
             sliders=request.sliders,
             scan_id=request.scan_id,scenario_id=request.scenario_id,selected_h3_index=request.selected_h3_index,
             history=request.history,autonomous=request.autonomous,
-        ))
+            active_prediction_model=request.active_prediction_model,
+        )
+        if 'thought_steps' not in result:
+            from backend.llm.app_actions import public_steps
+            result['thought_steps']=public_steps([],bool(request.scan_id))
+            result['thought_steps_scope']='Public action and evidence summaries; not private model reasoning'
+        return sanitize_json(result)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except KeyError as exc:

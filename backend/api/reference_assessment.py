@@ -22,6 +22,8 @@ def assess(scan,columns=None,rain_delta_mm=0.,storm_duration_hr=24.,unsupported_
         'uncertainty_status':'JOINT_FOSM_REFERENCE_PRIORS','p_failure_physical':None,'peak_velocity_ms':None,'failure_time_utc':None}
     if not scan.terrain or not scan.terrain.cells:result['reason']='Terrain unavailable';return result
     if columns is not None and not isinstance(columns,Mapping):raise ValueError('Ground columns must be indexed by H3 cell')
+    from backend.physics.radar_context import calibrated_ground_inputs
+    columns,radar_status=calibrated_ground_inputs(scan,columns)
     valid={};excluded=set();at=utc(scan.generated_at_utc)
     for cell_id,record in (columns or {}).items():
         try:
@@ -41,7 +43,8 @@ def assess(scan,columns=None,rain_delta_mm=0.,storm_duration_hr=24.,unsupported_
     pga=max(getattr(scan.seismic,'max_pga_g',0.) or 0.,pga_override_g)
     window['pga_reference_g']=pga if pga>0 else None
     rows=reference_columns(cells,window,getattr(scan.hydrology,'soil_properties',None),rain_delta_mm,storm_duration_hr,valid)
-    for cell,row in zip(cells,rows):result['cells'].append({**located_cell(cell,scan.location),**row})
+    for cell,row in zip(cells,rows):result['cells'].append({**located_cell(cell,scan.location),**row,
+        'radar_constraint':radar_status.get(cell.cell_id)})
     if rows:
         finite=[c for c in result['cells'] if c['fs_mid'] is not None]
         result['hotspot']=min(finite,key=lambda c:(c['fs_mid'],c['h3_index'])) if finite else result['cells'][0]

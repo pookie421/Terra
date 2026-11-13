@@ -161,7 +161,7 @@ class HFAdapterEngine:
 class ServiceConfig:
     model_name: str = MODEL_NAME
     max_context: int = MAX_CONTEXT
-    max_new_tokens: int = 512
+    max_new_tokens: int = 1536
 
 
 class CopilotService:
@@ -322,24 +322,41 @@ def create_app(engine: Any, config: Optional[ServiceConfig] = None):
     return app
 
 
-def main() -> int:
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--adapter', type=Path, default=ROOT / 'artifacts/qwen2_5_7b_lora/adapter')
+    parser.add_argument('--adapter', type=Path, default=ROOT / 'artifacts/qwen25_terra_lora/adapter')
     parser.add_argument('--host', choices=['127.0.0.1', 'localhost', '::1'], default='127.0.0.1')
     parser.add_argument('--port', type=int, default=11434)
-    parser.add_argument('--max-new-tokens', type=int, default=512)
-    args = parser.parse_args()
+    parser.add_argument('--max-new-tokens', type=int, default=1536)
+    parser.add_argument('--auto-port', action='store_true', help='Try loopback 8001 if the requested local port is occupied')
+    args = parser.parse_args(argv)
     if not 1 <= args.port <= 65535:
         parser.error('port must be between 1 and 65535')
-    try:
-        with socket.socket(socket.AF_INET6 if args.host == '::1' else socket.AF_INET) as probe:
-            probe.bind((args.host, args.port))
-    except OSError:
-        parser.error('Port is occupied. Stop Ollama to use 11434, or choose --port 11435 and set TERRA_QWEN_URL=http://127.0.0.1:11435 before restarting the backend.')
+    for candidate in dict.fromkeys([args.port, 8001] if args.auto_port else [args.port]):
+        try:
+            with socket.socket(socket.AF_INET6 if args.host == '::1' else socket.AF_INET) as probe:
+                probe.bind((args.host, candidate))
+            args.port = candidate
+            break
+        except OSError:
+            if candidate == (8001 if args.auto_port else args.port):
+                parser.error('Local service ports are occupied; select an available --port. Existing services are left running.')
     config = ServiceConfig(max_new_tokens=args.max_new_tokens)
     engine = HFAdapterEngine(args.adapter)
+    endpoint = ROOT / 'artifacts/qwen_copilot_endpoint.json'
+    endpoint.parent.mkdir(parents=True, exist_ok=True)
+    host = '[::1]' if args.host == '::1' else args.host
+    value = {'url': f'http://{host}:{args.port}', 'model': MODEL_NAME,
+             'source': 'local_trained_adapter_server', 'started_at_utc': datetime.now(timezone.utc).isoformat(),
+             'adapter_sha256': engine.metadata['adapter_sha256']}
+    temporary = endpoint.with_suffix('.json.tmp')
+    temporary.write_text(json.dumps(value, indent=2), encoding='utf-8'); temporary.replace(endpoint)
     import uvicorn
-    uvicorn.run(create_app(engine, config), host=args.host, port=args.port, workers=1, limit_concurrency=8)
+    try:
+        uvicorn.run(create_app(engine, config), host=args.host, port=args.port, workers=1, limit_concurrency=8)
+    finally:
+        if endpoint.exists() and json.loads(endpoint.read_text()).get('url') == value['url']:
+            endpoint.unlink()
     return 0
 
 

@@ -10,10 +10,15 @@ set "TERRA_ENTRY=scripts\train_gpu.py"
 :root_ready
 cd /d "%TERRA_ROOT%"
 set "TERRA_DEVICE=cuda"
-set "TERRA_QLORA=0"
+set "TERRA_QLORA=1"
+set "TERRA_QLORA_EXPLICIT=0"
+set "TERRA_SERVE=1"
+set "TERRA_BASE_MODEL=Qwen/Qwen2.5-7B-Instruct"
+set "TERRA_FALLBACK_ARG="
 set "TERRA_LLM_ONLY=0"
 set "TERRA_SMOKE_TEST=0"
 set "TERRA_SMOKE_ONLY=0"
+set "TERRA_XGB_ONLY=0"
 :parse
 if "%~1"=="" goto :parsed
 if /I "%~1"=="--cpu" (
@@ -23,30 +28,63 @@ if /I "%~1"=="--cpu" (
 )
 if /I "%~1"=="--qlora" (
   set "TERRA_QLORA=1"
+  set "TERRA_QLORA_EXPLICIT=1"
   shift
   goto :parse
 )
 if /I "%~1"=="--llm-only" (
   set "TERRA_QLORA=1"
+  set "TERRA_QLORA_EXPLICIT=1"
   set "TERRA_LLM_ONLY=1"
   shift
   goto :parse
 )
 if /I "%~1"=="--smoke-test" (
   set "TERRA_QLORA=1"
+  set "TERRA_QLORA_EXPLICIT=1"
   set "TERRA_SMOKE_TEST=1"
   shift
   goto :parse
 )
 if /I "%~1"=="--smoke-only" (
   set "TERRA_SMOKE_ONLY=1"
+  set "TERRA_QLORA=0"
+  shift
+  goto :parse
+)
+if /I "%~1"=="--xgboost-only" (
+  set "TERRA_XGB_ONLY=1"
+  set "TERRA_QLORA=0"
+  set "TERRA_SERVE=0"
+  shift
+  goto :parse
+)
+if /I "%~1"=="--no-serve" (
+  set "TERRA_SERVE=0"
+  shift
+  goto :parse
+)
+if /I "%~1"=="--no-model-fallback" (
+  set "TERRA_FALLBACK_ARG=--no-model-fallback"
+  shift
+  goto :parse
+)
+if /I "%~1"=="--base-model" (
+  if "%~2"=="" goto :failed
+  set "TERRA_BASE_MODEL=%~2"
+  shift
   shift
   goto :parse
 )
 echo Unknown option: %~1
-echo Usage: run_training.bat [--cpu] [--qlora ^| --llm-only ^| --smoke-test ^| --smoke-only]
+echo Default: CUDA XGBoost, corpus regeneration, QLoRA memory gate, fine-tuning and local adapter server.
+echo Options: --cpu --xgboost-only --llm-only --smoke-test --smoke-only --no-serve --base-model MODEL --no-model-fallback
 exit /b 2
 :parsed
+if "%TERRA_XGB_ONLY%"=="1" if "%TERRA_QLORA_EXPLICIT%"=="1" goto :mode_conflict
+if "%TERRA_SMOKE_ONLY%"=="1" if "%TERRA_QLORA_EXPLICIT%"=="1" goto :mode_conflict
+if "%TERRA_SMOKE_TEST%"=="1" if "%TERRA_LLM_ONLY%"=="1" goto :mode_conflict
+if "%TERRA_DEVICE%"=="cpu" if "%TERRA_QLORA_EXPLICIT%"=="0" set "TERRA_QLORA=0"
 if "%TERRA_DEVICE%"=="cpu" if "%TERRA_QLORA%"=="1" (
   echo QLoRA requires BF16 CUDA; CPU and FP16 fallbacks are disabled.
   exit /b 2
@@ -67,6 +105,8 @@ call ".venv\Scripts\activate.bat"
 python -c "import sys; assert (3,11) <= sys.version_info[:2] < (3,13), 'The selected virtual environment must use Python 3.11 or 3.12'"
 if errorlevel 1 goto :failed
 set "TOKENIZERS_PARALLELISM=false"
+set "TERRA_SERVE_ARG="
+if "%TERRA_SERVE%"=="1" set "TERRA_SERVE_ARG=--serve-copilot"
 python -m pip install --upgrade pip
 if errorlevel 1 goto :failed
 python -m pip install -r requirements-training.txt
@@ -98,24 +138,27 @@ if "%TERRA_LLM_ONLY%"=="1" goto :llm_only
 if "%TERRA_QLORA%"=="1" goto :qlora
 python "%TERRA_ENTRY%" --device %TERRA_DEVICE%
 if errorlevel 1 goto :failed
-echo XGBoost finished. Optional QLoRA: run_training.bat --qlora
+echo XGBoost finished. Full automatic pipeline: run_training.bat
 exit /b 0
 :xgb_smoke
 python "%TERRA_ENTRY%" --device %TERRA_DEVICE% --smoke-only
 if errorlevel 1 goto :failed
 exit /b 0
 :qlora_smoke
-python "%TERRA_ENTRY%" --device cuda --smoke-test
+python "%TERRA_ENTRY%" --device cuda --smoke-test --base-model "%TERRA_BASE_MODEL%" %TERRA_FALLBACK_ARG%
 if errorlevel 1 goto :failed
 exit /b 0
 :llm_only
-python "%TERRA_ENTRY%" --device cuda --llm-only
+python "%TERRA_ENTRY%" --device cuda --llm-only --base-model "%TERRA_BASE_MODEL%" %TERRA_FALLBACK_ARG% %TERRA_SERVE_ARG%
 if errorlevel 1 goto :failed
 exit /b 0
 :qlora
-python "%TERRA_ENTRY%" --device cuda --train-llm
+python "%TERRA_ENTRY%" --device cuda --train-llm --base-model "%TERRA_BASE_MODEL%" %TERRA_FALLBACK_ARG% %TERRA_SERVE_ARG%
 if errorlevel 1 goto :failed
 exit /b 0
 :failed
 echo Training failed. Preserve the output and inspect artifacts. No readiness is implied.
 exit /b 1
+:mode_conflict
+echo Choose one execution mode: full pipeline, --xgboost-only, --llm-only, --smoke-test, or --smoke-only.
+exit /b 2

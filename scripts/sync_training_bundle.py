@@ -27,6 +27,7 @@ ARTIFACTS=('global_multi_causal_xgb.pkl','global_multi_causal_xgb.metadata.json'
  'MODEL_CARD.md','runtime_manifest.json','hardware_preflight.json','gpu_smoke_test.json','training_artifact_manifest.json')
 ALIASES=(('scripts/train_gpu.py','train.py'),('scripts/train_qwen25_agent.py','train_qwen25_agent.py'),
  ('scripts/run_training.bat','run_training.bat'),
+ ('scripts/run_copilot_server.bat','run_copilot_server.bat'),
  ('scripts/serve_qwen_copilot.py','serve_qwen_copilot.py'),
  ('scripts/export_qwen_ollama.py','export_qwen_ollama.py'),
  ('scripts/hardware_preflight.py','hardware_preflight.py'),

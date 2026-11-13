@@ -86,7 +86,7 @@ class BundleIntegrity(unittest.TestCase):
             dataset=Path(directory)/'corpus.jsonl'
             dataset.write_text(json.dumps({'source_event_id':'fixture','messages':[{'role':'tool','content':'evidence'}]})+'\n')
             output=Path(directory)/'output'
-            with patch.dict('sys.modules',modules):
+            with patch.dict('sys.modules',modules), patch('scripts.train_qwen25_agent.download_tokenizer_snapshot',return_value='fixture_local_tokenizer'):
                 with self.assertRaisesRegex(ValueError,'exceeds the declared 8192-token context'):
                     train_qwen25(dataset,output,Path(directory)/'model.gguf')
             self.assertFalse(output.exists())

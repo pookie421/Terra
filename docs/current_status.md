@@ -1,4 +1,4 @@
-# Current status — 11 November 2026
+# Current status — 13 November 2026
 
 TERRA-SHIELD targets a global, autonomous landslide hazard and forecast platform competitive with LHASA 2.0. The current development implementation combines a live-first global map, source ingestion, prior-based physics, feature-based ML, automatic forecast states and a selected-cell co-pilot. Independent global forecasting skill and sustained operational coverage remain open. [The roadmap](../ROADMAP.md) and [source audit](global_source_audit.md) define that evidence program.
 
@@ -6,18 +6,32 @@ TERRA-SHIELD targets a global, autonomous landslide hazard and forecast platform
 
 | Area | Current behavior | Evidence gap |
 |---|---|---|
-| Frontend | Full-screen satellite/terrain map, restrained dark workspace, coordinate/place/map-click scans, read-only forcing, automatic forecast horizons and cell inspection | End-to-end checks establish integration at tested locations, not uniform global coverage or predictive validity |
+| Frontend | Full-screen satellite/terrain map, five-model switcher, selected-cell comparison, NASA/radar layers, automatic forecast horizons and cell inspection | Integration at tested locations does not establish uniform global coverage, equal score calibration or predictive validity |
 | Terrain | Metric Mercator spacing on both axes; corrected aspect; no mechanical slope floor; specific-area TWI with bounded 1 km contributing paths | Compiled DEM accuracy, bounded drainage support, provisional elevation land mask, polar coverage and independent GIS comparison |
 | Physics | `pedotransfer_reference_column_v1`, antecedent storage, transient response, uncapped FS, sensitivity envelope and joint FOSM | Strength/depth/state/covariance priors and structural error need independent validation |
 | ML | `physics_informed_initiation_v2_features`; ordinary prevalence initialization, source/mechanical/interaction features, grouped inner selection/calibration | Sample selection, uncertain labels and conditional coupling still limit interpretation |
+| NASA comparison | Native 30-arcsecond ImageServer sampling, preserved categorical susceptibility and separately labeled coarse reference fallback | Served model version and issue/valid time are undeclared; the fallback is an unvalidated project index, not a reproduced LHASA 2.0 model |
+| NISAR | Public CMR discovery, acquisition/product metadata, optional local/authenticated raster subsets and `nisar_context_features_v1` | Metadata is not a radar measurement; the active 25-feature classifier has no newly fitted SAR weights or demonstrated SAR skill gain |
 | Runout | Conditional Voellmy release, three scenarios, corridors, unique asset intersections and boundary flags | Coarse routing without entrainment or mass conservation; no independent motion validation |
 | Forecast | Automatic source-driven 72-hour column/ML projections and selectable horizon states | Forecast-as-issued skill, uncertainty coverage and useful warning lead time remain unverified |
-| Co-pilot | Active scan/scenario/cell evidence, multi-turn chat, verified numeric bindings and map actions | Real fine-tuned Qwen weights and semantic/tool evaluation remain open |
-| Training | Canonical source and a complete Windows CUDA/XGBoost/Qwen path | Actual Windows/RTX 5070 Ti/QLoRA execution is not certified by this Mac CPU host |
+| Co-pilot | Verified numeric bindings, public action summaries and eight ordered app-control actions; location planning works before the first scan | Deterministic plans and protocol tests do not establish real fine-tuned Qwen quality or semantic/tool reliability |
+| Training | Default Windows launcher chains CUDA XGBoost, linked SFT regeneration, immutable Qwen download, measured-memory gate, QLoRA and direct serving | Actual Windows/RTX 5070 Ti/QLoRA execution and target VRAM use require the GPU; CPU checks cannot certify them |
 
 The frontend follows [FRONTEND_SPEC.md](FRONTEND_SPEC.md): no manual perturbation sliders, fixed-city dropdown or replay-first boot. Legacy analyst/replay APIs and fixtures remain reproducibility tools; they do not drive the live product by default.
 
 Missing boreholes select exposed reference priors, preserving physical columns, uncertainty and conditional routing. Site records override compatible fields at their own cell. Missing model weights, incomplete future forcing, invalid site records and unsupported mechanism inputs have specific statuses. They do not erase otherwise available analysis.
+
+## NASA, radar and app-control integration
+
+The map selects Physics-Informed ML, NASA LHASA, Physics-Only, Weather+Terrain ML or Rainfall-Only while preserving the same scanned location and inspected cell. H3 resolution 9 averages about **0.105 km² per cell**; these cells are not 30 m pixels. The nominal 30 m DEM input, coarser environmental forcing, H3 aggregation and NASA's roughly 1 km geographic pixels have different support. Display detail is not evidence of superior prediction.
+
+`nasa_lhasa.py` samples Today, Tomorrow and Global Landslide Susceptibility at native support under one 3.5-second budget. The public endpoints do not declare an exact served LHASA version or issue/valid time; the upstream repository's newer version is not assigned to those rasters. Official output and an explicitly unvalidated project fallback remain separate. In mixed coverage, the NASA critical-cell selection uses official values when any exist, rather than ranking them against unlike fallback indices. The relative Tomorrow product is not guaranteed to align with exactly T+24h; NASA T+48h/T+72h predictions are not fabricated. This display is not a matched LHASA skill benchmark.
+
+`nisar_processor.py` discovers real granules and reads explicitly described L-SAR subsets where available. Coherence, LOS time-series velocity and the uncalibrated HV/HH index retain units, acquisition timing and provenance. Metadata-only scans leave measured fields empty and retain the full broad reference FOSM distribution. No arbitrary uncertainty multiplier or coherence-to-strength law is introduced. A documented, real-granule-anchored site cohesion calibration may update the physical column and its existing mechanistic ML inputs; explicit ground observations take precedence. The separate radar feature context does not turn the approved model into a SAR-trained classifier.
+
+The co-pilot returns brief public `thought_steps` describing intent, available evidence and planned actions. Validated action chains can scan coordinates, search a place, select a model/horizon/layer, fly to or inspect a cell, and compare cells. New-grid targets resolve after acquisition; stale state/model replies and superseded chains are rejected. Plans do not claim execution before the browser reports results. `VERIFIED_LLM_PROSE`, `VERIFIED_TEMPLATE` and withheld/unavailable outcomes remain distinct.
+
+The regenerated `agentic_app_v2` instruction corpus retains the same **594 source cell/date identities and component exclusions**. It teaches the app schema and honest missing NASA/radar evidence without attaching present-day satellite or nowcast values to historical event dates. Earlier corpus/report bytes remain in local history. Model weights, cohorts, benchmark labels and the results below are unchanged. See [NASA and radar methods](nasa_radar_comparison.md) and [the Windows guide](windows_5070ti.md).
 
 ## Benchmark A: unchanged matched temporal evaluation
 

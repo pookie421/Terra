@@ -151,6 +151,8 @@ class GlobalScan:
     bedrock: Optional[Dict[str, Any]] = None
     coolr_nearby: Dict[str, Any] = field(default_factory=lambda: {"count":0,"quality":"not_queried"})
     scan_id: Optional[str] = None
+    nisar: Optional[Dict[str, Any]] = None
+    nasa_lhasa: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -247,22 +249,44 @@ class GlobalIngestor:
         event_map: Dict[str, NaturalEvent] = {}
         for event in event_values:
             event_map["{}:{}".format(event.event_id, event.date_utc)] = event
-        satellite_cells: Dict[str, SatelliteCell] = {}
-        if payloads.get("terrarium_dem"):
-            satellite_cells, statuses['satellite'] = await self._capture(
+        terrain = payloads['terrarium_dem']
+        weather = payloads['open_meteo']
+        async def satellite_result():
+            if terrain:
+                return await self._capture(
                 'satellite', 'Esri World Imagery RGB z13', self.satellite_processor.process_cells(
-                    {cell_id: (cell.latitude, cell.longitude) for cell_id, cell in payloads["terrarium_dem"].cells.items()},
+                    {cell_id: (cell.latitude, cell.longitude) for cell_id, cell in terrain.cells.items()},
                     event_map,
                     client,
                     burn_override=burn_override,
                 ))
-            if not satellite_cells:
-                satellite_cells = {}
-                statuses['satellite'].available = False
-                statuses['satellite'].mode = 'FALLBACK'
-                statuses['satellite'].error = statuses['satellite'].error or 'No imagery cells were decoded'
-        else:
-            statuses["satellite"] = SourceStatus(False, "Esri World Imagery RGB z13", datetime.now(timezone.utc).isoformat(), "Terrain cells unavailable", "FALLBACK")
+            return None, SourceStatus(False, 'Esri World Imagery RGB z13', datetime.now(timezone.utc).isoformat(), 'Terrain cells unavailable', 'FALLBACK')
+        from .nasa_lhasa import fetch_lhasa
+        from .nisar_processor import fetch_nisar
+        radar_cells = terrain.cells if terrain else {}
+        imagery, radar, nasa = await asyncio.gather(
+            satellite_result(),
+            self._capture('nisar', 'NASA-ISRO NISAR / ASF DAAC', fetch_nisar(client, latitude, longitude,
+                cells=radar_cells, bbox=(west, south, east, north), timeout_s=3.5, cache=self.cache)),
+            self._capture('nasa_lhasa', 'NASA LHASA Earthdata GIS', fetch_lhasa(client, radar_cells,
+                latitude=latitude, longitude=longitude, weather=weather, timeout_s=3.5, cache=self.cache)))
+        satellite_cells, statuses['satellite'] = imagery
+        if not satellite_cells:
+            satellite_cells = {}
+            statuses['satellite'].available = False
+            statuses['satellite'].mode = 'FALLBACK'
+            statuses['satellite'].error = statuses['satellite'].error or 'No imagery cells were decoded'
+        for name, captured in (('nisar', radar), ('nasa_lhasa', nasa)):
+            payload, status = captured
+            payloads[name] = payload
+            if payload:
+                status.mode = payload.get('mode', status.mode)
+                if status.mode in ('LHASA_REFERENCE_EMULATION', 'UNAVAILABLE', 'METADATA_UNAVAILABLE'):
+                    status.available = False
+                if payload.get('errors'):
+                    errors = payload['errors']
+                    status.error = '; '.join(f'{key}: {value}' for key, value in errors.items()) if isinstance(errors, dict) else '; '.join(str(e) for e in errors)
+            statuses[name] = status
 
         weather = payloads["open_meteo"]
         power = payloads["nasa_power"]
@@ -292,6 +316,7 @@ class GlobalIngestor:
             satellite_cells={key: asdict(value) for key, value in satellite_cells.items()},
             sources=statuses,
             elapsed_seconds=time.perf_counter() - started,
+            nisar=payloads.get('nisar'), nasa_lhasa=payloads.get('nasa_lhasa'),
         )
 
     async def _capture(self, name: str, provider: str, awaitable: Any) -> Tuple[Any, SourceStatus]:

@@ -178,7 +178,7 @@ def modelfile(gguf_name: str, max_context: int = 8192) -> str:
         raise ValueError('Invalid GGUF filename')
     return ('FROM "./' + gguf_name + '"\n'
             'PARAMETER num_ctx ' + str(max_context) + '\n'
-            'PARAMETER num_predict 512\nPARAMETER temperature 0.1\n'
+            'PARAMETER num_predict 1536\nPARAMETER temperature 0.1\n'
             'PARAMETER stop "<|im_end|>"\nPARAMETER stop "<|endoftext|>"\n'
             'TEMPLATE """' + CHAT_TEMPLATE + '"""\n')
 
@@ -304,7 +304,7 @@ def export_ollama(output_dir: Path, *, adapter: Optional[Path] = None,
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--adapter', type=Path, default=ROOT / 'artifacts/qwen2_5_7b_lora/adapter')
+    parser.add_argument('--adapter', type=Path, default=ROOT / 'artifacts/qwen25_terra_lora/adapter')
     parser.add_argument('--output-dir', type=Path, default=ROOT / 'artifacts/ollama_qwen')
     parser.add_argument('--gguf', type=Path, help='Import an existing trained Qwen GGUF; adapter inclusion cannot be inferred from this file')
     parser.add_argument('--merged-dir', type=Path, help='Previously merged full BF16 model, including the trained tokenizer')

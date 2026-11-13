@@ -1,4 +1,4 @@
-import type {Scan,ChatReply,Cell,Runout,Health,HorizonKey} from './types';
+import type {Scan,ChatReply,Cell,Runout,Health,HorizonKey,PredictionModel} from './types';
 const base=(import.meta.env.VITE_API_URL as string|undefined)?.replace(/\/$/,'')??'';
 export class ApiHttpError extends Error {
   readonly status:number;
@@ -32,5 +32,5 @@ export const api={
   forecast:(scanId:string,key:HorizonKey,signal?:AbortSignal)=>request<Scan>(`/api/v1/scans/${encodeURIComponent(scanId)}/forecast/${key}`,undefined,signal),
   inspect:(scan:Scan,id:string,signal?:AbortSignal)=>request<Cell&{physics_informed_assessment?:Cell}>(`/api/v1/inspect/${scan.scan_id}/${id}?scenario_id=${scan.scenario_id}`,undefined,signal,15000),
   runout:(scan:Scan,id:string,signal?:AbortSignal)=>request<Runout>(`/api/v1/scans/${scan.scan_id}/scenarios/${scan.scenario_id}/runout/${id}`,undefined,signal,15000),
-  chat:(scan:Scan,id:string,message:string,history:{role:'user'|'assistant';content:string}[],signal?:AbortSignal)=>request<ChatReply>('/api/v1/chat',{message,scan_id:scan.scan_id,scenario_id:scan.scenario_id,selected_h3_index:id,history:conversationWindow(history),autonomous:true},signal,90000),
+  chat:(scan:Scan|null,id:string,message:string,history:{role:'user'|'assistant';content:string}[],signal?:AbortSignal,active_prediction_model:PredictionModel='terra_physics_ml')=>request<ChatReply>('/api/v1/chat',{message,scan_id:scan?.scan_id??null,scenario_id:scan?.scenario_id??null,selected_h3_index:id||null,history:conversationWindow(history),autonomous:true,active_prediction_model},signal,90000),
 };

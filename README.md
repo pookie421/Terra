@@ -25,7 +25,8 @@ Global landslide analysis with a 3D map, conditional physics, machine learning a
 | Physics engine | Yes — [`backend/physics/`](backend/physics/) | Reference soil columns, infiltration response, factor of safety, uncertainty and conditional runout |
 | Pretrained ML engine | Yes — [`artifacts/physics_informed_models.pkl`](artifacts/physics_informed_models.pkl), about 0.9 MB | Current feature-fusion model and its four model comparisons; runs on CPU |
 | Web application & API | Yes — [`frontend/`](frontend/) and [`backend/api/`](backend/api/) | Global satellite terrain, coordinate scanning, forecasts, cell inspection and source provenance |
-| Qwen assistant | Integration included; language-model weights optional | Uses a local Ollama model when available, with an explicitly verified template fallback |
+| NASA comparison & NISAR | Integration included; live coverage/subsets vary | Separately labeled NASA raster/reference scores and radar metadata or measured subsets |
+| Qwen assistant | Integration included; language-model weights optional | Ordered app controls and source-bound prose through Ollama or the direct adapter server, with explicit fallback status |
 
 **You do not need to train a model, download the retained research corpus, or have a GPU to start the application.** The bundled ML artifact is an experimental research model, not a globally validated warning system. See its [model card and checksum](artifacts/MODEL_CARD.md).
 
@@ -65,10 +66,11 @@ If the map opens but analysis cannot connect, follow the [connection checklist](
 ## Use the workspace
 
 1. **Choose an area.** Search for a place or `latitude, longitude`, click unscanned terrain, or use **Scan map view**. A place name is optional.
-2. **Inspect a location.** Click a returned hexagon. The inspector shows slope, the factor-of-safety envelope and pressure head; physical details and routing assumptions expand on demand.
-3. **Explore the forecast.** Switch between **Now**, **+24h**, **+48h**, **+72h** and **Peak**. These update the map and selected-cell assessment from provider forecasts. Peak means the lowest forecast sector factor of safety.
-4. **Check the evidence.** Open **Sources** for availability, retrieval times and fallback provenance. Model comparison and analysis details are in the overview. On smaller screens, use **Map**, **Overview** and **Inspect**.
-5. **Ask or export.** Open **Assistant** to discuss the selected state, or download the analysis. Optional [Qwen setup](docs/SETUP.md#optional-use-a-local-qwen-assistant) is separate from the physics and ML engines.
+2. **Choose a model.** The overview switches the map/readout among Physics + ML, NASA LHASA, Physics reference, Weather + terrain ML and Rainfall only. NASA rasters and unvalidated reference estimates remain visibly distinct. [Comparison and radar semantics](docs/nasa_radar_comparison.md).
+3. **Inspect a location.** Click a returned hexagon. The inspector shows slope, the factor-of-safety envelope and pressure head; physical details, NISAR context and routing assumptions expand on demand.
+4. **Explore the forecast.** Switch between **Now**, **+24h**, **+48h**, **+72h** and **Peak**. These update the in-house map and assessment from provider forecasts. Peak means the lowest forecast sector factor of safety. NASA's daily products do not supply a fabricated 72-hour forecast.
+5. **Check the evidence.** Open **Sources** for availability, retrieval times and fallback provenance. Model comparison and analysis details are in the overview. On smaller screens, use **Map**, **Overview** and **Inspect**.
+6. **Ask or export.** The **Assistant** can navigate before the first scan and execute ordered model/horizon/layer/cell actions. For example: “Take me to 11.548, 76.134, switch to NASA LHASA and then back to TERRA-SHIELD, and inspect the steepest cliff.” Public action summaries and actual execution results are distinct. Optional [Qwen setup](docs/SETUP.md#optional-use-a-local-qwen-assistant) is separate from the physics and ML engines; the [Windows trainer](docs/windows_5070ti.md) can start the saved adapter server automatically.
 
 There are no manual weather sliders or fixed-city scan defaults. Provider failures and missing inputs remain visible; acceptance of a coordinate does not guarantee valid terrain or forcing everywhere.
 
@@ -91,6 +93,8 @@ The physical column combines effective-stress slope mechanics, antecedent water 
 
 The current **`physics_informed_initiation_v2_features`** model learns from source, terrain, mechanical and interaction features. Its learned trigger score and exposed mechanical-admissibility factor remain separate. The package includes **Rainfall-Only**, **Physics-Only**, **Weather+Terrain ML** and **Physics-Informed ML** comparisons. It does not use the retired per-row FOSM logit offset. [Architecture and evaluation →](docs/feature_fusion_phase3.md)
 
+The NASA selector samples the public coarse raster; its exact served version and issue time are unverified by endpoint metadata. NISAR discovery is not deformation measurement, and the active classifier has no newly trained SAR weights. Optional documented site calibration can affect the physical column, while metadata-only radar leaves the broad reference calculation intact. Nominal 30 m DEM input and H3 cells averaging about 0.1 km² describe different spatial support; neither establishes forecasting superiority.
+
 **Evidence, without inflated claims.** The target is a global system competitive with NASA LHASA 2.0. Current results do not establish parity or calibrated global failure probabilities. On the broader 510-row proxy benchmark, rainfall-only outperforms the coupled fusion model: AUC **0.7842 vs 0.6866**, Brier **0.1772 vs 0.2451**. [Full results, cohort limitations and missingness](docs/current_status.md) · [Source/API critique](docs/global_source_audit.md) · [Retired experiments](docs/research_history.md)
 
 ## Documentation & development
@@ -100,6 +104,7 @@ The current **`physics_informed_initiation_v2_features`** model learns from sour
 | Install, verify and use | [Setup guide](docs/SETUP.md) |
 | API routes, state IDs and chat | [API reference](API_USAGE.md) |
 | Physical assumptions | [Physics methods](docs/physics_sources.md) |
+| NASA comparison and optional radar subsets | [NASA/NISAR guide](docs/nasa_radar_comparison.md) |
 | Pretrained artifact and compatibility | [Model card](artifacts/MODEL_CARD.md) |
 | Training and optional Windows/CUDA/QLoRA | [Training workflow](docs/training_workflow.md) · [RTX 5070 Ti guide](docs/windows_5070ti.md) |
 | Contribute and validate | [Contributing](CONTRIBUTING.md) |
@@ -111,6 +116,6 @@ Canonical source lives in `backend/`, `frontend/` and `scripts/`. Portable `trai
 python -m unittest discover -s tests -v
 ```
 
-For frontend validation, run `npm run build` and `npx tsc --noEmit` from `frontend/`. Some retained-corpus regressions skip when their local inputs are absent. Installation checks, predictive skill and operational readiness are separate claims.
+For frontend validation, run `npm test`, `npm run build` and `npx tsc --noEmit` from `frontend/`. Some retained-corpus regressions skip when their local inputs are absent. Installation checks, predictive skill and operational readiness are separate claims.
 
 Original code and documentation are [MIT licensed](LICENSE). The model's provenance, source acknowledgements and serialization limits are in its [model card](artifacts/MODEL_CARD.md); upstream products and optional Qwen weights retain their own terms. [Third-party notices](THIRD_PARTY_NOTICES.md).

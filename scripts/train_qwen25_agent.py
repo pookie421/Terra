@@ -114,6 +114,14 @@ def export_trained_model(model: Any, tokenizer: Any, output_dir: Path, gguf_path
     tokenizer.save_pretrained(str(adapter))
     if metadata is not None:
         atomic_json(adapter / 'training_metadata.json', metadata)
+    modelfile = output_dir / 'Modelfile'
+    if modelfile.exists():
+        preserved['Modelfile'] = preserve_previous(modelfile, output_dir)
+    # Ollama cannot import a Qwen PEFT adapter as a supported Safetensors ADAPTER.
+    # This valid recipe becomes usable after the explicit verified GGUF export.
+    gguf_reference = str(Path(gguf_path).resolve()).replace('\\', '/')
+    modelfile.write_text('# Requires the trained GGUF from export_qwen_ollama.py; direct adapter serving is ready separately.\n'
+        'FROM "' + gguf_reference + '"\nPARAMETER num_ctx 8192\nPARAMETER num_predict 1536\nPARAMETER temperature 0.1\n', encoding='utf-8')
     hashes = {str(p.relative_to(adapter)): hashlib.sha256(p.read_bytes()).hexdigest()
               for p in sorted(adapter.rglob('*')) if p.is_file()}
     manifest = {'adapter': {'status': 'saved', 'path': 'adapter', 'sha256': hashes},
@@ -121,6 +129,7 @@ def export_trained_model(model: Any, tokenizer: Any, output_dir: Path, gguf_path
                 'gguf': {'status': 'not_run_requires_export_helper', 'requested_path': str(gguf_path)},
                 'direct_serving': 'python serve_qwen_copilot.py --adapter "{}"'.format(adapter),
                 'ollama_export': 'python export_qwen_ollama.py --help',
+                'modelfile': {'path': 'Modelfile', 'status': 'recipe_requires_verified_gguf_export'},
                 'previous_exports_preserved': preserved}
     atomic_json(output_dir / 'export_manifest.json', manifest)
     return manifest
@@ -164,18 +173,46 @@ def _verify_attention(torch, backend):
     return {'implementation': backend, 'kernel_backward': 'passed'}
 
 
-def _load_model(base_model, revision, attention_backend, local_files_only):
+def download_tokenizer_snapshot(base_model, revision, local_files_only=False):
+    """A local tokenizer path avoids Transformers' unsolicited model-info probe."""
+    from huggingface_hub import snapshot_download
+    return snapshot_download(repo_id=base_model, revision=revision,
+        resume_download=True, local_files_only=local_files_only,
+        allow_patterns=['*.json', '*.model', '*.tiktoken', 'tokenizer*', '*.txt'], max_workers=4)
+
+
+def download_base_snapshot(base_model, revision, local_files_only=False):
+    """Resume only the exact committed safetensors/tokenizer snapshot."""
+    from huggingface_hub import snapshot_download
+    snapshot = Path(snapshot_download(repo_id=base_model, revision=revision,
+        resume_download=True, local_files_only=local_files_only,
+        allow_patterns=['*.safetensors', '*.json', '*.model', '*.tiktoken', 'tokenizer*', '*.txt'],
+        max_workers=4))
+    weights = list(snapshot.glob('*.safetensors'))
+    if not weights:raise ValueError('Downloaded base snapshot has no safetensors weights')
+    index = snapshot / 'model.safetensors.index.json'
+    if index.exists():
+        for shard in set(json.loads(index.read_text())['weight_map'].values()):
+            path = snapshot / shard
+            if path.parent != snapshot or not path.is_file():
+                raise ValueError('Incomplete base snapshot: missing or invalid weight shard')
+    return str(snapshot)
+
+
+def _load_model(base_model, revision, attention_backend, local_files_only, snapshot_path=None):
     import torch
     from transformers import AutoModelForCausalLM, BitsAndBytesConfig
     from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
     quantization = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type='nf4',
         bnb_4bit_use_double_quant=True, bnb_4bit_compute_dtype=torch.bfloat16,
         llm_int8_skip_modules=['lm_head'])
-    model = AutoModelForCausalLM.from_pretrained(base_model, revision=revision,
+    model = AutoModelForCausalLM.from_pretrained(snapshot_path or base_model, revision=revision,
         local_files_only=local_files_only, trust_remote_code=False, torch_dtype=torch.bfloat16,
         quantization_config=quantization, device_map={'': torch.cuda.current_device()},
         attn_implementation=attention_backend, low_cpu_mem_usage=True)
     model.config.use_cache = False
+    model.config._name_or_path = base_model
+    model.name_or_path = base_model
     model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True,
         gradient_checkpointing_kwargs={'use_reentrant': False})
     restore_frozen_embedding_dtypes(model, torch)
@@ -304,7 +341,7 @@ def longest_trajectory_smoke(model, dataset, collator, report_path, optimizer_fa
 
 def train_qwen25(dataset_path: Path, output_dir: Path, gguf_path: Path, smoke_test=False,
                  smoke_only=False, base_model='Qwen/Qwen2.5-7B-Instruct', base_revision=None,
-                 attention_backend='sdpa', local_files_only=False) -> Dict[str, Any]:
+                 attention_backend='sdpa', local_files_only=False, run_context=None) -> Dict[str, Any]:
     import torch
     if not torch.cuda.is_available():
         raise RuntimeError('Qwen2.5 QLoRA requires a visible CUDA GPU; CPU execution is not target verification')
@@ -320,7 +357,8 @@ def train_qwen25(dataset_path: Path, output_dir: Path, gguf_path: Path, smoke_te
         raise ValueError('Base model must resolve to an immutable Hugging Face commit before training')
     if config.model_type != 'qwen2':
         raise ValueError('Use a Qwen2/Qwen2.5 base for the bounded-head implementation')
-    tokenizer = AutoTokenizer.from_pretrained(base_model, revision=revision, local_files_only=local_files_only,
+    tokenizer_path = download_tokenizer_snapshot(base_model, revision, local_files_only)
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, revision=revision, local_files_only=True,
                                              trust_remote_code=False, use_fast=True)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -343,10 +381,11 @@ def train_qwen25(dataset_path: Path, output_dir: Path, gguf_path: Path, smoke_te
         'maximum_fp32_logits_chunk_bytes': LOSS_CHUNK_TOKENS * config.vocab_size * 4,
         'training_policy': training_policy(), 'python': platform.python_version(), 'platform': platform.system(),
         'packages': {}, 'scope': 'Target execution evidence only, not independent assistant quality or warning validation'}
-    for package in ('torch', 'transformers', 'peft', 'accelerate', 'bitsandbytes', 'safetensors'):
+    for package in ('torch', 'transformers', 'peft', 'accelerate', 'bitsandbytes', 'safetensors', 'huggingface_hub', 'datasets', 'trl'):
         try: metadata['packages'][package] = version(package)
         except PackageNotFoundError: metadata['packages'][package] = None
     metadata.update(provenance)
+    metadata['run_context'] = dict(run_context or {})
     output_dir.mkdir(parents=True, exist_ok=True)
     record = output_dir / ('smoke_run.json' if smoke_test or smoke_only else 'training_run.json')
     if record.exists():
@@ -357,7 +396,12 @@ def train_qwen25(dataset_path: Path, output_dir: Path, gguf_path: Path, smoke_te
     try:
         from transformers import TrainingArguments, set_seed
         set_seed(3407)
-        model = _load_model(base_model, revision, attention_backend, local_files_only)
+        metadata['status'] = 'downloading_immutable_base_snapshot'
+        atomic_json(record, metadata)
+        snapshot_path = download_base_snapshot(base_model, revision, local_files_only)
+        metadata.update(base_model_snapshot=snapshot_path, status='loading_quantized_base')
+        atomic_json(record, metadata)
+        model = _load_model(base_model, revision, attention_backend, local_files_only, snapshot_path)
         collator = DynamicCausalCollator(tokenizer.pad_token_id)
         metadata['smoke'] = longest_trajectory_smoke(model, dataset, collator, output_dir / 'vram_smoke_test.json')
         if smoke_test or smoke_only:
@@ -402,8 +446,8 @@ def train_qwen25(dataset_path: Path, output_dir: Path, gguf_path: Path, smoke_te
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dataset', default=str(ROOT / 'data/sft_context_trajectories.jsonl'))
-    parser.add_argument('--output-dir', default=str(ROOT / 'artifacts/qwen2_5_7b_lora'))
-    parser.add_argument('--gguf', default=str(ROOT / 'artifacts/terra-shield-qwen-q4_k_m.gguf'))
+    parser.add_argument('--output-dir', default=str(ROOT / 'artifacts/qwen25_terra_lora'))
+    parser.add_argument('--gguf', default=str(ROOT / 'artifacts/ollama_qwen/terra-shield-qwen-q4_k_m.gguf'))
     parser.add_argument('--base-model', default='Qwen/Qwen2.5-7B-Instruct')
     parser.add_argument('--base-revision', help='Optional requested revision; the resolved immutable commit is recorded')
     parser.add_argument('--attention-backend', choices=('sdpa', 'flash_attention_2'), default='sdpa')

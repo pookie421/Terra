@@ -7,6 +7,9 @@ import os
 import math
 import re
 import time
+import ipaddress
+from pathlib import Path
+from urllib.parse import urlsplit
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import httpx
@@ -139,8 +142,36 @@ class TerraShieldQwenAgent:
 
     def __init__(self, scan_service: Optional[GlobalScanService] = None, ollama_url: Optional[str] = None) -> None:
         self.scan_service = scan_service or GlobalScanService()
-        self.ollama_url = (ollama_url or os.environ.get("TERRA_QWEN_URL") or "http://localhost:11434").rstrip("/")
+        self._explicit_ollama_url = ollama_url
+        root=Path(__file__).resolve().parents[2]
+        self._endpoint_config_paths=[root/'artifacts/qwen_copilot_endpoint.json',
+            root/'windows_5070ti_trainer/artifacts/qwen_copilot_endpoint.json',
+            root/'training/artifacts/qwen_copilot_endpoint.json']
         self._availability_error=None
+
+    @property
+    def ollama_url(self):
+        explicit=self._explicit_ollama_url or os.environ.get('TERRA_QWEN_URL')
+        if explicit:return explicit.rstrip('/')
+        # A training job can finish after the application has already started.
+        # Only its small local loopback rendezvous file is auto-discovered.
+        candidates=[]
+        for path in self._endpoint_config_paths:
+            try:
+                if path.stat().st_size>8192:continue
+                data=json.loads(path.read_text(encoding='utf-8'))
+                if data.get('source')!='local_trained_adapter_server':continue
+                url=data.get('url');parts=urlsplit(url)
+                host=parts.hostname
+                loopback=host=='localhost'
+                if not loopback:
+                    try:loopback=ipaddress.ip_address(host).is_loopback
+                    except ValueError:continue
+                if (parts.scheme!='http' or not loopback or parts.username or parts.password or
+                    parts.path not in ('','/') or parts.query or parts.fragment or not parts.port):continue
+                candidates.append((path.stat().st_mtime,url.rstrip('/')))
+            except (OSError,ValueError,TypeError,AttributeError):continue
+        return max(candidates,key=lambda item:item[0])[1] if candidates else 'http://localhost:11434'
 
     async def scan_global_location(
         self,
@@ -180,17 +211,27 @@ class TerraShieldQwenAgent:
         selected_h3_index: Optional[str] = None,
         history: Optional[List[Dict[str,str]]] = None,
         autonomous: bool = False,
+        active_prediction_model: str = 'terra_physics_ml',
     ) -> Dict[str, Any]:
         if (scan_id is None)!=(scenario_id is None):raise ValueError('scan_id and scenario_id must be supplied together')
         if scan_id is not None:
             from .state_copilot import chat_active
-            return await chat_active(self,message,scan_id,scenario_id,sliders or {},agency_mode,selected_h3_index,history,autonomous)
+            return await chat_active(self,message,scan_id,scenario_id,sliders or {},agency_mode,selected_h3_index,history,autonomous,active_prediction_model)
+        if autonomous:
+            from .app_actions import MODELS, plan_actions, validate_actions
+            from .state_copilot import planning_reply
+            if active_prediction_model not in MODELS:raise ValueError('Unknown active prediction model')
+            if sliders:raise ValueError('Autonomous chat cannot apply manual forcing')
+            planned=plan_actions(message)
+            if not planned and current_query:
+                planned=validate_actions([{'type':'search_location','query':current_query}])
+            return planning_reply(message,planned)
         # New-location chat acquires one scan, then uses the same state-bound
         # co-pilot protocol as the map. It never asks the LLM to invent a scan.
         parsed=parse_scenario_request(message,current_query,sliders)
         scan=await self._run_scan(self._scan_arguments(parsed),agency_mode)
         from .state_copilot import chat_active
-        return await chat_active(self,message,scan['scan_id'],scan['scenario_id'],{},agency_mode,selected_h3_index,history,autonomous)
+        return await chat_active(self,message,scan['scan_id'],scan['scenario_id'],{},agency_mode,selected_h3_index,history,autonomous,active_prediction_model)
     async def _available_model(self) -> Tuple[Optional[str], int]:
         self._availability_error=None
         try:

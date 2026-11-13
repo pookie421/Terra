@@ -131,6 +131,11 @@ def main():
     parser.add_argument('--device', default='cuda', choices=['cpu', 'cuda'])
     parser.add_argument('--train-llm', action='store_true')
     parser.add_argument('--llm-only', action='store_true')
+    parser.add_argument('--base-model', default='Qwen/Qwen2.5-7B-Instruct')
+    parser.add_argument('--fallback-base-model', default='Qwen/Qwen2.5-3B-Instruct')
+    parser.add_argument('--no-model-fallback', action='store_true')
+    parser.add_argument('--serve-copilot', action='store_true', help='Serve the saved adapter after a successful full fit')
+    parser.add_argument('--copilot-port', type=int, default=11434)
     parser.add_argument('--check-torch', action='store_true')
     parser.add_argument('--skip-dataset-build', action='store_true', help='Compatibility flag; this trainer always uses frozen features')
     parser.add_argument('--optuna-trials', type=int, default=0)
@@ -170,10 +175,41 @@ def main():
         manifest = verify_training_artifacts(ROOT, args.device, smoke)
         print('Verified {} saved artifacts/data inputs'.format(len(manifest['sha256'])), flush=True)
     if qlora:
-        from scripts.train_qwen25_agent import train_qwen25
-        train_qwen25(ROOT / 'data/sft_context_trajectories.jsonl', ROOT / 'artifacts/qwen2_5_7b_lora',
-                     ROOT / 'artifacts/terra-shield-qwen-q4_k_m.gguf', smoke_test=args.smoke_test)
+        train_copilot(args)
     return 0
+
+
+def train_copilot(args, trainer=None):
+    """Record genuine memory failures and rerun the complete gate on fallback."""
+    from scripts.train_qwen25_agent import train_qwen25, atomic_json, preserve_previous
+    trainer = trainer or train_qwen25
+    output = ROOT / 'artifacts/qwen25_terra_lora'
+    if (output / 'training_attempts.json').exists():
+        preserve_previous(output / 'training_attempts.json', output)
+    attempts = []
+    models = [args.base_model]
+    if not args.no_model_fallback and args.base_model != args.fallback_base_model:
+        models.append(args.fallback_base_model)
+    for index, base in enumerate(models):
+        try:
+            result = trainer(ROOT / 'data/sft_context_trajectories.jsonl', output,
+                ROOT / 'artifacts/ollama_qwen/terra-shield-qwen-q4_k_m.gguf', smoke_test=args.smoke_test,
+                base_model=base, run_context={'requested_base_model': args.base_model,
+                    'fallback_from': models[0] if index else None, 'preceding_attempts': attempts.copy()})
+            attempts.append({'base_model': base, 'status': 'smoke_passed' if args.smoke_test else 'trained'})
+            atomic_json(output / 'training_attempts.json', attempts)
+            break
+        except Exception as exc:
+            memory_failure = isinstance(exc, MemoryError) or type(exc).__name__ == 'OutOfMemoryError' or 'VRAM preflight' in str(exc)
+            attempts.append({'base_model': base, 'status': 'failed', 'error_type': type(exc).__name__,
+                             'error': str(exc), 'memory_failure': memory_failure})
+            atomic_json(output / 'training_attempts.json', attempts)
+            if not memory_failure or index == len(models)-1:raise
+            print('Recorded memory failure for {}. Retesting complete traces with explicit fallback {}.'.format(base, models[index+1]), flush=True)
+    if args.serve_copilot and not args.smoke_test:
+        from scripts.serve_qwen_copilot import main as serve
+        serve(['--adapter', str(output / 'adapter'), '--port', str(args.copilot_port), '--auto-port'])
+    return result
 
 
 if __name__ == '__main__':

@@ -83,7 +83,7 @@ class ServingProtocol(unittest.TestCase):
     def test_unsupported_schema_tools_and_unbounded_output_are_explicit(self):
         service = CopilotService(FakeEngine())
         for body in (self.body(format={'type': 'object'}), self.body(tools=[]),
-                     self.body(options={'num_predict': -1}), self.body(options={'num_predict': 513}),
+                     self.body(options={'num_predict': -1}), self.body(options={'num_predict': 1537}),
                      self.body(options={'temperature': float('nan')})):
             with self.subTest(body=body), self.assertRaises(RequestError):
                 service.respond(body, True)

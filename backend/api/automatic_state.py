@@ -97,4 +97,6 @@ def project_response(state,models,key):
     result.update(scenario_id=view['scenario_id'],forecast_view={**view,'kind':'AUTOMATIC_PROVIDER_FORECAST'},
         forecast_origin_scenario_id=base['scenario_id'],forecast_inputs=window,
         source_provenance_note='Source statuses describe acquisition at NOW; this state is a conditional forecast from those payloads')
+    from .prediction_models import attach_prediction_models
+    result=attach_prediction_models(result,raw)
     return result,raw

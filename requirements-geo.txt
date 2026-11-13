@@ -1,3 +1,5 @@
 # SoilGrids WCS projection and GeoTIFF decoding, installed by requirements.txt.
 pyproj>=3.6,<4
 rasterio>=1.3,<2
+# Native prebuilt HDF5 support for optional local NISAR L2 subsets.
+h5py==3.13.0

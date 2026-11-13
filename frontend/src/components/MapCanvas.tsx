@@ -5,13 +5,15 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import {AlertTriangle,Compass,Maximize} from 'lucide-react';
 import type {FeatureCollection,Geometry,Position} from 'geojson';
-import type {Scan,Cell,Runout} from '../types';
+import {cellIn,type Scan,type Cell,type Runout,type MapLayer,type PredictionModel} from '../types';
+import {mapValue,modelLabel} from '../modelPresentation';
 
 maplibregl.setWorkerUrl(workerUrl);
 const EMPTY:FeatureCollection={type:'FeatureCollection',features:[]};
-export type MapLayer='score'|'fs'|'slope'|'pressure';
+export type {MapLayer} from '../types';
 export interface MapHandle {
-  flyTo:(cell:Cell)=>void;
+  flyTo:(cell:Cell,camera?:{pitch?:number;bearing?:number;zoom?:number})=>void;
+  flyToCoordinates:(latitude:number,longitude:number)=>void;
   scanCenter:()=>void;
   fitScan:()=>void;
 }
@@ -23,31 +25,35 @@ interface Props {
   handle:MutableRefObject<MapHandle|null>;
   runout?:Runout;
   layer:MapLayer;
+  predictionModel:PredictionModel;
+  compared?:string;
 }
 
 const LAYER_META:Record<MapLayer,{label:string;left:string;right:string;gradient:string}>={
-  score:{label:'Initiation score',left:'0',right:'1',gradient:'linear-gradient(90deg,#699886,#b9b285,#ce9b66,#bd6966)'},
-  fs:{label:'Factor of safety',left:'≤ 0.5',right:'≥ 3',gradient:'linear-gradient(90deg,#bd6966,#ce9b66,#9ca783,#699886)'},
+  probability:{label:'Model score',left:'0',right:'1',gradient:'linear-gradient(90deg,#699886,#b9b285,#ce9b66,#bd6966)'},
+  fs_mid:{label:'Factor of safety',left:'≤ 0.5',right:'≥ 3',gradient:'linear-gradient(90deg,#bd6966,#ce9b66,#9ca783,#699886)'},
+  lhasa_2:{label:'NASA / coarse reference',left:'0',right:'1',gradient:'linear-gradient(90deg,#699886,#b9b285,#ce9b66,#bd6966)'},
+  nisar_radar:{label:'Measured radar coherence',left:'0',right:'1',gradient:'linear-gradient(90deg,#997568,#b5ac8d,#8ea9ae,#718e9e)'},
   slope:{label:'Slope',left:'0°',right:'60°+',gradient:'linear-gradient(90deg,#7392a6,#809e90,#c1a574,#bc7770)'},
-  pressure:{label:'Pore-pressure head',left:'0 m',right:'3 m+',gradient:'linear-gradient(90deg,#7392a6,#809e90,#c1a574,#bc7770)'},
+  pore_pressure:{label:'Pore-pressure head',left:'0 m',right:'3 m+',gradient:'linear-gradient(90deg,#7392a6,#809e90,#c1a574,#bc7770)'},
 };
 
 function longitude(value:number):number{return ((value+180)%360+360)%360-180;}
-function valueFor(layer:MapLayer):ExpressionSpecification {
-  if(layer==='score')return ['coalesce',['get','score'],['get','physics_informed_score'],-1];
-  return ['coalesce',['get',layer==='fs'?'fs_mid':layer==='slope'?'slope_deg':'pressure_head_m'],-1];
-}
-function colorFor(layer:MapLayer):ExpressionSpecification {
-  const value=valueFor(layer);
-  const ramp:ExpressionSpecification=layer==='fs'
+function valueFor():ExpressionSpecification {return ['coalesce',['get','map_value'],-1];}
+function colorFor(layer:MapLayer,nasa=false):ExpressionSpecification {
+  const value=valueFor();
+  const ramp:ExpressionSpecification=layer==='fs_mid'
     ?['interpolate',['linear'],value,0,'#bd6966',1,'#ce9b66',1.5,'#9ca783',3,'#699886']
     :layer==='slope'
       ?['interpolate',['linear'],value,0,'#7392a6',15,'#809e90',35,'#c1a574',60,'#bc7770']
-      :layer==='pressure'
+      :layer==='pore_pressure'
         ?['interpolate',['linear'],value,0,'#7392a6',.5,'#809e90',1.5,'#c1a574',3,'#bc7770']
+        :layer==='nisar_radar'
+          ?['interpolate',['linear'],value,0,'#997568',.35,'#b5ac8d',.7,'#8ea9ae',1,'#718e9e']
         :['interpolate',['linear'],value,0,'#699886',.3,'#b9b285',.65,'#ce9b66',1,'#bd6966'];
   // Missing evidence has its own neutral color. It is never rendered as zero hazard.
-  return ['case',['<',value,0],'#737c8a',ramp];
+  const supported:ExpressionSpecification=nasa?['case',['==',['get','map_reference'],true],['interpolate',['linear'],value,0,'#718090',.5,'#8ca9bd',1,'#bad2df'],ramp]:ramp;
+  return ['case',['<',value,0],'#737c8a',supported];
 }
 function coordinates(geometry:Geometry):Position[] {
   switch(geometry.type){
@@ -71,14 +77,14 @@ function localGeometry(geometry:Geometry,anchor:number):Geometry {
   }
 }
 
-export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handle,runout,layer}:Props){
+export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handle,runout,layer,predictionModel,compared}:Props){
   const host=useRef<HTMLDivElement>(null),map=useRef<maplibregl.Map|null>(null),reticle=useRef<maplibregl.Marker|null>(null);
   const callbacks=useRef({onSelect,onScanCoordinate});
-  const current=useRef({scan,selected,runout,layer});
+  const current=useRef({scan,selected,runout,layer,predictionModel,compared});
   const previousScan=useRef<string|null>(null);
   const [error,setError]=useState(''),[ready,setReady]=useState(false);
   callbacks.current={onSelect,onScanCoordinate};
-  current.current={scan,selected,runout,layer};
+  current.current={scan,selected,runout,layer,predictionModel,compared};
 
   function markTarget(latitude:number,lon:number){
     const m=map.current;if(!m)return;
@@ -109,20 +115,23 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
     markTarget(s.location.latitude,s.location.longitude);
   }
   function updateLayers(){
-    const m=map.current,{scan:s,selected:id,runout:r,layer:active}=current.current;
+    const m=map.current,{scan:s,selected:id,runout:r,layer:active,predictionModel:model,compared:other}=current.current;
     if(!m||!m.getSource('cells'))return;
-    const physical=new Map(s?.physical_assessment.cells.map(c=>[c.h3_index,c]));
-    const learned=new Map(s?.physics_informed_assessment?.cells.map(c=>[c.h3_index,c]));
-    const data:FeatureCollection<Geometry,Cell>=s?{...s.h3_geojson,features:s.h3_geojson.features.map(f=>({...f,geometry:localGeometry(f.geometry,s.location.longitude),properties:{...physical.get(f.properties.h3_index),...f.properties,...learned.get(f.properties.h3_index)}}))}:{type:'FeatureCollection',features:[]};
+    const nasaLayer=active==='lhasa_2'||active==='probability'&&model==='nasa_lhasa_2';
+    const data:FeatureCollection<Geometry,Cell&{map_value:number|null;map_reference:boolean}>=s?{...s.h3_geojson,features:s.h3_geojson.features.map(f=>{const cell=cellIn(s,f.properties.h3_index)??f.properties;return {...f,geometry:localGeometry(f.geometry,s.location.longitude),properties:{...cell,map_value:mapValue(cell,active,model),map_reference:nasaLayer&&cell.official_score==null&&cell.lhasa_probability==null}};})}:{type:'FeatureCollection',features:[]};
     (m.getSource('cells') as GeoJSONSource).setData(data);
     (m.getSource('selected') as GeoJSONSource).setData({...data,features:data.features.filter(f=>f.properties.h3_index===id)});
+    (m.getSource('compared') as GeoJSONSource).setData({...data,features:data.features.filter(f=>f.properties.h3_index===other)});
     const selectedRoute=r?.h3_index===id?r:undefined;
     const routes=selectedRoute?.scenarios?.filter(v=>(v.coordinates_lonlat?.length??0)>1).map((v,i)=>({type:'Feature' as const,geometry:localGeometry({type:'LineString',coordinates:v.coordinates_lonlat!},s?.location.longitude??0),properties:{scenario:i}}));
     const sectorRoutes=s?{...s.runout_geojson,features:s.runout_geojson.features.map(f=>({...f,geometry:localGeometry(f.geometry,s.location.longitude)}))}:EMPTY;
     (m.getSource('runout') as GeoJSONSource).setData(routes?{type:'FeatureCollection',features:routes}:sectorRoutes);
     const corridor=selectedRoute?.corridor_h3_indices;
     (m.getSource('corridor') as GeoJSONSource).setData(corridor?{...data,features:data.features.filter(f=>corridor.includes(f.properties.h3_index))}:s?.runout_corridor_geojson??EMPTY);
-    m.setPaintProperty('hexagons','fill-extrusion-color',colorFor(active));
+    m.setPaintProperty('hexagons','fill-extrusion-color',colorFor(active,nasaLayer));
+    // Height follows the active layer too; a NASA view must not retain Terra-score heights.
+    const normalizer=active==='slope'?60:active==='fs_mid'||active==='pore_pressure'?3:1;
+    m.setPaintProperty('hexagons','fill-extrusion-height',['+',12,['*',180,['min',1,['max',0,['/',valueFor(),normalizer]]]]]);
   }
 
   useEffect(()=>{
@@ -133,7 +142,7 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
       sources:{
         imagery:{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,maxzoom:19,attribution:'Imagery © Esri, Maxar, Earthstar Geographics and contributors'},
         terrain:{type:'raster-dem',tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],tileSize:256,encoding:'terrarium',maxzoom:15,attribution:'Elevation © Mapzen / upstream DEM contributors'},
-        cells:{type:'geojson',data:EMPTY},selected:{type:'geojson',data:EMPTY},runout:{type:'geojson',data:EMPTY},corridor:{type:'geojson',data:EMPTY},
+        cells:{type:'geojson',data:EMPTY},selected:{type:'geojson',data:EMPTY},compared:{type:'geojson',data:EMPTY},runout:{type:'geojson',data:EMPTY},corridor:{type:'geojson',data:EMPTY},
       },
       terrain:{source:'terrain',exaggeration:1.35},
       sky:{'sky-color':'#14181d','horizon-color':'#30383e','fog-color':'#14181d','sky-horizon-blend':.7,'horizon-fog-blend':.7,'fog-ground-blend':.8},
@@ -141,10 +150,11 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
         {id:'background',type:'background',paint:{'background-color':'#14181d'}},
         {id:'satellite',type:'raster',source:'imagery',paint:{'raster-saturation':-.12,'raster-brightness-max':.92,'raster-contrast':.02}},
         {id:'corridor-fill',type:'fill',source:'corridor',paint:{'fill-color':'#c6a16b','fill-opacity':.16}},
-        {id:'hexagons',type:'fill-extrusion',source:'cells',paint:{'fill-extrusion-color':colorFor(current.current.layer),'fill-extrusion-height':['+',12,['*',180,['max',0,valueFor('score')]]],'fill-extrusion-base':0,'fill-extrusion-opacity':.58}},
+        {id:'hexagons',type:'fill-extrusion',source:'cells',paint:{'fill-extrusion-color':colorFor(current.current.layer,current.current.predictionModel==='nasa_lhasa_2'),'fill-extrusion-height':12,'fill-extrusion-base':0,'fill-extrusion-opacity':.58}},
         {id:'hex-edges',type:'line',source:'cells',paint:{'line-color':'#b4bfc6','line-width':.6,'line-opacity':.3}},
         {id:'runout-lines',type:'line',source:'runout',paint:{'line-color':['match',['get','scenario'],0,'#d5b47e',1,'#c99a70',2,'#e4cd9c','#c6a16b'],'line-width':2.5,'line-opacity':.95,'line-dasharray':[2,1]}},
         {id:'selected-outline',type:'line',source:'selected',paint:{'line-color':'#f3f4f6','line-width':2,'line-opacity':1}},
+        {id:'compared-outline',type:'line',source:'compared',paint:{'line-color':'#92b2cc','line-width':2,'line-dasharray':[3,2],'line-opacity':1}},
       ],
     };
     let m:maplibregl.Map;
@@ -175,7 +185,8 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
     });
     const observer=new ResizeObserver(()=>m.resize());observer.observe(host.current);
     handle.current={
-      flyTo:cell=>{m.flyTo({center:[cell.longitude,cell.latitude],zoom:15.2,pitch:55,duration:1300,essential:false});},
+      flyTo:(cell,camera)=>{m.flyTo({center:[cell.longitude,cell.latitude],zoom:camera?.zoom??15.2,pitch:camera?.pitch??55,bearing:camera?.bearing??m.getBearing(),duration:1300,essential:false});},
+      flyToCoordinates:(latitude,lon)=>{markTarget(latitude,longitude(lon));m.flyTo({center:[longitude(lon),latitude],zoom:12,pitch:55,duration:1000,essential:false});},
       scanCenter:()=>{const center=m.getCenter();scanAt(center.lat,center.lng);},
       fitScan:fitCurrent,
     };
@@ -184,16 +195,20 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
     // completed scan or horizon switch cannot destroy the live world canvas.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
-  useEffect(()=>{updateLayers();},[scan,selected,runout,layer]);
+  useEffect(()=>{updateLayers();},[scan,selected,runout,layer,predictionModel,compared]);
   useEffect(()=>{
     if(!scan||!map.current||!ready||previousScan.current===scan.scan_id)return;
     previousScan.current=scan.scan_id;fitCurrent();
   },[scan?.scan_id,ready]);
   const legend=LAYER_META[layer];
+  const nasaLayer=layer==='lhasa_2'||layer==='probability'&&predictionModel==='nasa_lhasa_2';
+  const reference=!!(scan?.nasa_lhasa?.mode?.includes('REFERENCE')||scan?.nasa_lhasa?.mode?.includes('EMULATION'));
+  const allReference=!!scan?.nasa_lhasa?.mode?.includes('EMULATION');
+  const referenceGradient='linear-gradient(90deg,#718090,#8ca9bd,#bad2df)';
   return <section className="map-world" style={{position:'fixed',inset:0,zIndex:0}} aria-label="Live global satellite and 3D terrain map">
     <div ref={host} className="map-canvas" style={{position:'absolute',inset:0}}/>
     <div className="world-map-tools"><button onClick={()=>map.current?.easeTo({pitch:55,bearing:0})} aria-label="Reset map orientation" title="Reset map orientation"><Compass size={17}/></button>{scan&&<button onClick={fitCurrent} aria-label="Fit scan to map" title="Fit scan to map"><Maximize size={17}/></button>}</div>
     {error&&<div className="map-notice" role="status"><AlertTriangle size={14}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss map notice">×</button></div>}
-    {scan&&<div className="world-map-legend"><span>{legend.label}</span><div style={{height:4,background:legend.gradient}}/><div className="legend-extents"><span>{legend.left}</span><span>{legend.right}</span></div><small>Gray: data unavailable</small></div>}
+    {scan&&<div className="world-map-legend"><span>{layer==='probability'?modelLabel(scan,predictionModel):legend.label}</span><div style={{height:4,background:nasaLayer&&allReference?referenceGradient:legend.gradient}}/><div className="legend-extents"><span>{legend.left}</span><span>{legend.right}</span></div>{nasaLayer&&reference&&!allReference&&<><small>Reference index · unvalidated</small><div style={{height:4,background:referenceGradient}}/></>}<small>{nasaLayer&&allReference?'Unvalidated reference index. ':''}Gray: data unavailable{layer==='nisar_radar'?'. Coherence is not a deformation rate.':''}</small></div>}
   </section>;
 }

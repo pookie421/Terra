@@ -7,15 +7,27 @@ The canonical implementation is in `scripts/`. Generate the portable `training/`
 Use 64-bit Python 3.11 or 3.12, a current NVIDIA driver supporting CUDA 12.8, and the prepared bundle. From its directory:
 
 ```bat
-run_training.bat --smoke-test
-run_training.bat --qlora
+run_training.bat
 ```
 
-The first command loads Qwen and runs only the longest-trajectory memory test. The second fits the shared-cohort XGBoost experiment, regenerates its linked instruction corpus, repeats the mandatory memory test, and trains QLoRA. It does not download environmental observations or search for new control dates. Hugging Face base weights and dependencies are downloaded when absent. For an intentional Qwen-only run, use `run_training.bat --llm-only`. `run_training.bat --smoke-only` tests XGBoost hardware only; it does not certify Qwen memory. `run_training.bat --cpu --smoke-only` is an explicit CPU diagnostic.
+Double-clicking the launcher or running it without flags performs the full path: prepare the environment, verify CUDA kernels, fit the fixed XGBoost experiment and broader proxy benchmark, regenerate the linked instruction corpus, download the immutable Qwen snapshot, run the mandatory memory gate, fit QLoRA, save the adapter and start the local assistant server. It uses the prepared retained corpus; it does not acquire new environmental observations or search for control dates. Dependencies and missing Hugging Face files require internet access.
+
+| Optional command | Effect |
+|---|---|
+| `run_training.bat --smoke-test` | QLoRA longest-trajectory memory gate, then exit |
+| `run_training.bat --smoke-only` | CUDA XGBoost hardware/save-reload test, then exit |
+| `run_training.bat --cpu --smoke-only` | Explicit CPU XGBoost diagnostic |
+| `run_training.bat --xgboost-only` | Fit XGBoost and regenerate linked instructions without QLoRA/serving |
+| `run_training.bat --llm-only` | Use the existing verified instruction corpus for QLoRA and serving |
+| `run_training.bat --no-serve` | Complete the full fit and save outputs, then exit |
+| `run_training.bat --base-model Qwen/Qwen2.5-3B-Instruct` | Explicitly choose the smaller base |
+| `run_training.bat --no-model-fallback` | Require the requested base to pass; do not retry with another model |
+
+The default requested base is `Qwen/Qwen2.5-7B-Instruct`. A genuine memory failure can trigger an explicitly logged retry with `Qwen/Qwen2.5-3B-Instruct`. That retry retokenizes every complete trace and repeats the same memory gate; it does not truncate data or turn a failed 7B check into a 7B success. Data/provenance, provider and kernel errors do not trigger a model substitution. Inspect `training_attempts.json` and the selected base/revision in the run metadata.
 
 The launcher retains a working CUDA build or installs `torch==2.7.1` from the official `cu128` index. It prints actual GPU name, total/free VRAM, compute capability and native BF16 support. Checks execute CUDA matrix forward/backward, fused SDPA and bitsandbytes NF4/paged-optimizer kernels. Blackwell requires CUDA 12.8+ and compatible architecture code; a reported CUDA version alone is insufficient. CPU fallback is rejected for requested CUDA execution. Failures replace current evidence reports while preserving earlier reports under `previous_checks/`.
 
-The pinned native stack uses Transformers 4.57.6, PEFT 0.17.1, bitsandbytes 0.48.2 and XGBoost 2.1.4. No Triton, Unsloth, TRL or source-compiled FlashAttention dependency is required. Default attention is PyTorch fused SDPA with the quadratic math fallback disabled. Optional `--attention-backend flash_attention_2` on the Python trainer requires an already installed package and a successful active-GPU backward test.
+The pinned native stack includes Transformers 4.57.6, PEFT 0.17.1, bitsandbytes 0.48.2, TRL 0.24.0, Datasets 4.3.0, Hugging Face Hub 0.36.0 and XGBoost 2.1.4. The bounded-loss implementation uses native Transformers/PEFT training; installing TRL does not switch it back to a full-logits SFT loss. Native HDF5 support is included for optional NISAR subsets. Triton, Unsloth and source-compiled FlashAttention are not required. Default attention is PyTorch fused SDPA with the quadratic math fallback disabled. Optional `--attention-backend flash_attention_2` on the Python trainer requires an already installed package and a successful active-GPU backward test.
 
 ## Memory contract
 
@@ -34,7 +46,9 @@ At 8192 tokens and vocabulary 152,064, one dense FP32 logits tensor alone is 4,9
 
 The mandatory smoke performs **two optimizer updates, each with eight forward/backward passes**, on the single longest complete trace. It checks allocated and reserved peaks against **14.5 GB = 14,500,000,000 bytes**, also requiring at least 1 GB sampled free device memory. Adapter weights, training mode and Python/NumPy/Torch random state are restored afterward; the smoke does not add training updates to that trajectory. Failure stops the full fit and writes evidence. Paged optimizer state does not page activations or guarantee that every future workload fits.
 
-The tokenizer-only audit of the current 594-row corpus found a maximum of **3600 tokens**, with zero truncations, using base revision `a09a35458c702b33eeacc393d103063234e8bc28`. That is evidence about this corpus, not an 8192-token GPU certification. Every actual run resolves and records an immutable base revision and retokenizes its complete corpus. All entry paths, including LLM-only and direct Python runs, verify the retained corpus against its SFT report and actual fusion artifact before loading the tokenizer/model. Custom corpora without matching provenance explicitly omit a fusion binding. Review `vram_smoke_test.json`, `smoke_run.json` or `training_run.json` under `artifacts/qwen2_5_7b_lora/`. They include corpus/model hashes, policy, versions and execution status. No native Windows/5070 Ti training or measured target VRAM result was available on the CPU development host.
+Every run resolves and records an immutable base revision and retokenizes all **594 complete source-linked traces** in the current corpus. Tokenizer/config preparation precedes full-weight download. `snapshot_download` resumes committed files; the tokenizer is loaded from its resolved local snapshot path so `--local-files-only` does not rely on a library's unsolicited metadata lookup. All entry paths, including LLM-only and direct Python runs, verify the retained corpus against its SFT report and actual fusion artifact. Custom corpora without matching provenance explicitly omit a fusion binding.
+
+Review `training_attempts.json`, `vram_smoke_test.json`, `smoke_run.json` and `training_run.json` under `artifacts/qwen25_terra_lora/`. They record the actual base/revision, corpus/model hashes, maximum tokenized length, policy, versions and execution status. Tokenizer or CPU checks do not certify an 8192-token GPU workload. Actual Windows/5070 Ti QLoRA and measured target VRAM remain target-machine checks.
 
 ## XGBoost and artifact evidence
 
@@ -42,20 +56,21 @@ CUDA fits use `tree_method="hist"`, `device="cuda"`. The hardware smoke checks t
 
 ## Serve the adapter directly
 
-After a successful fit, use the same environment as training (`.venv` by default; an already active virtual environment is respected):
+The default full run starts serving after saving `artifacts/qwen25_terra_lora/adapter/`, including the tokenizer and binding metadata. To restart it later from the prepared bundle:
 
 ```bat
-.venv\Scripts\activate
-python serve_qwen_copilot.py
+run_copilot_server.bat
 ```
 
-From the canonical root, use `python scripts/serve_qwen_copilot.py`. The server exposes Ollama-compatible `/api/generate`, `/api/chat`, `/api/tags` and `/healthz` on `127.0.0.1:11434`. Stop an existing Ollama listener first, or use `--port 11435` and set `TERRA_QWEN_URL=http://127.0.0.1:11435` in the backend's environment before starting FastAPI. No backend source edit is needed. The exact recorded base revision, NF4/BF16 adapter and native fused SDPA are used; prompt plus reserved completion must fit 8192 tokens without truncation.
+The helper uses the training environment (`.venv` by default; an already active virtual environment is respected). Canonical source also supports `python scripts/serve_qwen_copilot.py --auto-port`. The server exposes Ollama-compatible `/api/generate`, `/api/chat`, `/api/tags` and `/healthz` on loopback port **11434**, trying **8001** when auto-port selection encounters an existing listener. It leaves that listener running. If both ports are occupied, select an available `--port`.
+
+The running server writes `artifacts/qwen_copilot_endpoint.json`. The backend discovers this safe loopback endpoint dynamically, including prepared local bundle locations; an explicit constructor URL or `TERRA_QWEN_URL` takes precedence. This lets an already running app discover the newly trained adapter without editing backend source. The exact recorded base revision, NF4/BF16 adapter and native fused SDPA are used. Context is **8192 tokens**, with up to **1536 reserved completion tokens** for the structured multi-action response. Overflow is rejected without truncation.
 
 The backend's state and numeric checks remain authoritative. A running model does not automatically earn `VERIFIED_LLM_PROSE`: only prose passing those checks does. An unreachable service uses `VERIFIED_TEMPLATE`; invalid generated prose is explicitly withheld as `WITHHELD_UNVERIFIED_LLM_PROSE`.
 
 ## Optional Ollama import
 
-The training stage saves the adapter first and does not merge a full 7B model on the 16 GB GPU. With a separately installed llama.cpp converter/quantizer and at least 24 GiB available host RAM:
+Training writes a `Modelfile` recipe marked **pending verified GGUF export**. It is not an importable Qwen adapter claim or a fresh successful GGUF artifact. Direct serving uses the saved adapter immediately after a successful fit. The optional conversion helper merges on CPU, not the 16 GB GPU. With a separately installed llama.cpp converter/quantizer and at least 24 GiB available host RAM:
 
 ```bat
 python export_qwen_ollama.py --merge-cpu --llama-cpp D:\llama.cpp --create

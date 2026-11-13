@@ -19,7 +19,7 @@ A place search submits `{"query":"place name"}` to the same route. Raw coordinat
 A scan returns:
 
 - `scan_id`, `scenario_id`, response schema/version, location and source timestamps.
-- `source_status`: actual availability, live/cache/fallback modes, provider errors and recorded latency. Fourteen channels do not imply fourteen independent measurements or fourteen successful responses.
+- `source_status`: actual availability, live/cache/fallback modes, provider errors and recorded latency, including `nisar` and `nasa_lhasa`. Provider-channel counts do not imply independent measurements or successful responses.
 - `live_inputs`: the actual observed model window, including 24h liquid rain, preceding nonoverlapping 144h rain, 24h mean surface moisture, soil properties and provenance, catalog-based PGA proxy and modeled river discharge.
 - `h3_geojson`, `terrain_geojson`, full physical and learned cell records, a coherent selected hotspot, conditional runout and automatic forecast metadata.
 
@@ -33,6 +33,24 @@ Requested display/H3 resolution does not improve native source accuracy. Polar t
 
 Current source PGA can support the stable-block Newmark regression where applicable. An earthquake catalog proxy is not measured local shaking or a forecast of future earthquakes. Snow, burn and erosion mechanisms retain their source/domain requirements; the interface does not fabricate those measurements.
 
+## Selectable models and radar context
+
+The same scan includes five model IDs:
+
+| ID | Displayed estimate |
+|---|---|
+| `terra_physics_ml` | Experimental physics-informed initiation score; default |
+| `nasa_lhasa_2` | Official NASA coarse raster where available, otherwise a separately labeled unvalidated reference index |
+| `physics_only` | Conditional physical reference/FOSM estimate |
+| `weather_terrain_ml` | Weather + terrain ablation |
+| `rainfall_only` | Rainfall-only ablation |
+
+`prediction_models` is the model catalog. Cell records and GeoJSON properties expose `prediction_scores` by model ID. Selecting a model changes the client map/readout and assistant context without requiring a second provider scan. `spatial_support` records DEM and H3 support separately: nominal 30 m terrain inputs do not turn resolution-9 H3 cells into 30 m pixels.
+
+`nasa_lhasa.cells` joins official, reference and susceptibility fields to H3 IDs. `official_score`, `reference_score`, `active_score`, provenance and native support remain distinct; official zero is valid. The live services do not declare their exact served LHASA version or issue/valid time. The compatibility ID `nasa_lhasa_2` does not assert exact version-2.0 reproduction. Catalog peaks expose `official_peak` and `reference_peak` separately; official cells take precedence for NASA critical-cell ranking when present. Repeated pixel values are not downscaled NASA predictions.
+
+`nisar` carries real granule/collection/acquisition metadata and optional measured subsets. Inspection and cell records include `nisar_coherence`, `nisar_los_velocity_mm_yr`, `nisar_polarimetric_moisture_index`, granule count, latest acquisition and measurement provenance. Null fields mean no supported measurement. The legacy-named moisture index is an uncalibrated radar ratio. `radar_feature_context` is a versioned sidecar, not new trained SAR weights; `radar_constraint` reports whether an explicitly calibrated site strength was applied or rejected. Full reference columns remain available with metadata-only or missing radar. [Source semantics and optional subset configuration](docs/nasa_radar_comparison.md).
+
 ## Automatic 72-hour horizons
 
 `predictive_forecast_72h` uses downloaded future hourly forcing and available ensemble information. Its `views` list identifies `now`, `t24`, `t48`, `t72` and `peak`, with elapsed hour, valid time and state metadata. `paths.p50.hourly` contains the sector minimum-FS trajectory. If an actual ensemble is absent, deterministic-only forcing is explicitly identified; there is no invented 1.5× storm masquerading as P90.
@@ -45,6 +63,8 @@ GET /api/v1/scans/{scan_id}/forecast/peak
 ```
 
 Each route materializes a full, state-bound scan payload with projected per-cell columns, uncertainty, learned scores, GeoJSON and conditional routing. It reuses the acquired provider snapshot. The browser replaces the map and inspector with that returned state; it does not merely change a time label.
+
+NASA Tomorrow may be shown with the T+24h view as a separately labeled daily product whose exact temporal alignment is unknown. It is not a guaranteed exact T+24h prediction. NASA scores are not fabricated for +48h/+72h; unavailable NASA forecast values do not disable the in-house physical forecast.
 
 `peak` means the hour of minimum sector nominal FS on the P50 forcing path, explicitly labeled `minimum_sector_nominal_fs_p50`. It is not a claim that all hourly ML predictions have been searched or that failure will occur at that time. Missing future forcing leaves current columns intact and shows a forecast-specific reason. Ensemble quantiles describe forcing, not calibrated landslide uncertainty or coherent storm members.
 
@@ -63,12 +83,15 @@ The runout payload contains three declared friction/xi/depth scenarios, their co
 
 ## State-grounded, multi-turn Qwen chat
 
+The model receives one selected physical column, its full covariance/sensitivities, the six largest absolute learned feature contributions and compact provider summaries. Full grids, complete SHAP decompositions and routing geometry remain in the scan/inspection APIs. Recent whole conversation messages are bounded to 2,400 UTF-8 bytes; `history_context` reports any omitted older turns. The current evidence is preserved, and the model server enforces the 8,192-token context with a 1,536-token completion reserve.
+
 ```json
 {
   "message": "Explain this cell's uncertainty and source quality, then fly to it.",
   "scan_id": "returned-scan-id",
   "scenario_id": "displayed-state-id",
   "selected_h3_index": "cell-in-this-scan",
+  "active_prediction_model": "terra_physics_ml",
   "autonomous": true,
   "history": [
     {"role": "user", "content": "What controls the mechanical margin?"},
@@ -77,13 +100,30 @@ The runout payload contains three declared friction/xi/depth scenarios, their co
 }
 ```
 
-Submit to `POST /api/v1/chat` (`/api/chat` and `/api/v1/agent/chat` remain aliases). History is bounded to twelve messages. The server validates the selected cell and supplies current column/envelope, mathematical features, forecast/state identity, conditional corridor and provider provenance. In autonomous mode, chat cannot invent forcing changes; returned map actions are limited to validated inspection/fly commands.
+Submit to `POST /api/v1/chat` (`/api/chat` and `/api/v1/agent/chat` remain aliases). History is bounded to twelve messages. The server validates the selected cell and active model and supplies current column/envelope, mathematical features, forecast/state identity, conditional corridor and provider provenance. In autonomous mode, chat cannot invent forcing changes.
 
-The response includes `clean_markdown`, `briefing_guard`, active IDs, `bound_claims`, `numeric_audit_passed` and `ui_action.actions`. Qwen returns structured prose with numeric JSON-pointer bindings; the server verifies/render these values. Valid output is `VERIFIED_LLM_PROSE`. When the local model service cannot be reached, `VERIFIED_TEMPLATE` is an explicit deterministic fallback with service-error metadata. A responding service without compatible weights is `MODEL_UNAVAILABLE`; invalid generated prose is withheld after retry. Templates and model prose are visibly distinct.
+An initial navigation request can omit scan/state/cell IDs. For example, `{"message":"Take me to 11.548, 76.134, switch to NASA LHASA and then back to TERRA-SHIELD, and inspect the steepest cliff","autonomous":true}` returns a validated UI plan. The browser performs the scan once, waits for its returned grid, and resolves later cell selectors against that new state. A plan does not assert that source acquisition or inspection already succeeded.
 
-The frontend retains conversation messages with state identity, displays numeric citations, and rejects stale responses/actions after a coordinate, horizon or selected-cell change. Actual Qwen weights and CUDA/QLoRA execution require target-machine testing; mocked protocol checks do not establish language-model quality.
+`ui_action.actions` supports ordered chains of these commands:
 
-The default local model service is `http://localhost:11434`. Set `TERRA_QWEN_URL` before starting the backend to select another Ollama-compatible endpoint, such as `http://127.0.0.1:11435` for `scripts/serve_qwen_copilot.py --port 11435`. The [RTX 5070 Ti guide](docs/windows_5070ti.md) covers native QLoRA, adapter serving and optional GGUF/Ollama export. Both the assistant request context and trained context are capped at 8192 tokens; the direct adapter server rejects an overflowing prompt plus reserved completion without truncation.
+| Type | Main arguments |
+|---|---|
+| `scan_coordinates` | `latitude`, `longitude`, optional `label` |
+| `search_location` | `query` |
+| `select_prediction_model` | `model`: one of the five IDs above |
+| `set_time_horizon` | `horizon`: `now`, `t_24h`, `t_48h`, `t_72h`, `peak_72h` |
+| `set_map_layer` | `layer`: `probability`, `fs_mid`, `lhasa_2`, `nisar_radar`, `slope`, `pore_pressure` |
+| `fly_to_cell` | `h3_index` or symbolic `target`; optional `pitch`, `bearing`, `zoom` |
+| `inspect_cell` | `h3_index` or symbolic `target` |
+| `compare_cells` | `primary_h3`/`secondary_h3`, or `primary_target`/`secondary_target` |
+
+Symbolic targets are `steepest`, `riskiest`, `selected`, `lowest_fs` and `flattest`. Fixed H3 IDs must belong to the bound state. Actions carry originating nullable `scan_id`/`scenario_id` and `state_scope`; post-scan actions use `chain` scope. The executor validates the origin, runs each command in order, reports completion/failure and cancels stale work after a user state change. UI action horizon names map to the shorter forecast route keys above.
+
+The response includes `clean_markdown`, `briefing_guard`, active IDs, `bound_claims`, `numeric_audit_passed`, `thought_steps` and `ui_action.actions`. Each public step has `step`, `phase` and `reasoning` fields containing short intent, evidence or action summaries. They are not private model deliberation or proof that an action ran. Execution results are recorded separately by the browser. Qwen returns structured prose with numeric JSON-pointer bindings; the server verifies/render these values. Valid output is `VERIFIED_LLM_PROSE`. When the local model service cannot be reached, `VERIFIED_TEMPLATE` is an explicit deterministic fallback with service-error metadata. A responding service without compatible weights is `MODEL_UNAVAILABLE`; invalid generated prose is withheld after retry. Templates and model prose are visibly distinct.
+
+The frontend retains conversation messages with state/model identity, displays numeric citations, and rejects stale responses/actions after a coordinate, horizon, selected-cell or model change. Actual Qwen weights and CUDA/QLoRA execution require target-machine testing; mocked protocol checks do not establish language-model quality.
+
+The default local model service is `http://localhost:11434`. The turnkey adapter server can choose loopback 8001 when 11434 is occupied and writes `artifacts/qwen_copilot_endpoint.json` for dynamic discovery. An explicit constructor URL or `TERRA_QWEN_URL` overrides that discovery. Only safe loopback endpoint metadata is accepted. The [RTX 5070 Ti guide](docs/windows_5070ti.md) covers training, restart commands and optional GGUF/Ollama export. Both the trained context and direct-server context are capped at 8192 tokens, with up to 1536 completion tokens reserved for the structured reply; overflow is rejected without truncation.
 
 ## Research compatibility and publication
 

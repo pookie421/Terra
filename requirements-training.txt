@@ -15,3 +15,4 @@ joblib==1.5.3
 optuna==4.5.0
 pyproj==3.6.1
 rasterio==1.4.3
+h5py==3.13.0
