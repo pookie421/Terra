@@ -12,7 +12,7 @@ From the repository root, run:
 python scripts/configure_assistant.py
 ```
 
-Choose local Ollama or a hosted compatible API. The helper prompts for the endpoint, model and a hidden API key, validates the configuration and saves it to the ignored `.env`. It preserves the Earthdata token and other provider settings. It makes no billable provider call.
+For the current hosted-assistant approach, choose a hosted compatible API. Local Ollama remains an option for existing installations. The helper prompts for the endpoint, model and a hidden API key, validates the configuration and saves it to the ignored `.env`. It preserves the Earthdata token and other provider settings. It makes no billable provider call.
 
 Restart the backend with the environment file:
 
@@ -33,7 +33,7 @@ Use the base URL and model identifier from your provider console. Do not append 
 
 Select a model supporting bounded, non-streaming JSON output. On Alibaba Qwen endpoints the client disables thinking mode for this protocol; thinking-only models need a different protocol and are not supported here. OpenRouter requests require endpoint support for the supplied parameters. JSON syntax alone does not establish evidence correctness: the server still verifies numeric claims and authorized map actions. [Qwen structured-output guidance](https://help.aliyun.com/en/model-studio/qwen-structured-output).
 
-Local inference remains available with `TERRA_LLM_PROVIDER=ollama`. Leave `TERRA_LLM_MODEL` empty to discover the existing custom Qwen/Qwen2.5 service, or set an installed local model explicitly. Existing `TERRA_QWEN_URL` and the trained-adapter endpoint discovery continue to work. The Windows trainer is optional and has not been deleted.
+Local inference remains available with `TERRA_LLM_PROVIDER=ollama`. Leave `TERRA_LLM_MODEL` empty to discover the existing custom Qwen/Qwen2.5 service, or set an installed local model explicitly. Existing `TERRA_QWEN_URL` and the trained-adapter endpoint discovery continue to work. The previous Windows/QLoRA plan is [archived](legacy/windows_5070ti.md); its code remains available for research, but local GPU training is not a website prerequisite.
 
 ## What the hosted model does
 

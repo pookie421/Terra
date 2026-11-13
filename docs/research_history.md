@@ -69,6 +69,12 @@ The v13 pair diagnostic selected replacement negative dates through a modeled qu
 
 Full record: [retired holdout-pair diagnostic](https://github.com/pookie421/Terra/blob/0a5912bffb22c9f157a563db6aef5a4a04cad165/docs/holdout_pair_diagnostics.md).
 
+## Retired local-LLM training and engineering protocols
+
+The Windows RTX 5070 Ti / Qwen2.5 QLoRA plan was retired as the deployment direction on 14 November 2026 in favor of operator-configured hosted assistant APIs. Canonical training, export and local-serving code remains available for research installations. Its presence and CPU protocol tests do not establish actual Windows/CUDA execution, measured target VRAM, successful adapter export or language quality.
+
+The [original combined training workflow](legacy/local_llm_training.md) and [hardware guide](legacy/windows_5070ti.md) preserve those implementation details. The [retired randomized audit protocol](legacy/randomized_audit_protocol.md) retains its old named-location scenario criteria, including arbitrary score thresholds; those are historical engineering checks, not current scientific gates or training targets. The [active CPU hazard-model workflow](training_workflow.md) and [assistant connection guide](assistant_connections.md) describe the current paths. No model weights, source labels, cohort memberships or scientific results were changed by this documentation reorganization.
+
 ## What these records do not establish
 
 Successful equation tests, provider availability, a browser demonstration, local CPU fitting or instruction-trace generation are separate engineering results. None establishes untouched global predictive skill, calibrated probabilities, forecast lead time, runout accuracy, actual Windows/CUDA/QLoRA execution or operational warning readiness. The target remains a global LHASA 2.0 comparison using shared issue-time inputs, independent events/regions/time, representative backgrounds and explicit missingness.

@@ -1,4 +1,4 @@
-# Current status — 13 November 2026
+# Current status — 14 November 2026
 
 TERRA-SHIELD targets a global, autonomous landslide hazard and forecast platform competitive with LHASA 2.0. The current development implementation combines a live-first global map, source ingestion, prior-based physics, feature-based ML, automatic forecast states and a selected-cell co-pilot. Independent global forecasting skill and sustained operational coverage remain open. [The roadmap](../ROADMAP.md) and [source audit](global_source_audit.md) define that evidence program.
 
@@ -15,7 +15,7 @@ TERRA-SHIELD targets a global, autonomous landslide hazard and forecast platform
 | Runout | Conditional Voellmy release, three scenarios, corridors, unique asset intersections and boundary flags | Coarse routing without entrainment or mass conservation; no independent motion validation |
 | Forecast | Automatic source-driven 72-hour column/ML projections and selectable horizon states | Forecast-as-issued skill, uncertainty coverage and useful warning lead time remain unverified |
 | Co-pilot | Local or operator-configured hosted compatible API; verified numeric bindings, public summaries and eight ordered actions; planning before the first scan | Protocol tests do not establish a particular model's answer quality, semantic/tool reliability or global hazard skill |
-| Training | Default Windows launcher chains CUDA XGBoost, linked SFT regeneration, immutable Qwen download, measured-memory gate, QLoRA and direct serving | Actual Windows/RTX 5070 Ti/QLoRA execution and target VRAM use require the GPU; CPU checks cannot certify them |
+| Research reproduction | Canonical offline CPU hazard-model fitting, shared-cohort benchmarks, model/data hashes and source-linked instruction diagnostics; hosted APIs are the current assistant direction | Complete reproduction needs the retained corpus; the retired Windows/QLoRA path remains unverified on its target hardware |
 
 The frontend follows [FRONTEND_SPEC.md](FRONTEND_SPEC.md): no manual perturbation sliders, fixed-city dropdown or replay-first boot. Legacy analyst/replay APIs and fixtures remain reproducibility tools; they do not drive the live product by default.
 
@@ -31,7 +31,7 @@ The primary map choices are Terra In House Model (the existing Physics-Informed 
 
 The co-pilot returns brief public `thought_steps` describing intent, available evidence and planned actions. Validated action chains can scan coordinates, search a place, select a model/horizon/layer, fly to or inspect a cell, and compare cells. New-grid targets resolve after acquisition; stale state/model replies and superseded chains are rejected. Plans do not claim execution before the browser reports results. `VERIFIED_LLM_PROSE`, `VERIFIED_TEMPLATE` and withheld/unavailable outcomes remain distinct.
 
-The regenerated `agentic_app_v2` instruction corpus retains the same **594 source cell/date identities and component exclusions**. It teaches the app schema and honest missing NASA/radar evidence without attaching present-day satellite or nowcast values to historical event dates. Earlier corpus/report bytes remain in local history. Model weights, cohorts, benchmark labels and the results below are unchanged. See [NASA and radar methods](nasa_radar_comparison.md) and [the Windows guide](windows_5070ti.md).
+The regenerated `agentic_app_v2` instruction corpus retains the same **594 source cell/date identities and component exclusions**. It teaches the app schema and honest missing NASA/radar evidence without attaching present-day satellite or nowcast values to historical event dates. Earlier corpus/report bytes remain in local history. Model weights, cohorts, benchmark labels and the results below are unchanged. Hosted assistant configuration replaces local fine-tuning as the deployment direction; no new language-quality result is claimed. See [NASA and radar methods](nasa_radar_comparison.md), [the active research workflow](training_workflow.md) and [the archived Windows guide](legacy/windows_5070ti.md).
 
 ## Benchmark A: unchanged matched temporal evaluation
 

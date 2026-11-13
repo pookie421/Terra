@@ -81,7 +81,7 @@ The live API contract is:
 - `predictive_forecast_72h.views` exposes `now`, `t24`, `t48`, `t72` and `peak` metadata; `GET /api/v1/scans/{scan_id}/forecast/{view_key}` retrieves the corresponding full state-bound Scan.
 - `POST /api/v1/chat` accepts the active IDs, `selected_h3_index`, bounded user/assistant `history` and `autonomous: true`. Autonomous mode permits inspection/fly actions and does not mutate weather.
 
-The co-pilot retains bounded conversation context and selected-cell evidence, displays verified prose/template status and bound numeric citations, and executes validated inspection/fly map actions. Service problems and invalid prose retain explicit metadata. Deterministic fallback must not be presented as generated Qwen prose. Actual QLoRA weights require separate target-machine testing.
+The co-pilot retains bounded conversation context and selected-cell evidence, displays verified prose/template status and bound numeric citations, and executes validated inspection/fly map actions. Service problems and invalid prose retain explicit metadata. Deterministic fallback must not be presented as generated prose. Hosted compatible APIs are the current assistant direction; their answer quality requires evaluation independent of hazard-model metrics.
 
 ## Reproduction and artifact boundaries
 
@@ -100,4 +100,4 @@ These commands require the retained source corpus and current local models. `rep
 
 Local reports include `physics_informed_ablation_report.json`, `global_context_benchmark.json`, `storm_grid_diagnostics.json`, `context_observation_coverage.json` and `reference_verification.json`. Training frames, models and generated reports remain outside Git. Source-only CI checks deterministic contracts with two explicit artifact-dependent skips; full verification requires the local corpus.
 
-The Windows bundle retains the **1,611-row context**, **186-row initiation experiment** and **594 distinct instruction traces**, plus corrected terrain and source archives. `run_training.bat --qlora` runs CUDA checks, the XGBoost/global experiments, instruction regeneration and 8192-token Qwen2.5 QLoRA. CPU checks do not certify actual Windows/CUDA/QLoRA execution, globally calibrated warning skill or an LHASA benchmark reproduction.
+The [current research workflow](training_workflow.md) reproduces the CPU hazard models and retained diagnostics. Generated research bundles preserve the **1,611-row context**, **186-row initiation experiment** and **594 distinct instruction traces**, plus corrected terrain and source archives when provisioned. The former Windows/QLoRA instructions are [archived](legacy/local_llm_training.md); that local GPU plan is not a website prerequisite. CPU checks do not certify historical Windows/CUDA/QLoRA execution, globally calibrated warning skill or an LHASA benchmark reproduction.

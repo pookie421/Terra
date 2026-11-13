@@ -10,7 +10,7 @@ The scientific starting point is [LHASA 2.0's published study](https://doi.org/1
 
 Corrected metric terrain, full prior-based physical columns, joint uncertainty, conditional Voellmy corridors, feature-based four-way ML, state APIs, CLI and a live-first global browser interface form the current implementation. The browser follows [FRONTEND_SPEC.md](docs/FRONTEND_SPEC.md): full-screen satellite terrain, arbitrary-coordinate scanning, automatic source-driven forecast horizons, read-only telemetry and selected-cell Qwen chat. Manual weather sliders and replay-first city presets are absent from the product workflow.
 
-Removing the fixed FOSM training offset improves the temporal experiment; the conditional mechanical factor still worsens Brier, and the broader proxy benchmark does not establish superiority over rainfall-only. Scheduled global infrastructure, independent predictive validation, actual fine-tuned Qwen evaluation and Windows CUDA execution remain open. See [current evidence](docs/current_status.md) and [the architecture/evaluation report](docs/feature_fusion_phase3.md).
+Removing the fixed FOSM training offset improves the temporal experiment; the conditional mechanical factor still worsens Brier, and the broader proxy benchmark does not establish superiority over rainfall-only. Scheduled global infrastructure, independent predictive validation and evaluation of the selected hosted assistant remain open. The former local Windows/QLoRA plan is [archived](docs/legacy/local_llm_training.md), with target-hardware execution unverified. See [current evidence](docs/current_status.md) and [the architecture/evaluation report](docs/feature_fusion_phase3.md).
 
 ## 1. Establish input credibility
 
@@ -56,12 +56,12 @@ The live product contract is [FRONTEND_SPEC.md](docs/FRONTEND_SPEC.md). The MapL
 
 Continue end-to-end coverage across unnamed mountains, valleys, coasts and remote terrain, including provider failures and source-domain limits. Measure cold/warm scan and forecast latency, rendering, mobile/keyboard access and request cancellation. Aggregate wide-area views progressively instead of rendering every fine cell globally at once.
 
-Co-pilot chat uses bounded multi-turn context and active selected-cell evidence; autonomous product actions inspect/fly without inventing weather. Evaluate numeric grounding, semantic claims and tool behavior with actual fine-tuned weights. Distinguish a verified deterministic template from verified LLM prose and preserve service/verification errors.
+Co-pilot chat uses bounded multi-turn context and active selected-cell evidence; autonomous product actions use validated chains without inventing weather. Evaluate numeric grounding, semantic claims and tool behavior on held-out prompts for the actual hosted provider/model. Distinguish a verified deterministic template from verified LLM prose and preserve service/verification errors. Changing the prose provider does not establish hazard-model improvement.
 
 Frontend build/type checks and a successful live location check establish software integration at tested inputs. They do not validate global forecasting skill, uniform provider coverage or model probabilities.
 
 ## 6. Reproduce and assess deployment
 
-Run the fixed four-way experiment on actual target CUDA hardware and verify exported artifacts; run QLoRA and Ollama separately. Record environments, hashes, non-CPU execution and numerical tolerances. A green CPU report cannot certify those runs.
+Reproduce the fixed four-way hazard experiment on CPU using the [active workflow](docs/training_workflow.md), preserving source/cohort identity, environment, hashes and save/reload parity. Evaluate hosted assistant quality independently from hazard prediction. If the historical CUDA/local-LLM path is revisited, record actual target-device execution and memory measurements; CPU reports cannot certify those runs.
 
 Prospective evaluation and external scientific review should precede operational warning claims. Define calibrated thresholds, responsibilities and partner workflows against measured evidence. CAP export is currently disabled (HTTP 409). No global performance parity or operational-readiness date is claimed.

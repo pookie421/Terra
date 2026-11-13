@@ -1,4 +1,6 @@
-# Randomized audit protocol
+# Archived: randomized audit protocol
+
+> **Retired engineering protocol.** This record preserves an earlier named-location scenario audit, including its original score thresholds and model assumptions. Those thresholds are not current scientific acceptance criteria, training targets or independent predictive evidence. Do not tune coefficients, choose locations or change labels to make them pass. The associated scripts can acquire live providers and are not part of the current offline reproduction path. Use [current status](../current_status.md), [research history](../research_history.md) and the [active workflow](../training_workflow.md) for the current contracts.
 
 The 30-location pool and archetypes are fixed before selection. Seed 20261031 draws two locations per archetype; a fresh cryptographic random seed supplies the second draw. Every sweep adds all five named plain controls, yielding 15 rows per sweep. Selections and seeds are saved before data acquisition. Failed rows are retained.
 

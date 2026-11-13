@@ -2,124 +2,77 @@
 
 # TERRA-SHIELD
 
-**Explore terrain. Inspect the mechanics. Follow the forecast.**
+### A clearer view of landslide hazard
 
-Global landslide analysis with a 3D map, conditional physics, machine learning and automatic 72-hour weather forecasts.
+An interactive portal for landslide visualization and prediction: explore terrain, compare models, and understand the conditions behind an estimate.
+
+**[Open the live website →](https://terra-production-289057fe.up.railway.app/)**
+
+[Explore the features](#explore-a-place) · [Research & sources](docs/RESEARCH_AND_SOURCES.md) · [Run locally](docs/SETUP.md)
 
 [![Checks](https://github.com/pookie421/Terra/actions/workflows/ci.yml/badge.svg)](https://github.com/pookie421/Terra/actions/workflows/ci.yml)
-[![Source license: MIT](https://img.shields.io/badge/source-MIT-697c8e)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-697c8e)](docs/SETUP.md)
-
-[Get started](#get-started) · [Host the website](docs/deployment.md) · [Setup & usage guide](docs/SETUP.md) · [How it works](#physics--ml) · [API](API_USAGE.md) · [Research evidence](docs/current_status.md)
+[![Website container](https://github.com/pookie421/Terra/actions/workflows/container.yml/badge.svg)](https://github.com/pookie421/Terra/actions/workflows/container.yml)
+[![License: MIT](https://img.shields.io/badge/Code-MIT-64748b)](LICENSE)
 
 </div>
 
-![Map workspace with location analysis and forecast controls](docs/images/workspace.jpg)
+[![The live terrain workspace with hazard hexagons, forecast controls and slope inspection](docs/images/workspace.jpg)](https://terra-production-289057fe.up.railway.app/)
 
-<sub>Interface capture; values belong to that scan. Imagery © Esri, Maxar, Earthstar Geographics and contributors. Elevation © Mapzen / upstream DEM contributors.</sub>
+<sub>Website capture; displayed estimates belong to that scan. Imagery © Esri, Maxar, Earthstar Geographics and contributors. Elevation © Mapzen / upstream DEM contributors.</sub>
 
-## What is included
+## Explore a place
 
-| Component | Included in a clone | What it does |
-|---|---|---|
-| Physics engine | Yes — [`backend/physics/`](backend/physics/) | Reference soil columns, infiltration response, factor of safety, uncertainty and conditional runout |
-| Pretrained ML engine | Yes — [`artifacts/physics_informed_models.pkl`](artifacts/physics_informed_models.pkl), about 0.9 MB | Current feature-fusion model and its four model comparisons; runs on CPU |
-| Web application & API | Yes — [`frontend/`](frontend/) and [`backend/api/`](backend/api/) | Global satellite terrain, coordinate scanning, forecasts, cell inspection and source provenance |
-| NASA comparison & NISAR | Integration included; live coverage/subsets vary | Separately labeled NASA raster/reference scores and radar metadata or measured subsets |
-| Assistant | Hosted API or optional local model | Ordered app controls and source-bound prose with the same evidence checks and explicit fallback status |
+1. **Find your location.** Search a place, enter `latitude, longitude`, or select a point on the map. Remote and unnamed terrain can be explored by coordinate.
+2. **Scan the landscape.** View the returned hazard hexagons over satellite imagery and 3D terrain.
+3. **Compare the models.** Switch between the in-house approach and NASA's landslide products while keeping the same area in view.
+4. **Look closer.** Select a hexagon to inspect slope, factor-of-safety ranges, water-pressure estimates and potential runout. Explore the automatic **72-hour forecast** and open **Sources** for the evidence behind the result.
 
-**You do not need to train a model, download the retained research corpus, or have a GPU to start the application.** The bundled ML artifact is an experimental research model, not a globally validated warning system. See its [model card and checksum](artifacts/MODEL_CARD.md).
+The assistant can help navigate, inspect cells and control the map using the selected analysis. Its numeric statements are checked against that analysis, and verified templates keep commands available without an AI key.
 
-## Get started
+## Two models, one workspace
 
-Use **Python 3.11 or 3.12**, **Node.js 22.12+**, and Git. Internet access is needed for map tiles and environmental providers. [Windows instructions and troubleshooting →](docs/SETUP.md)
-
-**1. Start the backend** — macOS / Linux:
-
-```sh
-git clone https://github.com/pookie421/Terra.git
-cd Terra
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt -c constraints-runtime.txt
-python -m uvicorn backend.api.main:app --host 127.0.0.1 --port 8000
-```
-
-Leave this terminal running. The constraints select the compatible versions required by the bundled model snapshot.
-
-**2. Start the frontend** — in another terminal, from the repository root:
-
-```sh
-cd frontend
-npm ci
-npm run dev
-```
-
-Open **[http://127.0.0.1:5173](http://127.0.0.1:5173)**. Vite forwards `/api` requests to the backend on port 8000. Keep both terminals running.
-
-**3. Verify both engines** — open **[the health endpoint](http://127.0.0.1:8000/api/v1/health)**. It must report `physics_reference_available: true` and `model_ready: true`. This check does not fetch environmental feeds.
-
-![The installed API reporting physics and the pretrained model ready](docs/images/engine-ready.jpg)
-
-If the map opens but analysis cannot connect, follow the [connection checklist](docs/SETUP.md#troubleshooting). If you added or replaced model weights after starting the server, restart the backend.
-
-## Host the website
-
-The root **Dockerfile** builds the frontend and CPU backend into one service. Deploy it on Railway with one always-on replica, a `/data` volume, and the `/api/v1/ready` healthcheck. Start with a Railway HTTPS address and attach your domain later. The image includes the approved model and excludes training folders, raw data and credentials. [Railway setup and verification →](docs/deployment.md)
-
-## Use the workspace
-
-1. **Choose an area.** Search for a place or `latitude, longitude`, click unscanned terrain, or use **Scan map view**. A place name is optional.
-2. **Choose a model.** The main selector offers **Terra In House Model**, **NASA LHASA** and **Rainfall baseline**. Physics-only and weather/terrain comparisons remain advanced diagnostics. NASA rasters and unvalidated reference estimates remain visibly distinct. [Comparison and radar semantics](docs/nasa_radar_comparison.md).
-3. **Inspect a location.** Click a returned hexagon. The inspector shows slope, the factor-of-safety envelope and pressure head; physical details, NISAR context and routing assumptions expand on demand.
-4. **Explore the forecast.** Switch between **Now**, **+24h**, **+48h**, **+72h** and **Peak**. These update the in-house map and assessment from provider forecasts. Peak means the lowest forecast sector factor of safety. NASA's daily products do not supply a fabricated 72-hour forecast.
-5. **Check the evidence.** **Options** groups map layers, Sources, Connections, export and diagnostics. Sources retains availability, retrieval times and fallback provenance. On smaller screens, use **Map**, **Overview** and **Inspect**.
-6. **Ask or export.** The **Assistant** can navigate before the first scan and execute ordered model/horizon/layer/cell actions. Public action summaries and actual execution results are distinct. The deployment owner can configure a hosted assistant with `python scripts/configure_assistant.py`; visitors do not need personal keys. [Assistant connections and local alternatives](docs/assistant_connections.md). The [Windows trainer](docs/windows_5070ti.md) remains optional.
-
-There are no manual weather sliders or fixed-city scan defaults. Provider failures and missing inputs remain visible; acceptance of a coordinate does not guarantee valid terrain or forcing everywhere.
-
-## Physics & ML
-
-```mermaid
-flowchart LR
-    A[Terrain and environmental products] --> B[Reference soil and hydrology]
-    B --> C[Factor of safety and uncertainty]
-    A --> D[Source and terrain features]
-    C --> E[Feature-fusion ML]
-    D --> E
-    C --> F[Conditional runout]
-    E --> G[Map and cell inspection]
-    F --> G
-    H[72-hour weather forecast] --> B
-```
-
-The physical column combines effective-stress slope mechanics, antecedent water storage and a transient infiltration response. Published equation families are paired with explicitly labeled project material, depth and covariance priors. The result includes **`[FS_low, FS_mid, FS_high]`**, joint FOSM variance and sensitivities. Conditional Voellmy routing assumes release; it does not establish that a landslide will occur. [Equations, assumptions and limits →](docs/physics_sources.md)
-
-The current **`physics_informed_initiation_v2_features`** model learns from source, terrain, mechanical and interaction features. Its learned trigger score and exposed mechanical-admissibility factor remain separate. The package includes **Rainfall-Only**, **Physics-Only**, **Weather+Terrain ML** and **Physics-Informed ML** comparisons. It does not use the retired per-row FOSM logit offset. [Architecture and evaluation →](docs/feature_fusion_phase3.md)
-
-The NASA selector samples the public coarse raster; its exact served version and issue time are unverified by endpoint metadata. NISAR discovery is not deformation measurement, and the active classifier has no newly trained SAR weights. Optional documented site calibration can affect the physical column, while metadata-only radar leaves the broad reference calculation intact. Nominal 30 m DEM input and H3 cells averaging about 0.1 km² describe different spatial support; neither establishes forecasting superiority.
-
-**Evidence, without inflated claims.** The target is a global system competitive with NASA LHASA 2.0. Current results do not establish parity or calibrated global failure probabilities. On the broader 510-row proxy benchmark, rainfall-only outperforms the coupled fusion model: AUC **0.7842 vs 0.6866**, Brier **0.1772 vs 0.2451**. [Full results, cohort limitations and missingness](docs/current_status.md) · [Source/API critique](docs/global_source_audit.md) · [Retired experiments](docs/research_history.md)
-
-## Documentation & development
-
-| Start here | Reference |
+| Model | What you can explore |
 |---|---|
-| Install, verify and use | [Setup guide](docs/SETUP.md) |
-| API routes, state IDs and chat | [API reference](API_USAGE.md) |
-| Physical assumptions | [Physics methods](docs/physics_sources.md) |
-| NASA comparison and optional radar subsets | [NASA/NISAR guide](docs/nasa_radar_comparison.md) |
-| Pretrained artifact and compatibility | [Model card](artifacts/MODEL_CARD.md) |
-| Training and optional Windows/CUDA/QLoRA | [Training workflow](docs/training_workflow.md) · [RTX 5070 Ti guide](docs/windows_5070ti.md) |
-| Contribute and validate | [Contributing](CONTRIBUTING.md) |
-| Product and research direction | [Frontend specification](docs/FRONTEND_SPEC.md) · [Roadmap](ROADMAP.md) |
+| **Terra In House Model** | Environmental feeds, reference slope physics and trained machine learning combine into inspectable hazard estimates, uncertainty ranges and forecast projections. |
+| **NASA LHASA** | NASA landslide products provide an independent comparison. Official raster values, reference estimates and missing coverage are identified in the interface. |
 
-Canonical source lives in `backend/`, `frontend/` and `scripts/`. Portable `training/` and Windows bundles are generated locally; duplicate copies, raw corpora, provider caches, historical weights and local agent notes are not published. The small, approved runtime model is the explicit exception. Reproducing the retained training results requires the documented source corpus; starting the app does not.
+A rainfall baseline and additional physics/weather–terrain diagnostics support comparison. Each model retains its own source, spatial support and interpretation. [How the comparison works →](docs/nasa_radar_comparison.md)
 
-```sh
-python -m unittest discover -s tests -v
-```
+## See the landscape and the evidence
 
-For frontend validation, run `npm test`, `npm run build` and `npx tsc --noEmit` from `frontend/`. Some retained-corpus regressions skip when their local inputs are absent. Installation checks, predictive skill and operational readiness are separate claims.
+| Capability | Why it helps |
+|---|---|
+| **Satellite imagery & 3D terrain** | Connect the analysis to mountains, valleys and surrounding terrain. |
+| **Automatic current & forecast states** | Explore current conditions and provider-driven projections at 24, 48 and 72 hours. |
+| **Physical columns & uncertainty** | Inspect the low, central and high factor-of-safety estimates and their reference assumptions. |
+| **Potential runout corridors** | Explore conditional downstream paths and mapped exposure if release occurs. |
+| **Source transparency** | Inspect weather, soil, seismic, river, NASA and optional NISAR context with availability and provenance. |
 
-Original code and documentation are [MIT licensed](LICENSE). The model's provenance, source acknowledgements and serialization limits are in its [model card](artifacts/MODEL_CARD.md); upstream products and optional Qwen weights retain their own terms. [Third-party notices](THIRD_PARTY_NOTICES.md).
+The physical engine and the small pretrained ML model are included in this repository and run on CPU. [Engine details and model card →](artifacts/MODEL_CARD.md)
+
+Outputs are conditional research estimates for visualization and analysis. Source coverage, material assumptions and predictive performance have documented limits. The [research reference](docs/RESEARCH_AND_SOURCES.md) brings together the papers, methods, benchmark results and source qualifications.
+
+## Build on the project
+
+| Guide | Start here |
+|---|---|
+| **Research, papers & data sources** | [Research and sources](docs/RESEARCH_AND_SOURCES.md) |
+| **Installation & troubleshooting** | [Local setup](docs/SETUP.md) |
+| **Host your own website** | [Railway and Docker deployment](docs/deployment.md) |
+| **Use the API** | [API reference](API_USAGE.md) |
+| **Contribute** | [Development guide](CONTRIBUTING.md) · [Roadmap](ROADMAP.md) |
+
+<details>
+<summary><strong>Run locally or deploy your own copy</strong></summary>
+
+Use **Python 3.11 or 3.12** and **Node.js 22.12+**. The [setup guide](docs/SETUP.md) covers installation, the bundled model, launching the API and frontend, and troubleshooting. A GPU or model-training run is unnecessary for the web application.
+
+The root [Dockerfile](Dockerfile) packages the frontend and CPU API together. The [deployment guide](docs/deployment.md) explains persistent terrain storage, health checks, hosting limits and custom domains. The public preview currently runs on Railway trial resources; availability depends on its hosting allowance.
+
+</details>
+
+Original project code is [MIT licensed](LICENSE). Data products and third-party software retain their own terms and acknowledgements: [third-party notices](THIRD_PARTY_NOTICES.md).
+
+---
+
+<sub>A project by <strong>Team Orangeo</strong> for the <strong>2026 NASA Space Apps competition</strong>.</sub>

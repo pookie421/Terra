@@ -1,6 +1,8 @@
-# Windows 11 / RTX 5070 Ti training
+# Archived: Windows 11 / RTX 5070 Ti training
 
-The canonical implementation is in `scripts/`. Generate the portable `training/` and `windows_5070ti_trainer/` directories with `python scripts/sync_training_bundle.py`; edit root source and regenerate them together. A fresh Git clone does not include the retained research corpus or Qwen weights. Application setup needs neither retraining nor a GPU: see [SETUP.md](SETUP.md).
+> **Historical local-LLM plan, retired 14 November 2026.** Hosted assistant APIs are the current deployment direction; neither QLoRA nor a GPU is required for the website. This guide preserves the previous implementation and its unverified target-hardware requirements. It is not evidence that Windows/CUDA training, VRAM limits, export or assistant quality were validated. Start with [application setup](../SETUP.md), [assistant connections](../assistant_connections.md) or the [current hazard-model workflow](../training_workflow.md).
+
+The canonical implementation is in `scripts/`. Generate the portable `training/` and `windows_5070ti_trainer/` directories with `python scripts/sync_training_bundle.py`; edit root source and regenerate them together. A fresh Git clone does not include the retained research corpus or Qwen weights. Application setup needs neither retraining nor a GPU: see [SETUP.md](../SETUP.md).
 
 ## Run on the target machine
 
@@ -85,4 +87,4 @@ The helper merges on CPU, converts to GGUF, quantizes to Q4_K_M, validates Qwen 
 - [XGBoost 2.1.4 Blackwell and CUDA 12.8 release notes](https://xgboost.readthedocs.io/en/release_3.0.0/changes/v2.1.0.html).
 - [Ollama import](https://docs.ollama.com/import) and [Modelfile reference](https://docs.ollama.com/modelfile).
 
-These upstream support statements motivate the selected stack. Only actual target execution can establish that its installed wheels, driver and available memory work together. None of these engineering checks establishes global predictive skill or LHASA parity; see [current research results](current_status.md).
+These upstream support statements motivate the selected stack. Only actual target execution can establish that its installed wheels, driver and available memory work together. None of these engineering checks establishes global predictive skill or LHASA parity; see [current research results](../current_status.md).

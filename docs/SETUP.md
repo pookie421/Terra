@@ -2,6 +2,8 @@
 
 [Back to the project](../README.md) · [API reference](../API_USAGE.md) · [Model card](../artifacts/MODEL_CARD.md)
 
+Use [the public map](https://terra-production-289057fe.up.railway.app/) to explore without installing anything. The steps below run your own local copy. Deployment owners can add generated prose through [hosted assistant connections](assistant_connections.md); GPU training is not a setup step.
+
 The browser and analysis service run as two local processes. The physics implementation and the small pretrained four-model ML artifact are included in this repository. You do **not** need the retained training corpus, a GPU, or Ollama to start the map and analysis engines.
 
 ## Before you start
@@ -86,27 +88,30 @@ Open the local URL printed by Vite, normally [http://127.0.0.1:5173](http://127.
 3. **Inspect a cell.** Click a returned hexagon. The selected location shows slope, elevation, the low/central/high factor-of-safety estimates, pressure head, and rain deficit. Expand **Physical details** for provenance, variance sensitivities, and model internals.
 4. **Change the displayed time.** Choose **Now**, **+24h**, **+48h**, **+72h**, or **Peak**. Available future states use the downloaded forecast; **Peak** is the minimum sector nominal factor of safety, not a predicted failure time.
 5. **Change the map layer.** Switch between initiation score, factor of safety, slope, and pressure head. Gray means unavailable evidence, rather than zero hazard.
-6. **Check supporting evidence.** Open **Sources** for availability, fallbacks, timing, and errors. Expand **Model comparison** for the four ablations and **Potential runout** for conditional routing assumptions.
+6. **Check supporting evidence.** Open **Options → Sources** for availability, fallbacks, timing, and errors. Review the selected-cell comparison for model diagnostics and **Potential runout** for conditional routing assumptions.
 7. **Ask the Assistant.** Questions use the active scan, forecast state, and selected cell. Open response details to inspect verification and numeric citations. The download button exports the current analysis.
 
 On smaller screens, use **Map**, **Overview**, and **Inspect** at the bottom to switch panels. Weather inputs remain automatic and read-only; there are no manual weather sliders or preset replay locations.
 
 Reference soil assumptions keep conditional physics available without boreholes. Experimental scores, factor-of-safety envelopes, and hypothetical runout are not calibrated global failure probabilities or operational warnings. [Current evidence and limitations](./current_status.md) explain their interpretation.
 
-## Optional: use a local Qwen assistant
+## Optional: connect an assistant
 
-The physics and ML engines work independently of the language model. To enable generated assistant prose, install and start [Ollama](https://docs.ollama.com/quickstart), then download a compatible local model, for example:
+Physical analysis, ML predictions and deterministic assistant navigation work without a language-model key. For generated prose, the deployment owner can configure a hosted compatible API once for all visitors. Follow [Assistant connections and API keys](assistant_connections.md), or start the configuration helper from the repository root:
 
 ```sh
-ollama pull qwen2.5:1.5b
-ollama list
+python scripts/configure_assistant.py
 ```
 
-Use `qwen2.5:7b` instead if appropriate for your hardware. The [official model listing](https://ollama.com/library/qwen2.5:1.5b) documents the model and its license. On systems without a running Ollama service, start it with `ollama serve` in another terminal. TERRA-SHIELD connects to `http://localhost:11434` and prefers a local `terra-shield-qwen` model, then another installed Qwen2.5 model.
+Choose a hosted endpoint and JSON-capable model, then restart the backend with the ignored environment file:
 
-Custom fine-tuned Qwen weights are **not** included. An unreachable Ollama service produces an explicitly verified template fallback (`VERIFIED_TEMPLATE`). A reachable service without a compatible model produces `MODEL_UNAVAILABLE`. Generated prose must still pass grounding checks; installing a base model does not guarantee every response is accepted.
+```sh
+python -m uvicorn backend.api.main:app --env-file .env --host 127.0.0.1 --port 8000
+```
 
-For a trained adapter, use the native [RTX 5070 Ti training and serving guide](windows_5070ti.md). It includes a direct Ollama-compatible server and an optional GGUF export helper. Set `TERRA_QWEN_URL` in the backend environment to change the local model-service address.
+The helper validates configuration without making a billable provider call. Keep provider keys on the backend, outside Git and frontend environment variables. Configuration alone does not establish connectivity or answer quality. Generated prose must pass server-side grounding checks to receive `VERIFIED_LLM_PROSE`; deterministic fallback remains visibly `VERIFIED_TEMPLATE`.
+
+Local Ollama and adapter-serving compatibility remain available for existing installations. The retired [Windows/RTX 5070 Ti guide](legacy/windows_5070ti.md) preserves that research path; neither a local model download nor QLoRA is required to use the website.
 
 ## Troubleshooting
 
@@ -118,6 +123,6 @@ For a trained adapter, use the native [RTX 5070 Ti training and serving guide](w
 | Map is blank or source tiles fail | Check browser WebGL support and access to the imagery/elevation providers. Local backend health alone does not test online map tiles. |
 | Scan has missing inputs or no learned score | Open **Sources** and the returned reason. ML requires a complete weather window and compatible metric terrain. A provider outage is distinct from a missing model. |
 | Future buttons are unavailable | Inspect forecast coverage and the returned reason. Current conditions remain separate from missing future forcing. |
-| Assistant uses fallback or reports model unavailable | Check Ollama is running on port 11434 and `ollama list` contains Qwen2.5. This does not block the physical or ML scan engines. |
+| Assistant uses fallback or reports model unavailable | Check the configured endpoint, model, credentials and JSON support, then restart the backend with its environment file. For an explicitly selected local service, check that service and its installed model. Physical and ML scans remain independent of generated prose. |
 
-For model retraining or the Windows/CUDA workflow, follow [Training](./training_workflow.md). It requires separately provisioned source-reviewed corpora; the runtime model alone cannot reconstruct that dataset. Generated `training/` and `windows_5070ti_trainer/` directories stay local. After provisioning the retained inputs, `python scripts/sync_training_bundle.py` generates the portable bundles from canonical root source.
+For CPU hazard-model reproduction, follow the [research workflow](training_workflow.md). It requires separately provisioned source-reviewed corpora; the runtime model alone cannot reconstruct that dataset. Generated `training/` and `windows_5070ti_trainer/` research directories stay local. They are not needed to install or host the application.
