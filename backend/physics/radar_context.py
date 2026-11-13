@@ -12,6 +12,10 @@ FEATURE_NAMES = ('nisar_coherence', 'nisar_los_velocity_mm_yr',
                  'nisar_polarimetric_moisture_index', 'nisar_granule_count',
                  'nisar_acquisition_age_days', 'nisar_coherence_available',
                  'nisar_velocity_available', 'nisar_moisture_available')
+OBSERVABLE_FIELDS = {'coherence': 'nisar_coherence',
+                     'los_velocity': 'nisar_los_velocity_mm_yr',
+                     'polarimetric_ratio': 'nisar_polarimetric_moisture_index',
+                     'los_displacement': 'nisar_los_displacement_mm'}
 
 
 def finite(value):
@@ -23,8 +27,8 @@ def radar_cell(payload, cell_id):
     record = (payload.get('by_h3') or {}).get(cell_id)
     if record is None:
         record = next((r for r in payload.get('cells', []) if r.get('h3_index') == cell_id), {})
-    result = {key: record.get(key) for key in FEATURE_NAMES[:3]}
-    for key in FEATURE_NAMES[:3]:
+    result = {key: record.get(key) for key in OBSERVABLE_FIELDS.values()}
+    for key in OBSERVABLE_FIELDS.values():
         if not finite(result[key]):result[key] = None
     if result['nisar_coherence'] is not None and not 0 <= result['nisar_coherence'] <= 1:
         result['nisar_coherence'] = None
@@ -40,22 +44,53 @@ def radar_cell(payload, cell_id):
     return result
 
 
+def _age_days(acquired_utc, at_utc):
+    """Return known nonnegative age; malformed or future dates stay unknown."""
+    try:
+        acquired = datetime.fromisoformat(acquired_utc.replace('Z', '+00:00'))
+        at = datetime.fromisoformat(at_utc.replace('Z', '+00:00'))
+        delta = (at - acquired).total_seconds() / 86400
+        return delta if delta >= 0 else None
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
 def feature_context(payload, cell_id, at_utc=None):
     record = radar_cell(payload, cell_id)
-    age = None
-    if record['nisar_latest_acquisition_utc']:
-        try:
-            at = datetime.fromisoformat((at_utc or datetime.now(timezone.utc).isoformat()).replace('Z', '+00:00'))
-            acquired = datetime.fromisoformat(record['nisar_latest_acquisition_utc'].replace('Z', '+00:00'))
-            delta = (at - acquired).total_seconds() / 86400
-            if delta >= 0:age = delta
-        except (TypeError, ValueError):pass
+    at_utc = at_utc or datetime.now(timezone.utc).isoformat()
+    discovery_age = _age_days(record['nisar_latest_acquisition_utc'], at_utc)
+    provenance = record['nisar_measurement_provenance']
+    provenance = provenance if isinstance(provenance, dict) else {}
+    observable_ages = {}
+    available = []
+    for observable, field in OBSERVABLE_FIELDS.items():
+        observable_ages[observable] = None
+        if record[field] is None:
+            continue
+        available.append(observable)
+        source = provenance.get(observable)
+        if isinstance(source, dict):
+            acquired = source.get('acquisition_utc') or source.get('time_end')
+            observable_ages[observable] = _age_days(acquired, at_utc)
+    # Discovery may contain a newer, unrelated granule. It cannot refresh an
+    # older observable or supply a date for a measurement with unknown support.
+    if available:
+        if any(observable_ages[name] is None for name in available):
+            age, age_basis = None, 'AVAILABLE_MEASUREMENT_DATE_UNKNOWN'
+        else:
+            age = max(observable_ages[name] for name in available)
+            age_basis = 'OLDEST_AVAILABLE_MEASUREMENT'
+    else:
+        age = discovery_age
+        age_basis = 'DISCOVERY_ONLY' if age is not None else 'NO_KNOWN_ACQUISITION_DATE'
     values = {**record, 'nisar_acquisition_age_days': age,
               'nisar_coherence_available': int(record['nisar_coherence'] is not None),
               'nisar_velocity_available': int(record['nisar_los_velocity_mm_yr'] is not None),
               'nisar_moisture_available': int(record['nisar_polarimetric_moisture_index'] is not None)}
     return {'version': FEATURE_VERSION, 'names': list(FEATURE_NAMES),
             'values': {name: values[name] for name in FEATURE_NAMES},
+            'observable_age_days': observable_ages, 'discovery_age_days': discovery_age,
+            'age_basis': age_basis,
             'trained_radar_weights_available': False,
             'scope': 'Versioned observation context; the active 25-feature model is not a SAR-trained classifier'}
 

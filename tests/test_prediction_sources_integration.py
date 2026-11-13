@@ -88,6 +88,8 @@ class PredictionIntegration(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(feature['radar_feature_context']['values']['nisar_granule_count'], count)
         context = feature_context(self.raw.nisar, keys[2], '2026-11-13T00:00:00Z')
         self.assertEqual(context['values']['nisar_acquisition_age_days'], 43.)
+        self.assertEqual(context['age_basis'], 'DISCOVERY_ONLY')
+        self.assertEqual(context['discovery_age_days'], 43.)
 
     async def test_only_anchored_site_calibration_changes_strength_and_recomputes_ml(self):
         key = '893969a401bffff'
@@ -124,7 +126,62 @@ class RadarMetadataMissingness(unittest.TestCase):
                 row = radar_cell(payload, 'cell')
                 self.assertIsNone(row['nisar_granule_count'])
                 self.assertIsNone(row['nisar_latest_acquisition_utc'])
-                self.assertIsNone(feature_context(payload, 'cell')['values']['nisar_acquisition_age_days'])
+                context = feature_context(payload, 'cell')
+                self.assertIsNone(context['values']['nisar_acquisition_age_days'])
+                self.assertEqual(context['age_basis'], 'NO_KNOWN_ACQUISITION_DATE')
+
+    def test_older_measured_coherence_is_not_refreshed_by_newer_discovery(self):
+        # Acquisition times and coherence retained from an actual retrieved
+        # GUNW subset; this regression never contacts the provider.
+        discovered = '2026-11-10T13:20:28.999000Z'
+        measured = '2026-10-20T00:33:06.999Z'
+        payload = {'granule_count': 12, 'latest_acquisition_utc': discovered,
+            'by_h3': {'cell': {'nisar_granule_count': 11,
+                'nisar_latest_acquisition_utc': discovered,
+                'nisar_coherence': .6134753227233887,
+                'measurement_provenance': {'coherence': {
+                    'acquisition_utc': measured, 'time_start': '2026-10-08T00:32:32Z',
+                    'time_end': measured}}}}}
+        context = feature_context(payload, 'cell', '2026-11-13T00:33:06.999Z')
+        self.assertEqual(context['values']['nisar_acquisition_age_days'], 24.)
+        self.assertEqual(context['observable_age_days']['coherence'], 24.)
+        self.assertLess(context['discovery_age_days'], 3.)
+        self.assertEqual(context['age_basis'], 'OLDEST_AVAILABLE_MEASUREMENT')
+        self.assertEqual(radar_cell(payload, 'cell')['nisar_latest_acquisition_utc'], discovered)
+        self.assertEqual(context['values']['nisar_granule_count'], 11)
+        self.assertEqual(len(context['names']), 8)
+
+    def test_available_measurement_with_unknown_or_invalid_date_keeps_shared_age_unknown(self):
+        for acquired in (None, 'not-a-date', '2026-11-14T00:00:00Z'):
+            with self.subTest(acquired=acquired):
+                payload = {'by_h3': {'cell': {
+                    'nisar_latest_acquisition_utc': '2026-11-12T00:00:00Z',
+                    'nisar_coherence': 0., 'nisar_los_velocity_mm_yr': 0.,
+                    'measurement_provenance': {
+                        'coherence': {'acquisition_utc': acquired},
+                        'los_velocity': {'acquisition_utc': '2026-11-11T00:00:00Z'}}}}}
+                context = feature_context(payload, 'cell', '2026-11-13T00:00:00Z')
+                self.assertIsNone(context['values']['nisar_acquisition_age_days'])
+                self.assertIsNone(context['observable_age_days']['coherence'])
+                self.assertEqual(context['observable_age_days']['los_velocity'], 2.)
+                self.assertEqual(context['values']['nisar_coherence_available'], 1)
+                self.assertEqual(context['discovery_age_days'], 1.)
+                self.assertEqual(context['age_basis'], 'AVAILABLE_MEASUREMENT_DATE_UNKNOWN')
+
+    def test_oldest_available_observable_and_time_end_are_used_including_finite_zero(self):
+        payload = {'by_h3': {'cell': {'nisar_coherence': 0.,
+            'nisar_los_velocity_mm_yr': 0., 'nisar_los_displacement_mm': 0.,
+            'nisar_polarimetric_moisture_index': None,
+            'measurement_provenance': {
+                'coherence': {'acquisition_utc': '2026-11-11T00:00:00Z'},
+                'los_velocity': {'acquisition_utc': '2026-11-12T00:00:00Z'},
+                'los_displacement': {'time_end': '2026-11-01T00:00:00Z'},
+                'polarimetric_ratio': {'acquisition_utc': '2026-10-01T00:00:00Z'}}}}}
+        context = feature_context(payload, 'cell', '2026-11-13T00:00:00Z')
+        self.assertEqual(context['values']['nisar_acquisition_age_days'], 12.)
+        self.assertEqual(context['observable_age_days'], {'coherence': 2., 'los_velocity': 1.,
+            'polarimetric_ratio': None, 'los_displacement': 12.})
+        self.assertEqual(context['age_basis'], 'OLDEST_AVAILABLE_MEASUREMENT')
 
 
 if __name__ == '__main__':unittest.main()

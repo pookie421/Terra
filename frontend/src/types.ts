@@ -18,7 +18,8 @@ export interface Cell {
   lhasa_probability?:number|null;lhasa_reference_score?:number|null;lhasa_susceptibility?:number|null;
   official_score?:number|null;reference_score?:number|null;active_score?:number|null;provenance?:string;
   nisar_coherence?:number|null;nisar_los_velocity_mm_yr?:number|null;nisar_polarimetric_moisture_index?:number|null;
-  nisar_granule_count?:number;nisar_latest_acquisition_utc?:string|null;nisar_mode?:string;
+  nisar_granule_count?:number|null;nisar_latest_acquisition_utc?:string|null;nisar_mode?:string;
+  nisar_measurement_provenance?:Record<string,unknown>|null;
 }
 export interface Provider {available?:boolean;mode?:string;provider?:string;fetched_at_utc?:string;error?:string|null;age_seconds?:number;latency_ms?:number|null;[key:string]:unknown}
 export interface Route {path:string[];peak_velocity_m_s?:number;travel_time_s?:number;travel_distance_m?:number;stop_reason?:string;mu_b?:number;xi_m_s2?:number;flow_depth_m?:number;coordinates_lonlat?:number[][]}
