@@ -101,14 +101,17 @@ class FrontendFiles(StaticFiles):
     """Serve the built SPA without turning missing API/assets into HTML successes."""
 
     async def get_response(self, path, scope):
-        parts = PurePosixPath(path).parts
+        # Starlette normalizes its lookup path with native OS separators.
+        # Apply the same route policy on Windows while leaving lookup unchanged.
+        policy_path = PurePosixPath(path.replace('\\', '/'))
+        parts = policy_path.parts
         if (parts and parts[0] == 'api') or any(part.startswith('.') for part in parts if part != '.'):
             raise StarletteHTTPException(404)
         try:
             response = await super().get_response(path, scope)
         except StarletteHTTPException as exc:
             if (exc.status_code != 404 or scope['method'] not in ('GET', 'HEAD')
-                    or PurePosixPath(path).suffix or (parts and parts[0] == 'assets')):
+                    or policy_path.suffix or (parts and parts[0] == 'assets')):
                 raise
             response = await super().get_response('index.html', scope)
         response.headers['X-Content-Type-Options'] = 'nosniff'

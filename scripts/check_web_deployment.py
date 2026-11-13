@@ -62,7 +62,7 @@ def main():
         try:
             result = check(base)
             break
-        except (AssertionError, URLError, TimeoutError, ValueError, KeyError):
+        except (AssertionError, URLError, ConnectionError, TimeoutError, ValueError, KeyError):
             if time.monotonic() >= deadline:
                 raise
             time.sleep(1)

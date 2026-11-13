@@ -5,16 +5,49 @@ import importlib
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 from fastapi import FastAPI
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import Response
+from starlette.staticfiles import StaticFiles
 
 from backend.api import main
 from backend.api.deployment import AdmissionBudget, AdmissionMiddleware, FrontendFiles, concurrency_limit
 
 
 class WebsiteServing(unittest.IsolatedAsyncioTestCase):
+    async def test_windows_lookup_paths_keep_api_assets_and_hidden_files_distinct(self):
+        with tempfile.TemporaryDirectory() as directory:
+            frontend = FrontendFiles(directory=directory, html=True)
+            scope = {'method': 'GET'}
+            with patch.object(StaticFiles, 'get_response', new_callable=AsyncMock) as lookup:
+                for path in (r'api\v1\missing', r'analysis\.env', r'..\private.txt'):
+                    with self.subTest(path=path), self.assertRaises(StarletteHTTPException) as raised:
+                        await frontend.get_response(path, scope)
+                    self.assertEqual(raised.exception.status_code, 404)
+                lookup.assert_not_awaited()
+
+                lookup.return_value = Response('console.log("asset");', media_type='application/javascript')
+                script = await frontend.get_response(r'assets\app-123.js', scope)
+                self.assertIn('immutable', script.headers['cache-control'])
+                lookup.assert_awaited_once_with(r'assets\app-123.js', scope)
+
+            for path in (r'assets\missing', r'assets\missing.js'):
+                with self.subTest(path=path), patch.object(StaticFiles, 'get_response', new_callable=AsyncMock) as lookup:
+                    lookup.side_effect = StarletteHTTPException(404)
+                    with self.assertRaises(StarletteHTTPException) as raised:
+                        await frontend.get_response(path, scope)
+                    self.assertEqual(raised.exception.status_code, 404)
+                    lookup.assert_awaited_once_with(path, scope)
+
+            with patch.object(StaticFiles, 'get_response', new_callable=AsyncMock) as lookup:
+                lookup.side_effect = [StarletteHTTPException(404), Response('<html>Website</html>')]
+                page = await frontend.get_response(r'folder.v1\view', scope)
+                self.assertEqual(page.headers['cache-control'], 'no-cache')
+                self.assertEqual(lookup.await_args_list[-1].args, ('index.html', scope))
+
     async def test_absent_replay_returns_404_without_training_scripts(self):
         from backend.api import replay
         original_import = builtins.__import__
