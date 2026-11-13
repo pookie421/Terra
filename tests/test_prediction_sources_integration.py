@@ -1,11 +1,13 @@
 """Provider/multimodel integration on explicit fixtures, no network or new labels."""
 import copy
+from dataclasses import replace
 from datetime import timedelta
 import socket
 import unittest
 from unittest.mock import patch
 from backend.api.scan_service import GlobalScanService
 from backend.ml.rainfall_features import utc
+from backend.realtime.dem_processor import TERRAIN_VERSION
 from test_autonomous_api import forcing_fixture
 
 
@@ -13,6 +15,11 @@ class PredictionIntegration(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.service = GlobalScanService()
         self.raw = forcing_fixture()
+        # Explicit synthetic metric-terrain contract for this integration test.
+        # Optional local corrected-DEM caches must not determine whether ML runs.
+        self.raw.terrain = replace(self.raw.terrain, terrain_version=TERRAIN_VERSION,
+            pixel_spacing_y_m=self.raw.terrain.pixel_spacing_x_m)
+        self.assertIsNotNone(self.service.context_models, 'The approved bundled runtime model is required')
         self.guard = patch.object(socket.socket, 'connect', side_effect=AssertionError('Offline provider integration'))
         self.guard.start(); self.addCleanup(self.guard.stop)
 
