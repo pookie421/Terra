@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -13,13 +14,20 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field, ConfigDict
 
 from backend.api.serialization import sanitize_json
+from backend.api.deployment import (AdmissionBudget, AdmissionMiddleware, FrontendFiles,
+                                    concurrency_limit, frontend_directory, readiness)
 from backend.api.scan_service import GlobalScanService
 from backend.llm.qwen_agent import TerraShieldQwenAgent
 
 ROOT = Path(__file__).resolve().parents[2]
 
 app = FastAPI(title="TERRA-SHIELD Global Landslide API", version="0.4.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+analysis_budget = AdmissionBudget(concurrency_limit('TERRA_MAX_CONCURRENT_ANALYSES', 2))
+chat_budget = AdmissionBudget(concurrency_limit('TERRA_MAX_CONCURRENT_CHATS', 2))
+app.add_middleware(AdmissionMiddleware, analyses=analysis_budget, chats=chat_budget)
+allowed_origins = [value.strip() for value in os.environ.get('TERRA_ALLOWED_ORIGINS', '*').split(',') if value.strip()]
+app.add_middleware(CORSMiddleware, allow_origins=allowed_origins, allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+frontend_dist = frontend_directory(ROOT)
 
 scan_service = GlobalScanService()
 agent = TerraShieldQwenAgent(scan_service=scan_service)
@@ -48,6 +56,12 @@ async def engine_health():
         'model_ready':ready,'model_version':VERSION if ready else None,
         'physics_reference_available':True,'environmental_acquisition':'ON_DEMAND',
         'operational_warning_ready':False}
+
+
+@app.get('/api/v1/ready')
+async def deployment_readiness():
+    """Check local deployment prerequisites without triggering environmental feeds."""
+    return readiness(bool(scan_service.context_models), frontend_dist)
 
 
 @app.get('/api/v1/connections')
@@ -154,20 +168,26 @@ async def get_scan(
 @app.post("/api/chat")
 async def agent_chat(request: AgentChatRequest) -> Dict[str, Any]:
     try:
-        result=await agent.chat(
-            request.message,
-            current_query=request.current_query,
-            agency_mode=request.agency_mode,
-            sliders=request.sliders,
-            scan_id=request.scan_id,scenario_id=request.scenario_id,selected_h3_index=request.selected_h3_index,
-            history=request.history,autonomous=request.autonomous,
-            active_prediction_model=request.active_prediction_model,
-        )
+        # Autonomous commands return plans for the browser's guarded scan route.
+        # Legacy analyst chat can acquire providers internally, so it also needs
+        # an analysis slot; ordinary prose uses only the separate chat budget.
+        with nullcontext() if request.autonomous else analysis_budget.slot():
+            result=await agent.chat(
+                request.message,
+                current_query=request.current_query,
+                agency_mode=request.agency_mode,
+                sliders=request.sliders,
+                scan_id=request.scan_id,scenario_id=request.scenario_id,selected_h3_index=request.selected_h3_index,
+                history=request.history,autonomous=request.autonomous,
+                active_prediction_model=request.active_prediction_model,
+            )
         if 'thought_steps' not in result:
             from backend.llm.app_actions import public_steps
             result['thought_steps']=public_steps([],bool(request.scan_id))
             result['thought_steps_scope']='Public action and evidence summaries; not private model reasoning'
         return sanitize_json(result)
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except KeyError as exc:
@@ -237,3 +257,9 @@ async def export_cap_xml(request: CapXmlRequest) -> Response:
     # An unvalidated inventory classifier cannot issue CAP likelihood/severity
     # labels. Do not map missing evidence to GREEN/Minor/Possible defaults.
     raise HTTPException(status_code=409,detail='CAP warning export unavailable: no validated operational hazard model or warning thresholds')
+
+
+# Keep this mount last so API, documentation and schema routes take precedence.
+# A missing build fails readiness while leaving the diagnostic API reachable.
+if frontend_dist is not None and (frontend_dist / 'index.html').is_file():
+    app.mount('/', FrontendFiles(directory=str(frontend_dist), html=True), name='frontend')

@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import io
+import logging
 import math
+import os
+import stat
+import tempfile
+import threading
 from pathlib import Path
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
@@ -20,6 +25,141 @@ EARTH_CIRCUMFERENCE_M = 40075016.686
 TERRARIUM_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 TERRAIN_VERSION = "metric_specific_area_bounded_1000m_v1"
 CATCHMENT_LENGTH_M = 1000.0
+LOGGER = logging.getLogger(__name__)
+
+
+class _TerrainDiskCache:
+    """Bounded, process-shared cache of regular numeric XYZ PNG tile files.
+
+    Inventory runs once per configured directory and budget, rather than once
+    per tile or scan. Only this cache's z/x/y.png namespace is eligible for
+    eviction; no symlinks or unrelated files are removed. The public server
+    currently runs one process, so this is not a cross-process storage quota.
+    """
+
+    def __init__(self, root: Path, max_bytes: int) -> None:
+        self.root = root
+        self.max_bytes = max_bytes
+        self._lock = threading.RLock()
+        self._entries = None
+        self._total_bytes = 0
+        self._warned = False
+
+    @staticmethod
+    def _numeric(name: str) -> bool:
+        return name.isascii() and name.isdecimal() and str(int(name)) == name
+
+    def _path(self, zoom: int, tile_x: int, tile_y: int) -> Path:
+        path = self.root / str(zoom) / str(tile_x) / (str(tile_y) + '.png')
+        if any(part.is_symlink() for part in (path.parent.parent, path.parent, path)):
+            raise OSError('Terrain cache paths cannot contain symlinks')
+        return path
+
+    def _inventory(self) -> None:
+        if self._entries is not None:
+            return
+        entries = {}
+        if self.root.exists():
+            for z in self.root.iterdir():
+                if z.is_symlink() or not z.is_dir() or not self._numeric(z.name) or int(z.name) > 30:
+                    continue
+                width = 2 ** int(z.name)
+                for x in z.iterdir():
+                    if x.is_symlink() or not x.is_dir() or not self._numeric(x.name) or int(x.name) >= width:
+                        continue
+                    for tile in x.iterdir():
+                        if tile.suffix != '.png' or not self._numeric(tile.stem) or int(tile.stem) >= width:
+                            continue
+                        info = tile.lstat()
+                        if stat.S_ISREG(info.st_mode):
+                            entries[tile] = (info.st_mtime_ns, info.st_size)
+        self._entries = entries
+        self._total_bytes = sum(size for _, size in entries.values())
+        self._evict(self._total_bytes)
+
+    def _evict(self, projected_bytes: int, keep: Optional[Path] = None) -> None:
+        if projected_bytes <= self.max_bytes:
+            return
+        for path, (_, size) in sorted(self._entries.items(), key=lambda item: (item[1][0], str(item[0]))):
+            if projected_bytes <= self.max_bytes:
+                break
+            if path == keep:
+                continue
+            # Recheck a path before deletion: another local process may have
+            # replaced an indexed file with a directory or symlink.
+            checked = self._path(int(path.parent.parent.name), int(path.parent.name), int(path.stem))
+            try:
+                if stat.S_ISREG(checked.lstat().st_mode):
+                    checked.unlink()
+                else:
+                    continue
+            except FileNotFoundError:
+                pass
+            self._entries.pop(path)
+            self._total_bytes -= size
+            projected_bytes -= size
+
+    def read(self, zoom: int, tile_x: int, tile_y: int) -> Optional[bytes]:
+        with self._lock:
+            self._inventory()
+            path = self._path(zoom, tile_x, tile_y)
+            try:
+                return path.read_bytes()
+            except FileNotFoundError:
+                old = self._entries.pop(path, None)
+                if old is not None:
+                    self._total_bytes -= old[1]
+                return None
+
+    def write(self, zoom: int, tile_x: int, tile_y: int, content: bytes) -> None:
+        with self._lock:
+            self._inventory()
+            if len(content) > self.max_bytes:
+                return
+            path = self._path(zoom, tile_x, tile_y)
+            old_size = self._entries.get(path, (0, 0))[1]
+            self._evict(self._total_bytes - old_size + len(content), keep=path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = None
+            try:
+                # A reader sees the previous complete file or this complete
+                # replacement. Interrupted writes never become cached PNGs.
+                with tempfile.NamedTemporaryFile(dir=path.parent, prefix='.' + path.name + '.', suffix='.tmp', delete=False) as output:
+                    temporary = Path(output.name)
+                    output.write(content)
+                os.replace(temporary, path)
+            finally:
+                if temporary is not None:
+                    temporary.unlink(missing_ok=True)
+            info = path.stat()
+            self._entries[path] = (info.st_mtime_ns, info.st_size)
+            self._total_bytes += info.st_size - old_size
+
+    def warn(self, exc: OSError) -> None:
+        with self._lock:
+            if not self._warned:
+                LOGGER.warning('Terrarium disk cache unavailable; valid downloaded terrain remains usable (%s)', type(exc).__name__)
+                self._warned = True
+
+
+_TERRAIN_DISK_CACHES = {}
+_TERRAIN_DISK_CACHE_LOCK = threading.Lock()
+
+
+def _terrain_disk_cache() -> _TerrainDiskCache:
+    default = Path(__file__).resolve().parents[2] / 'data/source_catalogs/terrarium_tiles'
+    root = Path(os.environ.get('TERRA_TERRAIN_CACHE_DIR') or default).expanduser().resolve()
+    try:
+        max_mb = int(os.environ.get('TERRA_TERRAIN_CACHE_MAX_MB', '1024'))
+        if max_mb <= 0:
+            raise ValueError
+    except ValueError as exc:
+        raise ValueError('TERRA_TERRAIN_CACHE_MAX_MB must be a positive integer in MiB') from exc
+    key = (root, max_mb)
+    with _TERRAIN_DISK_CACHE_LOCK:
+        if key not in _TERRAIN_DISK_CACHES:
+            _TERRAIN_DISK_CACHES[key] = _TerrainDiskCache(root, max_mb * 1024 * 1024)
+        return _TERRAIN_DISK_CACHES[key]
 
 
 class TerrainDataError(RuntimeError):
@@ -82,6 +222,7 @@ class DEMProcessor:
         self._tile_concurrency=max(1,tile_concurrency)
         self._tile_semaphore=None
         self.max_fill_iterations = max_fill_iterations
+        self._disk_cache = _terrain_disk_cache()
 
     async def process(
         self, latitude: float, longitude: float, radius_km: float, client: httpx.AsyncClient
@@ -190,10 +331,13 @@ class DEMProcessor:
 
         async def load() -> Tuple[np.ndarray, np.ndarray]:
             url = TERRARIUM_URL.format(z=self.zoom, x=tile_x, y=tile_y)
-            path = Path(__file__).resolve().parents[2]/'data/source_catalogs/terrarium_tiles'/str(self.zoom)/str(tile_x)/(str(tile_y)+'.png')
-            if path.exists():
-                content = path.read_bytes()
-            else:
+            try:
+                content = self._disk_cache.read(self.zoom, tile_x, tile_y)
+            except OSError as exc:
+                self._disk_cache.warn(exc)
+                content = None
+            downloaded = content is None
+            if downloaded:
                 async with self._tile_semaphore:
                     response = await client.get(url)
                 response.raise_for_status()
@@ -201,12 +345,15 @@ class DEMProcessor:
                 # Decode before persisting, so provider error bodies never poison the cache.
                 with Image.open(io.BytesIO(content)) as checked:
                     checked.verify()
-                path.parent.mkdir(parents=True,exist_ok=True)
-                path.write_bytes(content)
             with Image.open(io.BytesIO(content)) as image:
                 rgba = np.asarray(image.convert("RGBA"), dtype=np.uint8)
             if rgba.shape[:2] != (256, 256):
                 raise TerrainDataError("Unexpected Terrarium tile size {}".format(rgba.shape[:2]))
+            if downloaded:
+                try:
+                    self._disk_cache.write(self.zoom, tile_x, tile_y, content)
+                except OSError as exc:
+                    self._disk_cache.warn(exc)
             rgb = rgba[:, :, :3].astype(np.float32)
             elevation = 256.0 * rgb[:, :, 0] + rgb[:, :, 1] + rgb[:, :, 2] / 256.0 - 32768.0
             valid = (rgba[:, :, 3] > 0) & np.isfinite(elevation) & (elevation >= -12000.0) & (elevation <= 10000.0)

@@ -2,7 +2,6 @@
 import hashlib,json
 from dataclasses import replace
 from pathlib import Path
-from scripts.snapshot_replay import hydrate
 from backend.realtime.global_ingestor import GlobalScan
 from backend.realtime.dem_processor import TerrainScan,TerrainCell,TERRAIN_VERSION
 ROOT=Path(__file__).resolve().parents[2]
@@ -12,6 +11,7 @@ def load_replay(name,root=ROOT):
            'wayanad':root/'data/replays/chooralmala_2024.json'}
     path=paths.get(name)
     if path is None or not path.exists():raise KeyError('Retained snapshot is not installed')
+    from scripts.snapshot_replay import hydrate
     raw=hydrate(GlobalScan,json.loads(path.read_text())['snapshot'])
     if not raw.location.display_name:
         raw.location=replace(raw.location,display_name='Monaco / coastal terrain' if name=='monaco' else 'Wayanad / monsoon terrain')

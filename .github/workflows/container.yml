@@ -1,0 +1,59 @@
+name: Website container
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the production Linux CPU image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: terra-shield:check
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Start with a fresh root-owned persistent volume
+        run: >-
+          docker run --detach --name terra-web --user 0
+          --memory 1g --cpus 1
+          --publish 127.0.0.1:8080:8000
+          --volume terra-cache:/data
+          --env TERRA_TERRAIN_CACHE_MAX_MB=384 terra-shield:check
+      - name: Check the website and API without environmental requests
+        run: python scripts/check_web_deployment.py http://127.0.0.1:8080 --wait-seconds 90
+      - name: Verify dropped privileges, native libraries and cache access
+        run: |
+          docker exec --user 10001:10001 -i terra-web python - <<'PY'
+          import importlib.metadata as metadata
+          import os
+          from pathlib import Path
+          import h3, h5py, numpy, pyproj, rasterio, scipy, sklearn, xgboost
+          assert os.getuid() == 10001
+          uid = next(line for line in Path('/proc/1/status').read_text().splitlines() if line.startswith('Uid:'))
+          assert all(value == '10001' for value in uid.split()[1:]), uid
+          assert xgboost.__version__ == '2.1.4'
+          assert metadata.version('xgboost-cpu') == '2.1.4'
+          installed = {dist.metadata['Name'].lower() for dist in metadata.distributions()}
+          assert not any(name.startswith(('nvidia-', 'torch', 'triton')) for name in installed), installed
+          assert not any(Path('/app', name).exists() for name in ('.env', 'data', 'training', 'windows_5070ti_trainer', 'node_modules'))
+          probe = Path('/data/terrarium/.deployment-write-check')
+          probe.write_text('Cache is writable by the application user')
+          probe.unlink()
+          print({'application_uid': os.getuid(), 'xgboost': xgboost.__version__, 'rasterio': rasterio.__version__, 'cache_writable': True})
+          PY
+      - name: Report image size and idle resource use
+        run: |
+          docker image inspect terra-shield:check --format 'Image bytes: {{.Size}}'
+          docker stats --no-stream terra-web
+      - name: Container logs
+        if: always()
+        run: docker logs terra-web
+      - name: Stop check container
+        if: always()
+        run: docker rm --force terra-web

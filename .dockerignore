@@ -1,0 +1,37 @@
+# Only these production build inputs enter the Docker context.
+**
+!Dockerfile
+!.dockerignore
+!requirements.txt
+!requirements-ml.txt
+!requirements-geo.txt
+!constraints-runtime.txt
+!backend/
+!backend/**/
+!backend/**/*.py
+!artifacts/
+!artifacts/physics_informed_models.pkl
+!artifacts/runtime_manifest.json
+!artifacts/MODEL_CARD.md
+!deployment/
+!deployment/start.py
+!frontend/
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/index.html
+!frontend/vite.config.ts
+!frontend/tsconfig.json
+!frontend/postcss.config.js
+!frontend/tailwind.config.js
+!frontend/src/
+!frontend/src/**
+!frontend/public/
+!frontend/public/**
+# Never copy local credentials or generated caches, even within allowed trees.
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/__pycache__/
+**/node_modules/
+**/.DS_Store

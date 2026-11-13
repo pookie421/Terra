@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
-DIRECTORIES=('backend','scripts','tests','docs','data')
+DIRECTORIES=('backend','scripts','tests','docs','data','deployment')
 ARTIFACTS=('global_multi_causal_xgb.pkl','global_multi_causal_xgb.metadata.json',
  'scientific_validation_report.json','reference_baseline_report.json','readiness.json',
  'sft_trajectory_report.json','lhasa_benchmark_suite.json','reference_verification.json','ACTIVE_REPORTS.md',

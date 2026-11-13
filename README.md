@@ -10,7 +10,7 @@ Global landslide analysis with a 3D map, conditional physics, machine learning a
 [![Source license: MIT](https://img.shields.io/badge/source-MIT-697c8e)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-697c8e)](docs/SETUP.md)
 
-[Get started](#get-started) · [Setup & usage guide](docs/SETUP.md) · [How it works](#physics--ml) · [API](API_USAGE.md) · [Research evidence](docs/current_status.md)
+[Get started](#get-started) · [Host the website](docs/deployment.md) · [Setup & usage guide](docs/SETUP.md) · [How it works](#physics--ml) · [API](API_USAGE.md) · [Research evidence](docs/current_status.md)
 
 </div>
 
@@ -62,6 +62,10 @@ Open **[http://127.0.0.1:5173](http://127.0.0.1:5173)**. Vite forwards `/api` re
 ![The installed API reporting physics and the pretrained model ready](docs/images/engine-ready.jpg)
 
 If the map opens but analysis cannot connect, follow the [connection checklist](docs/SETUP.md#troubleshooting). If you added or replaced model weights after starting the server, restart the backend.
+
+## Host the website
+
+The root **Dockerfile** builds the frontend and CPU backend into one service. Deploy it on Railway with one always-on replica, a `/data` volume, and the `/api/v1/ready` healthcheck. Start with a Railway HTTPS address and attach your domain later. The image includes the approved model and excludes training folders, raw data and credentials. [Railway setup and verification →](docs/deployment.md)
 
 ## Use the workspace
 
