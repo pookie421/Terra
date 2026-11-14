@@ -1,6 +1,6 @@
 # Assistant models and personal API keys
 
-Open **Assistant → AI Model & API Key**, or **Options → AI Model & API Key**. Choose a provider, enter its model ID, paste your API key, and save. The model ID is editable so you can use a supported model available in your own account.
+Open **Options → AI Model & API Key**. The assistant's **Set up AI in Options** link opens the same section. Choose a provider, enter its model ID and paste your API key; settings update automatically for this browser session. The model ID is editable so you can use a supported model available in your own account. Use the back arrow to return to the conversation.
 
 | Provider | Connection |
 |---|---|
@@ -26,6 +26,8 @@ Without a key, **deterministic mode** still explains verified telemetry and exec
 The selected provider receives your message, bounded conversation history and the active analysis evidence: scan/state/cell identifiers, the selected prediction model, applicable NASA daily product, source summaries, conditional physical results and forecast/runout context. Your API key is an authentication header to the provider, not prompt content.
 
 The server checks numeric bindings, state identity and the user's permitted action plan before rendering generated prose or map commands. Short public agent steps describe evidence and intended actions; they are not private model deliberation. A model change, cell change, forecast change or NASA product change cancels stale replies/actions.
+
+The task list shows actual dispatch and completion separately from the plan. **Stop** stops waiting and cancels remaining actions; it does not undo a server request already sent. Suggestions prepare a draft for review. Evidence notes and numeric citations expand on demand, and **Jump to latest** returns to new messages after reading older responses.
 
 **VERIFIED_LLM_PROSE** identifies generated prose that passed those checks. **VERIFIED_TEMPLATE** identifies the deterministic path. Provider failures and rejected prose remain distinct; neither verification label validates the geophysical model itself.
 

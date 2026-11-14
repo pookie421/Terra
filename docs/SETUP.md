@@ -97,7 +97,7 @@ Reference soil assumptions keep conditional physics available without boreholes.
 
 ## Optional: connect an assistant
 
-Open **Assistant → AI Model & API Key** or **Options → AI Model & API Key**. Select your provider, enter a model ID and paste your personal API key into the masked field. Settings are saved only for the browser session; **Clear key** removes the active credential. Public chat uses no server-key or local-model fallback, so no backend restart or shared subscription is needed. See [Assistant models and personal API keys](assistant_connections.md).
+Open **Options → AI Model & API Key**, or use **Set up AI in Options** from the Assistant. Select your provider, enter a model ID and paste your personal API key into the masked field. Settings update automatically for the browser session; **Clear key** removes the active credential. Use the back arrow to return to the conversation. Public chat uses no server-key or local-model fallback, so no backend restart or shared subscription is needed. See [Assistant models and personal API keys](assistant_connections.md).
 
 Physical analysis, ML predictions and deterministic assistant navigation work without an AI key. Generated prose must pass state/numeric checks to receive `VERIFIED_LLM_PROSE`; deterministic responses remain `VERIFIED_TEMPLATE`. Provider configuration is distinct from a successful provider response.
 
