@@ -16,7 +16,11 @@ A place search submits `{"query":"place name"}` to the same route. Raw coordinat
 
 `GET /api/v1/health` checks the local engine and actual learned-artifact availability without acquiring environmental providers. A healthy physical service can report `model_ready=false`; the approved pretrained weights are included in a normal clone. Install with `-c constraints-runtime.txt`, preserve `artifacts/physics_informed_models.pkl`, and restart the backend after replacing it. See [setup](docs/SETUP.md).
 
-`GET /api/v1/connections` returns redacted deployment-level assistant/Earthdata configuration with `requires_personal_key=false`. It makes no provider request and does not prove availability. There is no public key-writing route. The installation owner uses `python scripts/configure_assistant.py` and restarts with `--env-file .env`; shared visitors need no keys. [Connection setup](docs/assistant_connections.md).
+`GET /api/v1/connections` returns redacted policy: the assistant uses request-scoped personal keys (`requires_personal_key=true`, `server_credentials_enabled=false`), while public environmental feeds need no visitor key and Earthdata authentication is deployment-owned. It makes no provider request and does not prove availability. There is no public key-writing route or shared server-funded assistant fallback. Configure a personal provider/model/key in **Options → AI Model & API Key**. Deterministic map commands and telemetry work without an AI key. [Connection setup](docs/assistant_connections.md).
+
+### Capacity and safe retries
+
+The single-process runtime bounds expensive analyses separately from chat. An excess request is rejected **before execution** with HTTP 429, `Retry-After: 3`, and a JSON `code` of `ANALYSIS_CAPACITY_BUSY` or `ASSISTANT_CAPACITY_BUSY`. The browser retries only these explicit admission rejections, for at most 60 seconds for analysis or 30 seconds for chat, within one total request timeout. It does not automatically replay generic provider rate limits, HTTP 502 responses or network failures. Cancelling the HTTP caller does not interrupt already admitted CPU work or release its capacity slot prematurely. External clients should preserve the same distinction when implementing retry logic.
 
 A scan returns:
 

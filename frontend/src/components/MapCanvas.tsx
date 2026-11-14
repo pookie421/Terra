@@ -189,12 +189,17 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
     m.addControl(new maplibregl.ScaleControl({unit:'metric'}),'bottom-left');
     m.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-left');
     m.on('load',()=>{setReady(true);setError('');updateLayers();if(current.current.scan)fitCurrent();});
+    let pendingClick:ReturnType<typeof setTimeout>|undefined;
+    m.on('dblclick',()=>clearTimeout(pendingClick));
     m.on('click',event=>{
+      clearTimeout(pendingClick);
       if(!Number.isFinite(event.lngLat.lat)||!Number.isFinite(event.lngLat.lng))return;
       const hits=m.getLayer('hexagons')?m.queryRenderedFeatures(event.point,{layers:['hexagons']}):[];
       const id=hits[0]?.properties?.h3_index;
       if(typeof id==='string'){callbacks.current.onSelect(id);return;}
-      scanAt(event.lngLat.lat,event.lngLat.lng);
+      // A double-click is map navigation, not two expensive scan requests.
+      const {lat,lng}=event.lngLat;
+      pendingClick=setTimeout(()=>scanAt(lat,lng),400);
     });
     m.on('mousemove',event=>{
       const hits=m.getLayer('hexagons')?m.queryRenderedFeatures(event.point,{layers:['hexagons']}):[];
@@ -228,7 +233,7 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
       scanCenter:()=>{const viewport=m.getContainer(),padding=workspacePadding(viewport);const center=m.unproject([(padding.left+viewport.clientWidth-padding.right)/2,(padding.top+viewport.clientHeight-padding.bottom)/2]);scanAt(center.lat,center.lng);},
       fitScan:fitCurrent,
     };
-    return()=>{cancelAnimationFrame(paddingFrame);observer.disconnect();layoutObserver.disconnect();reticle.current?.remove();reticle.current=null;m.remove();map.current=null;handle.current=null;};
+    return()=>{clearTimeout(pendingClick);cancelAnimationFrame(paddingFrame);observer.disconnect();layoutObserver.disconnect();reticle.current?.remove();reticle.current=null;m.remove();map.current=null;handle.current=null;};
     // Map is constructed once. Current callbacks/data are held in refs so a
     // completed scan or horizon switch cannot destroy the live world canvas.
     // eslint-disable-next-line react-hooks/exhaustive-deps

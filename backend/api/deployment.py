@@ -79,7 +79,9 @@ class AdmissionMiddleware:
         if budget is None:
             return await self.app(scope, receive, send)
         if not budget.acquire():
-            response = JSONResponse({'detail': 'Analysis service is busy. Retry in a few seconds.'},
+            is_chat = budget is self.chats
+            response = JSONResponse({'detail': ('Assistant service' if is_chat else 'Analysis service') + ' is busy. Retry in a few seconds.',
+                                     'code': 'ASSISTANT_CAPACITY_BUSY' if is_chat else 'ANALYSIS_CAPACITY_BUSY'},
                                     status_code=429, headers={'Retry-After': '3'})
             return await response(scope, receive, send)
         # A cancelled HTTP caller must not free capacity while a forecast's

@@ -27,6 +27,8 @@ Railway's old `railway.toml`/`railway.json` deployment configuration is deprecat
 | `TERRA_MAX_CONCURRENT_ANALYSES` | `1` | Excess scans/forecast computations receive HTTP 429 and `Retry-After` |
 | `TERRA_MAX_CONCURRENT_CHATS` | `2` | Separate chat admission budget |
 
+Capacity rejection is explicit: HTTP 429 carries `ANALYSIS_CAPACITY_BUSY` or `ASSISTANT_CAPACITY_BUSY` and `Retry-After`. The browser waits at most 60 seconds for analysis admission or 30 seconds for chat admission, within the original request's total timeout. It retries only these rejected requests; provider failures and transport errors are not automatically replayed. Cancelling a browser request does not free an admitted computation's slot before that work actually finishes. Map double-clicks are treated as navigation to reduce accidental duplicate scans. These protections preserve bounded memory; they do not create additional hosting capacity.
+
 Do not set `VITE_API_URL` for this single-origin image. Do not copy a local `.env` into the image. The Docker context is an allowlist and excludes local provider archives, training mirrors, old weights, credentials and build caches. The official `xgboost-cpu==2.1.4` distribution supplies the pinned XGBoost runtime without CUDA/NCCL dependencies. The image targets **Linux amd64**.
 
 ## Optional sources and assistant

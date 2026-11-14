@@ -1,8 +1,8 @@
 # Set up and use TERRA-SHIELD
 
-[Back to the project](../README.md) · [API reference](../API_USAGE.md) · [Model card](../artifacts/MODEL_CARD.md)
+[Back to the project](../README.md) · [Illustrated user guide](USER_GUIDE.md) · [API reference](../API_USAGE.md) · [Model card](../artifacts/MODEL_CARD.md)
 
-Use [the public map](https://terra-production-289057fe.up.railway.app/) to explore without installing anything. The steps below run your own local copy. Add generated assistant prose using your personal key in **AI Model & API Key**; GPU training is not a setup step.
+Use [the public map](https://terra-production-289057fe.up.railway.app/) to explore without installing anything. Follow the [user guide](USER_GUIDE.md) if you want help with the interface. The steps below run your own local copy. Add generated assistant prose using your personal key in **Options → AI Model & API Key**; GPU training is not a setup step.
 
 The browser and analysis service run as two local processes. The physics implementation and the small pretrained four-model ML artifact are included in this repository. You do **not** need the retained training corpus, a GPU, or Ollama to start the map and analysis engines.
 
@@ -79,19 +79,19 @@ Open the local URL printed by Vite, normally [http://127.0.0.1:5173](http://127.
 
 ## 5. Scan and inspect an area
 
-![Map workspace and inspection panels](./images/live-workspace.jpg)
+![Area overview in the map workspace](./images/area-overview.jpg)
 
 *Interface capture; values belong to that scan. Imagery © Esri, Maxar, Earthstar Geographics and contributors. Elevation © Mapzen / upstream DEM contributors.*
 
 1. **Choose a location.** Search a place name, enter `latitude, longitude`, click an unscanned point on the map, or choose **Scan map view**. A place name is optional; unnamed terrain works through coordinates.
 2. **Review the area overview.** The peak initiation score and lowest central factor of safety summarize the returned area. **View critical area** focuses the selected hotspot.
 3. **Inspect a cell.** Click a returned hexagon. The selected location shows slope, elevation, the low/central/high factor-of-safety estimates, pressure head, and rain deficit. Expand **Physical details** for provenance, variance sensitivities, and model internals.
-4. **Change the displayed time.** Choose **Now**, **+24h**, **+48h**, **+72h**, or **Peak**. Available future states use the downloaded forecast; **Peak** is the minimum sector nominal factor of safety, not a predicted failure time.
-5. **Change the map layer.** Switch between initiation score, factor of safety, slope, and pressure head. Gray means unavailable evidence, rather than zero hazard.
+4. **Change the displayed time.** In Terra analysis, choose **Now**, **+24h**, **+48h**, **+72h**, or **Peak**. Available future states use the downloaded forecast; **Peak** is the minimum sector nominal factor of safety, not a predicted failure time. NASA LHASA has separate **Today / Tomorrow** controls.
+5. **Change the map layer.** Open **Options → Map layer** for model score, factor of safety, NASA comparison, radar coherence, slope, or pressure head. Gray means unavailable evidence, rather than zero hazard.
 6. **Check supporting evidence.** Open **Options → Sources** for availability, fallbacks, timing, and errors. Review the selected-cell comparison for model diagnostics and **Potential runout** for conditional routing assumptions.
-7. **Ask the Assistant.** Questions use the active scan, forecast state, and selected cell. Open response details to inspect verification and numeric citations. The download button exports the current analysis.
+7. **Ask the Assistant.** Questions use the active scan, forecast state, and selected cell. Open response details to inspect verification and numeric citations. Use **Options → Export analysis** to keep the current JSON result.
 
-On smaller screens, use **Map**, **Overview**, and **Inspect** at the bottom to switch panels. Weather inputs remain automatic and read-only; there are no manual weather sliders or preset replay locations.
+On smaller screens, use **Map**, **Overview**, **Inspect**, and **Assistant** at the bottom to switch views. Weather inputs remain automatic and read-only; there are no manual weather sliders or preset replay locations. The [user guide](USER_GUIDE.md) explains each readout and includes more screenshots.
 
 Reference soil assumptions keep conditional physics available without boreholes. Experimental scores, factor-of-safety envelopes, and hypothetical runout are not calibrated global failure probabilities or operational warnings. [Current evidence and limitations](./current_status.md) explain their interpretation.
 
@@ -108,11 +108,13 @@ NASA LHASA has its own **Today / Tomorrow** controls and native raster support. 
 | Symptom | Check |
 |---|---|
 | **Service unavailable** or `/api/v1/health` will not open | Start Uvicorn from the repository root, keep its terminal open, and check that port 8000 is available. Starting only Vite is insufficient. |
+| **Waiting for available analysis capacity** / **Analysis service is busy** | Let current work finish. The browser waits and retries explicitly rejected busy requests for a bounded period; if the wait cannot complete, submit one fresh attempt after a short pause. Repeated map clicks add contention. This is a capacity issue, not evidence of a missing model or AI key. |
+| **Unknown or expired scan/state** | Run a fresh scan before inspecting or changing its time product. Live states belong to the running backend process and can be lost on restart. |
 | `model_ready: false` | Check the exact artifact path, use the constrained dependency installation above, inspect backend startup errors, and restart the backend. Restore the published artifact rather than trying to train without the retained corpus. |
 | Model load fails after upgrading packages | Recreate the virtual environment using `constraints-runtime.txt`; the included pickle is not a cross-version model interchange format. |
 | Map is blank or source tiles fail | Check browser WebGL support and access to the imagery/elevation providers. Local backend health alone does not test online map tiles. |
 | Scan has missing inputs or no learned score | Open **Sources** and the returned reason. ML requires a complete weather window and compatible metric terrain. A provider outage is distinct from a missing model. |
 | Future buttons are unavailable | Inspect forecast coverage and the returned reason. Current conditions remain separate from missing future forcing. |
-| Assistant uses fallback or reports provider unavailable | Open AI Model & API Key and check your provider, model, personal credential and JSON support. No backend restart is required. Physical and ML scans remain independent of generated prose. |
+| Assistant uses fallback or reports provider unavailable | Open **Options → AI Model & API Key** and check your provider, model, personal credential and JSON support. No backend restart is required. Physical and ML scans remain independent of generated prose. |
 
 For CPU hazard-model reproduction, follow the [research workflow](training_workflow.md). It requires separately provisioned source-reviewed corpora; the runtime model alone cannot reconstruct that dataset. Generated `training/` and `windows_5070ti_trainer/` research directories stay local. They are not needed to install or host the application.

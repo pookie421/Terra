@@ -1,4 +1,4 @@
-# Current status — 14 November 2026
+# Current status — 15 November 2026
 
 TERRA-SHIELD targets a global, autonomous landslide hazard and forecast platform competitive with LHASA 2.0. The current development implementation combines a live-first global map, source ingestion, prior-based physics, feature-based ML, automatic forecast states and a selected-cell co-pilot. Independent global forecasting skill and sustained operational coverage remain open. [The roadmap](../ROADMAP.md) and [source audit](global_source_audit.md) define that evidence program.
 
@@ -17,7 +17,7 @@ TERRA-SHIELD targets a global, autonomous landslide hazard and forecast platform
 | Co-pilot | Request-scoped personal-key providers, verified numeric bindings, public summaries and eight ordered actions; deterministic commands without a key | Protocol tests do not establish a particular model's answer quality, semantic/tool reliability or global hazard skill |
 | Research reproduction | Canonical offline CPU hazard-model fitting, shared-cohort benchmarks, model/data hashes and source-linked instruction diagnostics; hosted APIs are the current assistant direction | Complete reproduction needs the retained corpus; the retired Windows/QLoRA path remains unverified on its target hardware |
 
-The frontend follows [FRONTEND_SPEC.md](FRONTEND_SPEC.md): a single Overview/Inspect/Assistant dock, Options-only personal AI credentials, actual task execution states and responsive navigation. NISAR reports scan-wide valid-sample coverage separately from selected-cell missingness, with acquisition support and compact source-bound assistant context. No manual perturbation sliders, fixed-city dropdown or replay-first boot are used. Legacy analyst/replay APIs and fixtures remain reproducibility tools; they do not drive the live product by default.
+The frontend follows [FRONTEND_SPEC.md](FRONTEND_SPEC.md): a single Overview/Inspect/Assistant dock, Options-only personal AI credentials, actual task execution states and responsive navigation. Explicit pre-admission capacity rejections have bounded, cancellable browser retries; admitted work retains its memory-protection slot until completion. NISAR reports scan-wide valid-sample coverage separately from selected-cell missingness, with acquisition support and compact source-bound assistant context. No manual perturbation sliders, fixed-city dropdown or replay-first boot are used. Legacy analyst/replay APIs and fixtures remain reproducibility tools; they do not drive the live product by default.
 
 Missing boreholes select exposed reference priors, preserving physical columns, uncertainty and conditional routing. Site records override compatible fields at their own cell. Missing model weights, incomplete future forcing, invalid site records and unsupported mechanism inputs have specific statuses. They do not erase otherwise available analysis.
 

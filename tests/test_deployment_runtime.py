@@ -162,6 +162,7 @@ class AdmissionControl(unittest.IsolatedAsyncioTestCase):
                 excess = await client.post('/api/v1/scan')
                 self.assertEqual(excess.status_code, 429)
                 self.assertEqual(excess.headers['retry-after'], '3')
+                self.assertEqual(excess.json()['code'], 'ANALYSIS_CAPACITY_BUSY')
                 self.assertEqual(analyses.active, 1)
                 self.assertEqual((await client.get('/api/v1/health')).status_code, 200)
                 self.assertEqual((await client.post('/api/v1/chat')).status_code, 200)
@@ -170,6 +171,36 @@ class AdmissionControl(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual((await first).status_code, 200)
             self.assertEqual(analyses.active, 0)
             self.assertEqual((await client.post('/api/v1/scan')).status_code, 200)
+
+    async def test_chat_capacity_is_labelled_separately_and_does_not_block_analyses(self):
+        analyses, chats = AdmissionBudget(1), AdmissionBudget(1)
+        started, finish = asyncio.Event(), asyncio.Event()
+        app = FastAPI()
+        app.add_middleware(AdmissionMiddleware, analyses=analyses, chats=chats)
+
+        @app.post('/api/v1/chat')
+        async def chat():
+            started.set()
+            await finish.wait()
+            return {'answer': 'finished'}
+
+        @app.post('/api/v1/scan')
+        async def scan():
+            return {'scan': 'finished'}
+
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+            first = asyncio.create_task(client.post('/api/v1/chat'))
+            await asyncio.wait_for(started.wait(), timeout=2)
+            try:
+                excess = await client.post('/api/v1/chat')
+                self.assertEqual(excess.status_code, 429)
+                self.assertEqual(excess.json()['code'], 'ASSISTANT_CAPACITY_BUSY')
+                self.assertIn('Assistant service', excess.json()['detail'])
+                self.assertEqual((await client.post('/api/v1/scan')).status_code, 200)
+            finally:
+                finish.set()
+                await first
+            self.assertEqual(chats.active, 0)
 
     async def test_caller_cancellation_retains_capacity_until_work_finishes_and_errors_release_it(self):
         budget = AdmissionBudget(1)

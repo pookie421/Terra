@@ -14,7 +14,7 @@ export interface AssistantMessage {
 }
 export interface AssistantPanelProps {
   scan:Scan|null;selectedCell?:Cell;predictionModel:PredictionModel;nasaProduct:NasaProduct;
-  messages:AssistantMessage[];draft:string;busy:boolean;workspaceBusy?:boolean;
+  messages:AssistantMessage[];draft:string;busy:boolean;workspaceBusy?:boolean;waitMessage?:string;
   connectionLabel:string;connected?:boolean;hasKey:boolean;
   onDraftChange:(text:string)=>void;onSend:()=>void;onStop:()=>void;onOpenOptions:()=>void;
   inputRef?:RefObject<HTMLTextAreaElement>;endRef?:RefObject<HTMLDivElement>;
@@ -132,7 +132,7 @@ export default function AssistantPanel(props:AssistantPanelProps){
         <AssistantProse text={message.text}/>
         {message.role==='assistant'&&<MessageDetails message={message} previousContext={earlierContext(message,props)}/>}
       </article>)}
-      {pending&&<div className="assistant-pending" role="status"><LoaderCircle size={14} className="spin"/><span>Waiting for the assistant response…</span></div>}
+      {pending&&<div className="assistant-pending" role="status"><LoaderCircle size={14} className="spin"/><span>{props.waitMessage??'Waiting for the assistant response…'}</span></div>}
       <div ref={props.endRef}/>
     </div>
     {showLatest&&<button className="assistant-latest" onClick={latest}>Jump to latest<ArrowDown size={13}/></button>}

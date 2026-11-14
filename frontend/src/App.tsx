@@ -26,7 +26,7 @@ export default function App(){
   const [horizon,setHorizon]=useState<HorizonKey>('now'),[layer,setLayer]=useState<MapLayer>('probability'),[predictionModel,setPredictionModel]=useState<PredictionModel>('terra_physics_ml');
   const [provider,setProvider]=useState<string|null>(null),[sourcesOpen,setSourcesOpen]=useState(false),[overlay,setOverlay]=useState<'options'|'assistant'|null>(null),[chat,setChat]=useState<Message[]>([]),[draft,setDraft]=useState(''),[chatBusy,setChatBusy]=useState(false),[comparison,setComparison]=useState(''),[view,setView]=useState<'overview'|'inspect'>('overview'),[dockOpen,setDockOpen]=useState(false),[aiSettingsOpen,setAiSettingsOpen]=useState(false),[radarExpanded,setRadarExpanded]=useState(false);
   const [assistant,setAssistant]=useState<AssistantSettings>(()=>{try{return readAssistantSettings(window.sessionStorage);}catch{return {...DEFAULT_ASSISTANT};}}),[settingsStored,setSettingsStored]=useState(true),[nasaProduct,setNasaProduct]=useState<NasaProduct>('today');
-  const [assistantVerified,setAssistantVerified]=useState(false);
+  const [assistantVerified,setAssistantVerified]=useState(false),[chatWaiting,setChatWaiting]=useState(false);
   const optionsOpen=overlay==='options',copilotOpen=overlay==='assistant',dockVisible=dockOpen||overlay!==null;
   const map=useRef<MapHandle|null>(null),epoch=useRef(0),request=useRef<AbortController|null>(null),chatEnd=useRef<HTMLDivElement>(null),searchInput=useRef<HTMLInputElement>(null),latest=useRef<Scan|null>(scan),baselineRef=useRef<Scan|null>(baseline);
   const selection=useRef(selected),modelRef=useRef(predictionModel),chatRequest=useRef<AbortController|null>(null),chatSequence=useRef(0),chatInput=useRef<HTMLTextAreaElement|null>(null);
@@ -67,17 +67,18 @@ export default function App(){
     if(selectCritical)document.querySelector('.cell-panel')?.scrollTo({top:0});
   }
   function cancelChat(reason='The action sequence stopped because the workspace changed.'){
-    chatSequence.current++;chatRequest.current?.abort();chatRequest.current=null;setChatBusy(false);
+    chatSequence.current++;chatRequest.current?.abort();chatRequest.current=null;setChatBusy(false);setChatWaiting(false);
     setChat(messages=>messages.map(message=>message.executing?{...message,executing:false,activeTask:undefined,cancelled:true,executionError:reason}:message));
   }
   async function acquire(location:string|{latitude:number;longitude:number},chain?:AbortController){
     if(chain?.signal.aborted)throw new DOMException('The action sequence was superseded.','AbortError');
     const id=++epoch.current;if(request.current!==chain)request.current?.abort();if(!chain)cancelChat();
     const controller=chain??new AbortController();request.current=controller;
-    setBusy(typeof location==='string'?`Resolving ${location} and acquiring live inputs`:`Scanning ${coord(location.latitude,location.longitude)}`);setError('');setProvider(null);
+    const label=typeof location==='string'?`Resolving ${location} and acquiring live inputs`:`Scanning ${coord(location.latitude,location.longitude)}`;
+    setBusy(label);setError('');setProvider(null);
     if(typeof location!=='string')map.current?.flyToCoordinates(location.latitude,location.longitude);
     try{
-      const next=await api.scan(location,controller.signal);
+      const next=await api.scan(location,controller.signal,waiting=>{if(epoch.current===id&&!controller.signal.aborted)setBusy(waiting?'Waiting for available analysis capacity':label);});
       if(epoch.current!==id||controller.signal.aborted)throw new DOMException('The scan was superseded.','AbortError');
       nasaProductRef.current='today';setNasaProduct('today');install(next,true);baselineRef.current=next;setBaseline(next);setHorizon('now');if(!chain){setChat([]);showWorkspace('overview');}setEngine('active');return next;
     }finally{if(epoch.current===id)setBusy('');}
@@ -96,8 +97,8 @@ export default function App(){
     if(!chain)cancelChat();const id=++epoch.current;if(request.current!==chain)request.current?.abort();
     if(key==='now'){install(original);setHorizon('now');setError('');setBusy('');return;}
     if(!original.predictive_forecast_72h?.views?.some(v=>v.key===key))throw new Error('This forecast horizon is unavailable for the current scan.');
-    const controller=chain??new AbortController();request.current=controller;setBusy('Loading '+HORIZONS.find(h=>h.key===key)?.label+' forecast');setError('');
-    try{const next=await api.forecast(original.scan_id,key,controller.signal);if(epoch.current!==id||controller.signal.aborted)throw new DOMException('The forecast was superseded.','AbortError');install(next);setHorizon(key);}
+    const controller=chain??new AbortController();request.current=controller;const label='Loading '+HORIZONS.find(h=>h.key===key)?.label+' forecast';setBusy(label);setError('');
+    try{const next=await api.forecast(original.scan_id,key,controller.signal,waiting=>{if(epoch.current===id&&!controller.signal.aborted)setBusy(waiting?'Waiting for available analysis capacity':label);});if(epoch.current!==id||controller.signal.aborted)throw new DOMException('The forecast was superseded.','AbortError');install(next);setHorizon(key);}
     finally{if(epoch.current===id)setBusy('');}
   }
   function selectCell(id:string,fly=false,cancelPending=true,camera?:{pitch?:number;bearing?:number;zoom?:number}){
@@ -159,7 +160,7 @@ export default function App(){
     const original=baselineRef.current;if(!original||busy)return;
     cancelChat();request.current?.abort();const controller=new AbortController(),id=++epoch.current;request.current=controller;
     setBusy('Checking NISAR measurements');setError('');
-    try{const next=await api.refreshRadar(original,controller.signal);if(controller.signal.aborted||epoch.current!==id)return;baselineRef.current=next;setBaseline(next);install(next);setHorizon('now');}
+    try{const next=await api.refreshRadar(original,controller.signal,waiting=>{if(epoch.current===id&&!controller.signal.aborted)setBusy(waiting?'Waiting for available analysis capacity':'Checking NISAR measurements');});if(controller.signal.aborted||epoch.current!==id)return;baselineRef.current=next;setBaseline(next);install(next);setHorizon('now');}
     catch(e){if(!controller.signal.aborted)setError(errorText(e));}finally{if(epoch.current===id)setBusy('');}
   }
   function renderAction(){return new Promise<void>(resolve=>{let done=false;const finish=()=>{if(!done){done=true;clearTimeout(timer);resolve();}};const timer=setTimeout(finish,150);requestAnimationFrame(()=>requestAnimationFrame(finish));});}
@@ -171,9 +172,9 @@ export default function App(){
     const alive=()=>!controller.signal.aborted&&chatSequence.current===token;
     const original=()=>alive()&&(latest.current?.scan_id??null)===scanId&&(latest.current?.scenario_id??null)===identity&&selection.current===cellId&&modelRef.current===model&&(model!=='nasa_lhasa_2'||nasaProductRef.current===product);
     const replyId='assistant-'+token;
-    setDraft('');setChat(c=>[...c,{role:'user',text,scanId,state:identity,cell:cellId,model,nasaProduct:product}]);setChatBusy(true);
+    setDraft('');setChat(c=>[...c,{role:'user',text,scanId,state:identity,cell:cellId,model,nasaProduct:product}]);setChatBusy(true);setChatWaiting(false);
     try{
-      const reply=await api.chat(current,cellId,text,history,controller.signal,model,assistant,product);
+      const reply=await api.chat(current,cellId,text,history,controller.signal,model,assistant,product,waiting=>{if(alive())setChatWaiting(waiting);});
       if(!original()||reply.scan_id!==scanId||reply.scenario_id!==identity||(reply.active_prediction_model&&reply.active_prediction_model!==model)||!chatProductMatches(model,product,reply.nasa_product))return;
       // This reply is bound to the same immutable scan. Reinstalling it clears
       // inspection/runout without triggering their identity-bound reload.
@@ -192,7 +193,7 @@ export default function App(){
       });
       if(alive())setChat(messages=>messages.map(m=>m.id===replyId?{...m,executing:false,activeTask:undefined,executionError:outcomes.find(o=>o.status==='failed')?.summary}:m));
     }catch(e){if(alive())setChat(c=>c.some(m=>m.id===replyId)?c.map(m=>m.id===replyId?{...m,executing:false,activeTask:undefined,executionError:errorText(e)}:m):[...c,{role:'assistant',text:'The assistant request could not complete: '+errorText(e),guard:'SERVICE_ERROR',scanId,state:identity,cell:cellId,model}]);}
-    finally{if(chatRequest.current===controller){chatRequest.current=null;setChatBusy(false);}}
+    finally{if(chatRequest.current===controller){chatRequest.current=null;setChatBusy(false);setChatWaiting(false);}}
   }
   function exportScan(){if(!scan)return;const url=URL.createObjectURL(new Blob([JSON.stringify({...scan,display_context:{prediction_model:predictionModel,nasa_product:nasaActive?nasaProduct:null,map_layer:layer,selected_h3_index:selected,comparison_h3_index:comparison||null}},null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=`terra-${scan.scan_id}-${scan.scenario_id}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   return <div className={`command-center ${scan?'has-scan':''} ${dockVisible?'workspace-open':''} ${overlay?'overlay-'+overlay:''}`}>
@@ -223,7 +224,7 @@ export default function App(){
     {dockVisible&&<aside className={`workspace-dock glass ${optionsOpen?'is-options':''}`} aria-label="Analysis workspace">
       {optionsOpen?<div className="workspace-options-title"><button onClick={closeOverlay} aria-label="Back from options"><ArrowLeft size={17}/></button><h2>Options</h2><button onClick={closeWorkspace} aria-label="Close workspace"><X size={18}/></button></div>:<div className="workspace-tabs" role="tablist" aria-label="Analysis views">{(['overview','inspect','assistant'] as const).map(tab=><button key={tab} role="tab" id={'tab-'+tab} aria-controls={'view-'+tab} aria-selected={copilotOpen?tab==='assistant':view===tab} disabled={tab!=='assistant'&&!scan} onClick={()=>showWorkspace(tab)}>{tab==='overview'?'Overview':tab==='inspect'?'Inspect':'Assistant'}{tab==='assistant'&&chatBusy&&<LoaderCircle size={12} className="spin"/>}</button>)}<button className="workspace-close" onClick={closeWorkspace} aria-label="Close workspace"><X size={17}/></button></div>}
       <div className="workspace-view">
-        {busy&&!copilotOpen&&<div className="workspace-notice acquisition" role="status"><LoaderCircle size={17} className="spin"/><div><strong>{busy}</strong><span>Gathering data and preparing the forecast.</span></div></div>}
+        {busy&&!copilotOpen&&<div className="workspace-notice acquisition" role="status"><LoaderCircle size={17} className="spin"/><div><strong>{busy}</strong><span>{busy.startsWith('Waiting')?'Your request will retry automatically when capacity is available.':'Gathering data and preparing the forecast.'}</span></div></div>}
     {error&&<div className="workspace-notice error-banner" role="alert"><AlertCircle size={17}/><div><strong>Request could not complete</strong><span>{error}</span></div><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={16}/></button></div>}
     {incomplete&&!busy&&!error&&!copilotOpen&&!optionsOpen&&<div className="workspace-notice analysis-notice" role="status"><AlertCircle size={16}/><div><strong>{incomplete.title}</strong><p>{incomplete.message}</p><button onClick={()=>{openOptions();setSourcesOpen(true);}}>View sources<ArrowUpRight size={13}/></button></div></div>}
         {optionsOpen?<section ref={optionsPanel} id="options-panel" className="options-popover workspace-pane" aria-label="Workspace options">
@@ -243,7 +244,7 @@ export default function App(){
       </details>
       <div className="options-section"><button className="options-export" disabled={!scan} onClick={exportScan}><Download size={15}/>Export analysis<span>JSON</span></button></div>
 
-        </section>:copilotOpen?<section id="view-assistant" role="tabpanel" aria-labelledby="tab-assistant" className="assistant-drawer"><AssistantPanel scan={displayScan} selectedCell={cell} predictionModel={predictionModel} nasaProduct={nasaProduct} messages={chat} draft={draft} busy={chatBusy} workspaceBusy={!!busy} connectionLabel={assistantLabel(assistant)} connected={assistantVerified} hasKey={assistantReady(assistant)} onDraftChange={setDraft} onSend={()=>void send()} onStop={stopAssistant} onOpenOptions={()=>openOptions(true)} inputRef={chatInput} endRef={chatEnd}/></section>:scan&&view==='overview'?<div id="view-overview" role="tabpanel" aria-labelledby="tab-overview" className="workspace-pane-slot">
+        </section>:copilotOpen?<section id="view-assistant" role="tabpanel" aria-labelledby="tab-assistant" className="assistant-drawer"><AssistantPanel scan={displayScan} selectedCell={cell} predictionModel={predictionModel} nasaProduct={nasaProduct} messages={chat} draft={draft} busy={chatBusy} waitMessage={chatWaiting?'Waiting for assistant capacity. Retrying automatically…':undefined} workspaceBusy={!!busy} connectionLabel={assistantLabel(assistant)} connected={assistantVerified} hasKey={assistantReady(assistant)} onDraftChange={setDraft} onSend={()=>void send()} onStop={stopAssistant} onOpenOptions={()=>openOptions(true)} inputRef={chatInput} endRef={chatEnd}/></section>:scan&&view==='overview'?<div id="view-overview" role="tabpanel" aria-labelledby="tab-overview" className="workspace-pane-slot">
       <section className="sector-panel workspace-pane" aria-label="Area overview">
         <div className="panel-title"><h2>{nasaActive?'NASA daily overview':'Area overview'}</h2></div>
         <section className="panel-section">
@@ -308,7 +309,7 @@ export default function App(){
       </div>
     </aside>}
     {scan&&<div className="mobile-panel-switch glass" role="group" aria-label="Workspace panel"><button className={!dockVisible?'active':''} aria-pressed={!dockVisible} onClick={closeWorkspace}><MapPin size={16}/>Map</button><button className={dockVisible&&!overlay&&view==='overview'?'active':''} aria-pressed={dockVisible&&!overlay&&view==='overview'} onClick={()=>showWorkspace('overview')}><Layers3 size={16}/>Overview</button><button className={dockVisible&&!overlay&&view==='inspect'?'active':''} aria-pressed={dockVisible&&!overlay&&view==='inspect'} onClick={()=>showWorkspace('inspect')}><Search size={16}/>Inspect</button><button className={copilotOpen?'active':''} aria-pressed={copilotOpen} onClick={()=>showWorkspace('assistant')}><MessageSquare size={16}/>Assistant</button></div>}
-    {!dockVisible&&<div className="workspace-floating-notices">{busy&&!copilotOpen&&<div className="workspace-notice acquisition" role="status"><LoaderCircle size={17} className="spin"/><div><strong>{busy}</strong><span>Gathering data and preparing the forecast.</span></div></div>}
+    {!dockVisible&&<div className="workspace-floating-notices">{busy&&!copilotOpen&&<div className="workspace-notice acquisition" role="status"><LoaderCircle size={17} className="spin"/><div><strong>{busy}</strong><span>{busy.startsWith('Waiting')?'Your request will retry automatically when capacity is available.':'Gathering data and preparing the forecast.'}</span></div></div>}
     {error&&<div className="workspace-notice error-banner" role="alert"><AlertCircle size={17}/><div><strong>Request could not complete</strong><span>{error}</span></div><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={16}/></button></div>}
     {incomplete&&!busy&&!error&&!copilotOpen&&!optionsOpen&&<div className="workspace-notice analysis-notice" role="status"><AlertCircle size={16}/><div><strong>{incomplete.title}</strong><p>{incomplete.message}</p><button onClick={()=>{openOptions();setSourcesOpen(true);}}>View sources<ArrowUpRight size={13}/></button></div></div>}</div>}
   </div>;
