@@ -155,7 +155,8 @@ export default function App(){
     try{
       const reply=await api.chat(current,cellId,text,history,controller.signal,model,assistant,product);
       if(!original()||reply.scan_id!==scanId||reply.scenario_id!==identity||(reply.active_prediction_model&&reply.active_prediction_model!==model)||!chatProductMatches(model,product,reply.nasa_product))return;
-      if(reply.updated_scan_data?.scan_id===scanId&&reply.updated_scan_data.scenario_id===identity)install(reply.updated_scan_data);
+      // This reply is bound to the same immutable scan. Reinstalling it clears
+      // inspection/runout without triggering their identity-bound reload.
       setAssistantVerified(reply.briefing_guard==='VERIFIED_LLM_PROSE');
       setChat(c=>[...c,{id:replyId,role:'assistant',text:reply.clean_markdown,guard:reply.briefing_guard,claims:reply.bound_claims,state:reply.scenario_id,cell:cellId,model,nasaProduct:product,assistantProvider:reply.assistant_provider,assistantModel:reply.model_name,error:reply.model_error,steps:reply.thought_steps,executing:!!reply.ui_action?.actions.length,outcomes:[]}]);
       const outcomes=await executeActions(reply,{
@@ -164,8 +165,8 @@ export default function App(){
         searchLocation:async value=>{setQuery(value);await acquire(value,controller);},
         selectModel:async value=>{selectModel(value,true);await renderAction();},setHorizon:value=>selectWorkspaceHorizon(value,controller),setLayer:async value=>{selectLayer(value,true);await renderAction();},
         flyTo:(c,camera)=>selectCell(c.h3_index,true,false,camera),
-        inspect:c=>{selectCell(c.h3_index,false,false);setMobilePanel('cell');setOverlay(null);},
-        compare:(a,b)=>{selectCell(a.h3_index,false,false);setComparison(b.h3_index);setMobilePanel('cell');setOverlay(null);},
+        inspect:c=>{selectCell(c.h3_index,false,false);setMobilePanel('cell');},
+        compare:(a,b)=>{selectCell(a.h3_index,false,false);setComparison(b.h3_index);setMobilePanel('cell');},
         outcome:outcome=>{if(alive())setChat(messages=>messages.map(m=>m.id===replyId?{...m,outcomes:[...m.outcomes??[],outcome]}:m));},
       });
       if(alive())setChat(messages=>messages.map(m=>m.id===replyId?{...m,executing:false,executionError:outcomes.find(o=>o.status==='failed')?.summary}:m));
