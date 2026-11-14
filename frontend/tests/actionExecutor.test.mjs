@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {executeActions,resolveCell} from '../.test-build/actionExecutor.js';
 import {criticalCell,mapValue,predictionScore,modelLabel,MODEL_LABELS} from '../.test-build/modelPresentation.js';
-import {PRIMARY_PREDICTION_MODELS,DIAGNOSTIC_MODELS,PREDICTION_MODELS} from '../.test-build/types.js';
+import {PRIMARY_PREDICTION_MODELS,DIAGNOSTIC_MODELS,PREDICTION_MODELS,fmt} from '../.test-build/types.js';
 
 function scan(id='origin',state=id,cells=[cell('flat',3,.2),cell('steep',41,.8)]){
   return {scan_id:id,scenario_id:state,location:{latitude:0,longitude:0},physical_assessment:{cells},h3_geojson:{type:'FeatureCollection',features:cells.map(properties=>({type:'Feature',geometry:{type:'Point',coordinates:[0,0]},properties}))}};
@@ -24,6 +24,13 @@ function workspace(initial=scan()){
   return {current,handlers};
 }
 function reply(initial,actions){return {scan_id:initial?.scan_id??null,scenario_id:initial?.scenario_id??null,ui_action:{actions:actions.map((action,index)=>({scan_id:initial?.scan_id??null,scenario_id:initial?.scenario_id??null,state_scope:index===0?'bound':'chain',...action}))}};}
+
+test('small nonzero scores remain distinguishable from zero at the displayed precision',()=>{
+  assert.equal(fmt(.00293,2),'2.93e-3');
+  assert.equal(fmt(-.00021,3),'-2.10e-4');
+  assert.equal(fmt(.00293,5),'0.00293');
+  assert.equal(fmt(0,2),'0');assert.equal(fmt(null,2),'—');
+});
 
 test('an ordered chain awaits scans and forecasts, retains both model switches, and resolves new-grid targets',async()=>{
   const {current,handlers}=workspace(null);

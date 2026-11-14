@@ -87,6 +87,6 @@ export function cellIn(scan:Scan,id:string):Cell|undefined {
   const nasa=scan.nasa_lhasa?.cells?.find(c=>c.h3_index===id),radar=scan.nisar?.cells?.find(c=>c.h3_index===id);
   return physical||feature?{...feature,...physical,...learned,...nasa,...radar,prediction_scores:scan.prediction_scores?.[id]??learned?.prediction_scores??physical?.prediction_scores??feature?.prediction_scores} as Cell:undefined;
 }
-export const fmt=(v:unknown,digits=2):string=>typeof v==='number'&&Number.isFinite(v)?(v!==0&&Math.abs(v)<.001?v.toExponential(2):v.toLocaleString('en-US',{maximumFractionDigits:digits})):'—';
+export const fmt=(v:unknown,digits=2):string=>typeof v==='number'&&Number.isFinite(v)?(v!==0&&Math.abs(v)<10**-digits?v.toExponential(2):v.toLocaleString('en-US',{maximumFractionDigits:digits})):'—';
 export function coord(latitude:number,longitude:number){return `${Math.abs(latitude).toFixed(4)}° ${latitude<0?'S':'N'}, ${Math.abs(longitude).toFixed(4)}° ${longitude<0?'W':'E'}`;}
 export const HORIZONS:{key:HorizonKey;label:string;sub:string}[]=[{key:'now',label:'Now',sub:'Observed'},{key:'t24',label:'+24h',sub:'Forecast'},{key:'t48',label:'+48h',sub:'Forecast'},{key:'t72',label:'+72h',sub:'Forecast'},{key:'peak',label:'Peak',sub:'72h mechanical'}];
