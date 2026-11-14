@@ -79,7 +79,7 @@ Open the local URL printed by Vite, normally [http://127.0.0.1:5173](http://127.
 
 ## 5. Scan and inspect an area
 
-![Map workspace and inspection panels](./images/workspace.jpg)
+![Map workspace and inspection panels](./images/live-workspace.jpg)
 
 *Interface capture; values belong to that scan. Imagery © Esri, Maxar, Earthstar Geographics and contributors. Elevation © Mapzen / upstream DEM contributors.*
 

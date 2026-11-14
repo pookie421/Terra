@@ -16,7 +16,7 @@ An interactive portal for landslide visualization and prediction: explore terrai
 
 </div>
 
-[![The live terrain workspace with hazard hexagons, forecast controls and slope inspection](docs/images/workspace.jpg)](https://terra-production-289057fe.up.railway.app/)
+[![The live terrain workspace with hazard hexagons, forecast controls and slope inspection](docs/images/live-workspace.jpg)](https://terra-production-289057fe.up.railway.app/)
 
 <sub>Website capture; displayed estimates belong to that scan. Imagery © Esri, Maxar, Earthstar Geographics and contributors. Elevation © Mapzen / upstream DEM contributors.</sub>
 
