@@ -71,7 +71,7 @@ export type Action=ActionBase&(
 export interface ThoughtStep {step:number;phase:string;reasoning:string}
 export interface ActionOutcome {step:number;type:string;status:'completed'|'failed';summary:string;scan_id?:string;scenario_id?:string}
 export interface BoundClaim {name:string;path:string;value:number}
-export interface ChatReply {scan_id:string|null;scenario_id:string|null;active_prediction_model?:PredictionModel;nasa_product?:NasaProduct;clean_markdown:string;briefing_guard:string;bound_claims?:BoundClaim[];model_error?:string;ui_action?:{actions:Action[]};updated_scan_data?:Scan;thought_steps?:ThoughtStep[];assistant_provider?:string;model_name?:string;assistant_mode?:'byok'|'deterministic';model_provenance?:Record<string,unknown>}
+export interface ChatReply {scan_id:string|null;scenario_id:string|null;active_prediction_model?:PredictionModel;nasa_product?:NasaProduct;evidence_context?:{scan_id:string;scenario_id:string;selected_h3_index?:string;active_prediction_model:PredictionModel;nasa_product?:NasaProduct};clean_markdown:string;briefing_guard:string;bound_claims?:BoundClaim[];model_error?:string;ui_action?:{actions:Action[]};updated_scan_data?:Scan;thought_steps?:ThoughtStep[];assistant_provider?:string;model_name?:string;assistant_mode?:'byok'|'deterministic';model_provenance?:Record<string,unknown>}
 export interface Health {status?:string;engine?:string;model_ready?:boolean;model_version?:string;[key:string]:unknown}
 export interface Connections {
   scope:'deployment';

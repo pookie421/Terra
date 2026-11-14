@@ -178,7 +178,7 @@ export default function App(){
       // This reply is bound to the same immutable scan. Reinstalling it clears
       // inspection/runout without triggering their identity-bound reload.
       setAssistantVerified(reply.briefing_guard==='VERIFIED_LLM_PROSE');
-      setChat(c=>[...c,{id:replyId,role:'assistant',text:reply.clean_markdown,guard:reply.briefing_guard,claims:reply.bound_claims,scanId,state:reply.scenario_id,cell:cellId,model,nasaProduct:product,assistantProvider:reply.assistant_provider,assistantModel:reply.model_name,error:reply.model_error,steps:reply.thought_steps,plannedActions:reply.ui_action?.actions??[],executing:!!reply.ui_action?.actions.length,outcomes:[]}]);
+      setChat(c=>[...c,{id:replyId,role:'assistant',text:reply.clean_markdown,guard:reply.briefing_guard,claims:reply.bound_claims,scanId,state:reply.scenario_id,cell:reply.evidence_context?.selected_h3_index??cellId,model:reply.evidence_context?.active_prediction_model??model,nasaProduct:reply.evidence_context?.nasa_product??product,assistantProvider:reply.assistant_provider,assistantModel:reply.model_name,error:reply.model_error,steps:reply.thought_steps,plannedActions:reply.ui_action?.actions??[],executing:!!reply.ui_action?.actions.length,outcomes:[]}]);
       const outcomes=await executeActions(reply,{
         scan:()=>latest.current&&modelRef.current==='nasa_lhasa_2'?nasaProductView(latest.current,nasaProductRef.current):latest.current,selected:()=>selection.current,model:()=>modelRef.current,isCurrent:alive,
         scanCoordinates:async(latitude,longitude,label)=>{if(label)setQuery(label);await acquire({latitude,longitude},controller);},

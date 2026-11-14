@@ -99,19 +99,26 @@ function MessageDetails({message,previousContext}:{message:AssistantMessage;prev
 
 export default function AssistantPanel(props:AssistantPanelProps){
   const {scan,predictionModel,nasaProduct,messages,draft,busy,workspaceBusy,connectionLabel,connected,hasKey,onDraftChange,onSend,onStop,onOpenOptions}=props;
-  const transcript=useRef<HTMLDivElement>(null),ownInput=useRef<HTMLTextAreaElement>(null),followLatest=useRef(true);
+  const transcript=useRef<HTMLDivElement>(null),ownInput=useRef<HTMLTextAreaElement>(null),followLatest=useRef(true),previousCount=useRef(0);
   const input=props.inputRef??ownInput;
   const [showLatest,setShowLatest]=useState(false);
   const suggestions=assistantSuggestions(scan,predictionModel,nasaProduct);
   const blocked=busy||workspaceBusy||!draft.trim();
   useEffect(()=>{
-    if(followLatest.current&&transcript.current)transcript.current.scrollTop=messages.length||busy?transcript.current.scrollHeight:0;
+    const appended=messages.length!==previousCount.current;previousCount.current=messages.length;
+    const log=transcript.current;if(!followLatest.current||!log)return;
+    if(!messages.length){log.scrollTop=0;return;}
+    if(appended&&messages.at(-1)?.role==='assistant'){
+      const reply=log.querySelector<HTMLElement>('article.assistant-message:last-of-type');
+      if(reply)log.scrollTop+=reply.getBoundingClientRect().top-log.getBoundingClientRect().top;
+    }else if(messages.at(-1)?.role!=='assistant')log.scrollTop=log.scrollHeight;
   },[messages,busy]);
   useEffect(()=>{
     const field=input.current;
     if(field){field.style.height='auto';field.style.height=Math.min(field.scrollHeight,144)+'px';}
   },[draft,input]);
   function chooseSuggestion(prompt:string){onDraftChange(prompt);input.current?.focus();}
+  function sendMessage(){if(blocked)return;followLatest.current=true;setShowLatest(false);onSend();}
   function latest(){followLatest.current=true;setShowLatest(false);if(transcript.current)transcript.current.scrollTop=transcript.current.scrollHeight;}
   const pending=busy&&!messages.some(message=>message.executing);
   return <div className="assistant-panel">
@@ -130,7 +137,7 @@ export default function AssistantPanel(props:AssistantPanelProps){
     </div>
     {showLatest&&<button className="assistant-latest" onClick={latest}>Jump to latest<ArrowDown size={13}/></button>}
     {!!messages.length&&!busy&&<details className="assistant-followups"><summary>Suggested tasks</summary><div className="assistant-suggestions">{suggestions.map(suggestion=><button key={suggestion.id} className="assistant-suggestion" onClick={()=>chooseSuggestion(suggestion.prompt)}><strong>{suggestion.label}<ArrowUpRight size={13}/></strong><span>{suggestion.description}</span></button>)}</div></details>}
-    <form className="assistant-composer" onSubmit={event=>{event.preventDefault();if(!blocked)onSend();}}><textarea ref={input} rows={2} aria-label="Ask about evidence or describe map actions" value={draft} onChange={event=>onDraftChange(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();if(!blocked)onSend();}}} placeholder="Ask about this area, or describe the next steps…"/>
+    <form className="assistant-composer" onSubmit={event=>{event.preventDefault();sendMessage();}}><textarea ref={input} rows={2} aria-label="Ask about evidence or describe map actions" value={draft} onChange={event=>onDraftChange(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();sendMessage();}}} placeholder="Ask about this area, or describe the next steps…"/>
       <div className="assistant-composer-actions"><span className="assistant-composer-hint">{workspaceBusy&&!busy?'A scan is running. You can prepare your next message.':'Enter to send · Shift + Enter for a new line'}</span>{busy&&<button type="button" onClick={onStop} title="Cancel the reply and remaining actions. A scan already sent to the server may still finish."><Square size={12}/>Stop</button>}<button className="assistant-send" type="submit" disabled={!!blocked} aria-label="Send message"><Send size={15}/></button></div>
     </form>
   </div>;

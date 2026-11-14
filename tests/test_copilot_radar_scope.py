@@ -80,6 +80,8 @@ class RadarSelection(unittest.IsolatedAsyncioTestCase):
         self.assertIn('measured radar observables for this selected cell',reply['clean_markdown'])
         self.assertNotIn('other cells in this scan do have',reply['clean_markdown'])
         self.assertEqual(reply['ui_action']['actions'][-1]['h3_index'],CLIFF)
+        self.assertEqual(reply['evidence_context'],{'scan_id':'scan-a','scenario_id':'now-a',
+            'selected_h3_index':CLIFF,'active_prediction_model':'terra_physics_ml','nasa_product':'today'})
 
 
 if __name__=='__main__':unittest.main()

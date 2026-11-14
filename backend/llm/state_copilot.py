@@ -252,6 +252,9 @@ async def chat_active(agent,message,scan_id,scenario_id,sliders,agency_mode,sele
     actions.extend(planned)
     public=public_steps(actions,True)
     shared={'origin_scan_id':origin_scan_id,'origin_scenario_id':origin_scenario_id,
+        'evidence_context':{'scan_id':scan['scan_id'],'scenario_id':scan['scenario_id'],
+            'selected_h3_index':e['selected_cell'].get('h3_index'),
+            'active_prediction_model':e['active_prediction_model'],'nasa_product':e.get('nasa_product',nasa_product)},
         'history_context':{'provided':supplied_history_count,'included':len(history),
             'omitted_oldest':supplied_history_count-len(history),'policy':'Most recent whole messages within a 2400-byte history budget; current evidence is preserved'},
         'thought_steps':public,'thought_steps_scope':'Public action and evidence summaries; not private model reasoning',
