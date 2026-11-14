@@ -6,12 +6,14 @@ import json
 import os
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Literal
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Header, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
-from pydantic import BaseModel, Field, ConfigDict
+from fastapi.responses import Response, JSONResponse
+from pydantic import BaseModel, Field, ConfigDict, SecretStr
 
 from backend.api.serialization import sanitize_json
 from backend.api.deployment import (AdmissionBudget, AdmissionMiddleware, FrontendFiles,
@@ -31,6 +33,17 @@ frontend_dist = frontend_directory(ROOT)
 
 scan_service = GlobalScanService()
 agent = TerraShieldQwenAgent(scan_service=scan_service)
+
+
+@app.exception_handler(RequestValidationError)
+async def redact_chat_validation(request: Request, exc: RequestValidationError):
+    # FastAPI normally echoes the invalid input in a 422 response. Personal
+    # credentials must not be reflected even when a client sends malformed JSON.
+    if request.url.path in ('/api/v1/chat', '/api/v1/agent/chat', '/api/chat'):
+        errors = [{key: row[key] for key in ('loc', 'msg', 'type') if key in row}
+                  for row in exc.errors()]
+        return JSONResponse(status_code=422, content={'detail': errors})
+    return await request_validation_exception_handler(request, exc)
 
 
 @app.get('/api/v1/replays/{name}')
@@ -66,13 +79,13 @@ async def deployment_readiness():
 
 @app.get('/api/v1/connections')
 async def connection_settings():
-    """Redacted deployment settings, not a provider health check or key editor."""
-    from backend.llm.model_client import connection_summary
-    return {'scope':'deployment','assistant':connection_summary(),
+    """Personal assistant policy and redacted environmental-feed settings."""
+    from backend.llm.byok_client import byok_connection_summary
+    return {'scope':'personal_assistant','assistant':byok_connection_summary(),
         'earthdata':{'configured':bool(os.environ.get('EARTHDATA_TOKEN')),
                     'requires_personal_key':False},
         'public_feeds':{'requires_personal_key':False},
-        'configuration_scope':'The deployment owner configures shared credentials. Availability is checked when used.',
+        'configuration_scope':'The assistant uses only the personal key supplied with each chat request. Environmental-feed settings remain deployment-owned.',
         'setup_document':'docs/assistant_connections.md'}
 
 
@@ -87,6 +100,11 @@ class AgentChatRequest(BaseModel):
     history: list[Dict[str,str]] = Field(default_factory=list,max_length=12)
     autonomous: bool = True
     active_prediction_model: str = Field(default='terra_physics_ml',pattern='^(terra_physics_ml|nasa_lhasa_2|physics_only|weather_terrain_ml|rainfall_only)$')
+    nasa_product: Literal['today','tomorrow'] = 'today'
+    provider: Literal['openai','gemini','anthropic','openrouter','groq','custom_openai'] = 'openai'
+    model: str = Field(default='',max_length=256)
+    base_url: Optional[str] = Field(default=None,max_length=2048)
+    api_key: Optional[SecretStr] = Field(default=None,exclude=True,repr=False)
 
 
 class CapXmlRequest(BaseModel):
@@ -166,8 +184,14 @@ async def get_scan(
 @app.post("/api/v1/agent/chat")
 @app.post("/api/v1/chat")
 @app.post("/api/chat")
-async def agent_chat(request: AgentChatRequest) -> Dict[str, Any]:
+async def agent_chat(request: AgentChatRequest, x_llm_api_key: Optional[str] = Header(default=None)) -> Dict[str, Any]:
     try:
+        from backend.llm.byok_client import request_assistant_config, request_provenance
+        # Explicit request credentials only. A missing/empty header never selects
+        # a server key or initiates local model discovery.
+        personal_key = x_llm_api_key if x_llm_api_key is not None else (
+            request.api_key.get_secret_value() if request.api_key is not None else None)
+        assistant = request_assistant_config(request.provider,request.model,request.base_url,personal_key)
         # Autonomous commands return plans for the browser's guarded scan route.
         # Legacy analyst chat can acquire providers internally, so it also needs
         # an analysis slot; ordinary prose uses only the separate chat budget.
@@ -180,11 +204,16 @@ async def agent_chat(request: AgentChatRequest) -> Dict[str, Any]:
                 scan_id=request.scan_id,scenario_id=request.scenario_id,selected_h3_index=request.selected_h3_index,
                 history=request.history,autonomous=request.autonomous,
                 active_prediction_model=request.active_prediction_model,
+                request_assistant=assistant,nasa_product=request.nasa_product,
             )
         if 'thought_steps' not in result:
             from backend.llm.app_actions import public_steps
             result['thought_steps']=public_steps([],bool(request.scan_id))
             result['thought_steps_scope']='Public action and evidence summaries; not private model reasoning'
+        result.update(request_provenance(assistant,result.get('briefing_guard'),result.get('model_error')))
+        result['nasa_product']=request.nasa_product
+        if not assistant.configured:
+            result['fallback_reason']='PERSONAL_API_KEY_REQUIRED'
         return sanitize_json(result)
     except HTTPException:
         raise
@@ -215,6 +244,20 @@ async def automatic_forecast_view(scan_id:str,view_key:str):
 async def inspect_cell(scan_id:str,scenario_id:str,h3_index:str):
     try:return sanitize_json(scan_service.inspect_hexagon(h3_index,scan_id,scenario_id))
     except KeyError as exc:raise HTTPException(status_code=404,detail=str(exc))
+
+
+class RadarRefreshRequest(BaseModel):
+    scenario_id: str = Field(min_length=1, max_length=128)
+
+
+@app.post('/api/v1/scans/{scan_id}/radar/refresh')
+async def refresh_radar(scan_id: str, request: RadarRefreshRequest):
+    try:
+        return sanitize_json(await scan_service.refresh_radar_state(scan_id, request.scenario_id))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 @app.get('/api/v1/scans/{scan_id}/scenarios/{scenario_id}/runout/{h3_index}')

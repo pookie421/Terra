@@ -48,6 +48,13 @@ test('a named location chain works before the first scan',async()=>{
   await executeActions(reply(null,[{type:'search_location',query:'Unnamed valley'},{type:'inspect_cell',target:'riskiest'}]),handlers);
   assert.deepEqual(current.calls,[['search','Unnamed valley'],['inspect','steep']]);
 });
+test('NASA daily-product actions retain their own IDs rather than masquerading as 24-hour forecasts',async()=>{
+  const original=scan(),{current,handlers}=workspace(original);
+  handlers.setHorizon=async value=>{current.calls.push(['daily',value]);};
+  const result=await executeActions(reply(original,[{type:'select_prediction_model',model:'nasa_lhasa_2'},{type:'set_time_horizon',horizon:'nasa_tomorrow'},{type:'set_time_horizon',horizon:'nasa_today'}]),handlers);
+  assert.deepEqual(current.calls,[['model','nasa_lhasa_2'],['daily','nasa_tomorrow'],['daily','nasa_today']]);
+  assert.match(result[1].summary,/NASA Tomorrow/);assert.equal(current.scan.scenario_id,original.scenario_id);
+});
 
 test('three primary choices retain explicit diagnostic IDs and requested labels',()=>{
   assert.deepEqual(PRIMARY_PREDICTION_MODELS,['terra_physics_ml','nasa_lhasa_2','rainfall_only']);

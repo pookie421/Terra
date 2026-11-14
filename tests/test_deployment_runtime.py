@@ -214,6 +214,7 @@ class AdmissionControl(unittest.IsolatedAsyncioTestCase):
                     ('GET', '/api/v1/replays/fixture', None),
                     ('GET', '/api/v1/scans/fixture/forecast/24h', None),
                     ('POST', '/api/v1/scans/fixture/scenarios/fixture', {'changes': {}}),
+                    ('POST', '/api/v1/scans/fixture/radar/refresh', {'scenario_id': 'fixture'}),
                     ('POST', '/api/v1/chat', {'message': 'Legacy scan', 'autonomous': False}),
                 ):
                     with self.subTest(path=path):

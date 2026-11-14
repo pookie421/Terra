@@ -1,6 +1,6 @@
 # NASA comparison and NISAR evidence
 
-The model selector changes the displayed score and map. It offers Physics + ML, NASA LHASA, Physics reference, Weather + terrain ML and Rainfall only. Physical columns and conditional runout remain inspectable alongside the selected model. A side-by-side readout is a source comparison, not a matched predictive benchmark.
+The primary choices are **Terra In House Model**, **NASA LHASA** and **Rainfall baseline**. NASA has a distinct daily-product workspace and native-pixel map; Terra provides the conditional physical column, 72-hour forecast and runout. Supporting in-house comparisons remain advanced diagnostics. A side-by-side readout is a source comparison, not a matched predictive benchmark.
 
 ## NASA LHASA
 
@@ -8,19 +8,23 @@ The model selector changes the displayed score and map. It offers Physics + ML, 
 
 The checked services use 30-arcsecond geographic pixels, approximately 1 km north–south; east–west width varies with latitude. Hazard coverage is approximately 60°S–60°N; the susceptibility product has a different extent. The live endpoint metadata does not declare the exact serving model version or issue/valid time. The requested comparator ID remains `nasa_lhasa_2`, but the response reports `NOT_DECLARED_BY_SERVICE` rather than assigning the [upstream repository's](https://github.com/nasa/LHASA) current release to an unversioned raster service.
 
-The published [LHASA 2.0 method](https://doi.org/10.3389/feart.2021.640043) is a trained model with specific inputs. A rainfall/ARI formula cannot reproduce it. When official coverage is absent and the required weather/terrain inputs are present, `LHASA_REFERENCE_EMULATION` exposes a separate **unvalidated Terra reference index** with its formula, project scales and missing inputs. `official_score` stays null; `reference_score` identifies the proxy. In mixed coverage, official NASA cells determine the NASA critical-cell selection when any are available. Reference indices use a distinct map palette and are never ranked against official values as if their meanings matched.
+The published [LHASA 2.0 method](https://doi.org/10.3389/feart.2021.640043) is a trained model with specific inputs. A rainfall/ARI formula cannot reproduce it. The source API retains `LHASA_REFERENCE_EMULATION` as a separate **unvalidated Terra reference index**, with formula, project scales and missing inputs; `official_score` stays null and `reference_score` identifies the proxy. The primary NASA map, headline, selected-product evidence and critical-cell ranking use official scores only. Missing NASA output is not replaced by a Terra index.
 
-NASA Tomorrow is a relative daily product, not a guaranteed exact T+24h forecast. The API labels that alignment. It supplies no invented NASA +48h/+72h product; those selected NASA scores remain unavailable while the in-house physical forecast continues normally.
+NASA Tomorrow is a relative daily product, not a guaranteed exact T+24h forecast. The interface offers **Today / Tomorrow**, displays native pixel support and hides Terra's hourly forecast and physical/runout headlines. Native footprints use service extent/pixel spacing; repeated H3 samples do not become independent NASA predictions. A clearly named switch opens Terra's separate physical analysis. NASA daily selection is included in assistant evidence and stale-response guards.
 
 ## Spatial support
 
 Nominal 30 m DEM inputs do not make every analysis quantity a 30 m observation. H3 resolution 9 has an average area of about **0.105 km²** and cells span hundreds of metres; their area varies. Repeating one NASA pixel across several H3 polygons adds no spatial information. Soil, rainfall, moisture and radar products retain their own support. Finer terrain geometry, inspectable mechanics and conditional routing are capabilities, not proof of improved hazard skill. [H3 statistics](https://h3geo.org/docs/core-library/restable/).
 
-## NISAR discovery and optional measurements
+## NISAR discovery and measured subsets
 
 `backend/realtime/nisar_processor.py` queries public NASA CMR for intersecting GUNW/GCOV validated, provisional and beta collections. Records retain collection/granule identity, acquisition times, orbit information, product maturity and available browse/data links. The latest returned set is bounded; its count is not the total mission acquisition count. Discovery is not an assurance of recent or measured deformation. See the [ASF collection and access guide](https://nisar-docs.asf.alaska.edu/earthaccess/).
 
 Without a readable raster, `METADATA_LIVE` exposes real discovery records and null measurement fields. The complete broad reference FS/FOSM column stays available. Missing radar does not justify a made-up strain variance, a tighter envelope or an arbitrary widening coefficient.
+
+With server-side Earthdata authentication, the adapter automatically requests supported GUNW coherence and GCOV HH/HV variables through [NASA Harmony](https://nisar-docs.asf.alaska.edu/harmony/). It reads collection-advertised variable IDs, a discovered real granule and the scan's spatial window; it does not fetch the complete multi-GB HDF5 product. Selection uses the latest discovered supported acquisition, with maturity breaking equal-time ties, rather than seeking a preferred hazard outcome.
+
+At most four jobs cover the two product families and two non-wrapping antimeridian rectangles. Request identities coalesce work; deterministic provider labels recover existing jobs after restart. Pending extraction is labelled `SUBSET_PENDING`, not measured. **Check for measurements** polls the retained job and samples ready pixels without repeating weather/terrain requests. The refresh creates a new scan identity, preserving the previously inspected state. Authentication errors, absent coverage, native NoData and unavailable extraction have separate statuses under `measurement_access`.
 
 For local measurements, place self-describing NISAR HDF5 subsets under `data/nisar/`, or set `TERRA_NISAR_DIR`. Set `TERRA_NISAR_MANIFEST` to describe GeoTIFF/HDF5 subsets explicitly. A manifest template is shown below; replace both capitalized metadata values with the actual source record:
 
@@ -55,10 +59,12 @@ Historical training rows receive only evidence appropriate to their retained dat
 
 Create an [Earthdata account](https://urs.earthdata.nasa.gov/users/new) and generate a token using [NASA's instructions](https://urs.earthdata.nasa.gov/documentation/for_users/user_token). Keep `EARTHDATA_TOKEN` in the ignored local `.env`, then start the backend with `python -m uvicorn backend.api.main:app --env-file .env --host 127.0.0.1 --port 8000`. Never commit credentials or downloaded provider archives.
 
-Prefer validated L-band GUNW for interferometric context and GCOV for backscatter, retaining maturity and processing versions. Use [Harmony's variable and spatial subsetting](https://nisar-docs.asf.alaska.edu/harmony/) to obtain only the required layers and area, then configure the local manifest described above. Scans sample configured subsets where they overlap. Discovery alone does not automatically submit a Harmony processing job or guarantee measured coverage at every coordinate.
+Retain product maturity and processing versions. Authenticated scans can now submit and reuse bounded [Harmony variable/spatial subsets](https://nisar-docs.asf.alaska.edu/harmony/) automatically. Existing manifests remain supported for approved local subsets. A successful job does not guarantee valid pixels at every sampled point, and a token does not guarantee acquisition coverage everywhere.
 
 Standard products generally arrive 36–72 hours after acquisition. Urgent-response Level-2 processing targets about six hours for designated events, with lower-quality orbit/correction inputs and restricted tasking; it is not a universal six-hour feed. GUNW uses nominal 12-day acquisition pairs. See [ASF latency guidance](https://nisar-docs.asf.alaska.edu/urgent-response/) and [GUNW support](https://nisar-docs.asf.alaska.edu/gunw/).
 
 A bounded authenticated check on 13 November 2026 at the unchanged coordinate `11.548, 76.134` retrieved actual 80 m provisional GUNW coherence for the 8–20 October pair. Its center H3 sample was approximately **0.6135**. Newer validated 10 November GCOV subsets were NoData at that cell and remained missing. This establishes data access and reader behavior at one location, not global coverage or predictive skill.
+
+On 14 November, the automatic path was checked at that same requested coordinate with the manual manifest disabled. It recovered successful GUNW/GCOV jobs and sampled **0.4743816853** coherence at the requested point from the 80 m 8–20 October GUNW pair. This point sample differs from the earlier H3-center sample. The 10 November GCOV point pixels remained NoData, and the ratio remained null. Downloaded subset bytes, native support and granule/variable identities were recorded locally; no velocity, moisture or strength value was inferred.
 
 Discovery dates and measurement dates remain separate. `observable_age_days` uses each measured observable's provenance; the shared feature age conservatively uses the oldest available measurement and stays unknown if an available measurement lacks a valid date. Metadata-only age is explicitly `DISCOVERY_ONLY`. A newer discovery must not refresh older coherence. The active classifier still has no newly trained SAR weights, and no radar-to-strength relation is inferred by this check.

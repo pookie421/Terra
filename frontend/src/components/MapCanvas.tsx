@@ -6,7 +6,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import {AlertTriangle,Compass,Maximize} from 'lucide-react';
 import type {FeatureCollection,Geometry,Position} from 'geojson';
 import {cellIn,type Scan,type Cell,type Runout,type MapLayer,type PredictionModel} from '../types';
-import {mapValue,modelLabel} from '../modelPresentation';
+import {mapValue,modelLabel,nasaNativeFeatures,nasaResolution} from '../modelPresentation';
 
 maplibregl.setWorkerUrl(workerUrl);
 const EMPTY:FeatureCollection={type:'FeatureCollection',features:[]};
@@ -118,20 +118,25 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
     const m=map.current,{scan:s,selected:id,runout:r,layer:active,predictionModel:model,compared:other}=current.current;
     if(!m||!m.getSource('cells'))return;
     const nasaLayer=active==='lhasa_2'||active==='probability'&&model==='nasa_lhasa_2';
-    const data:FeatureCollection<Geometry,Cell&{map_value:number|null;map_reference:boolean}>=s?{...s.h3_geojson,features:s.h3_geojson.features.map(f=>{const cell=cellIn(s,f.properties.h3_index)??f.properties;return {...f,geometry:localGeometry(f.geometry,s.location.longitude),properties:{...cell,map_value:mapValue(cell,active,model),map_reference:nasaLayer&&cell.official_score==null&&cell.lhasa_probability==null}};})}:{type:'FeatureCollection',features:[]};
+    let data:FeatureCollection<Geometry,Cell&{map_value:number|null;map_reference:boolean}>=s?{...s.h3_geojson,features:s.h3_geojson.features.map(f=>{const cell=cellIn(s,f.properties.h3_index)??f.properties;return {...f,geometry:localGeometry(f.geometry,s.location.longitude),properties:{...cell,map_value:mapValue(cell,active,model),map_reference:nasaLayer&&cell.official_score==null&&cell.lhasa_probability==null}};})}:{type:'FeatureCollection',features:[]};
+    const native=s&&nasaLayer?nasaNativeFeatures(s,id):undefined;
+    if(s&&native){
+      // Draw the actual ImageServer grid; repeated H3 samples are not new predictions.
+      data={...native,features:native.features.map(feature=>({...feature,geometry:localGeometry(feature.geometry,s.location.longitude)}))};
+    }
     (m.getSource('cells') as GeoJSONSource).setData(data);
     (m.getSource('selected') as GeoJSONSource).setData({...data,features:data.features.filter(f=>f.properties.h3_index===id)});
     (m.getSource('compared') as GeoJSONSource).setData({...data,features:data.features.filter(f=>f.properties.h3_index===other)});
     const selectedRoute=r?.h3_index===id?r:undefined;
     const routes=selectedRoute?.scenarios?.filter(v=>(v.coordinates_lonlat?.length??0)>1).map((v,i)=>({type:'Feature' as const,geometry:localGeometry({type:'LineString',coordinates:v.coordinates_lonlat!},s?.location.longitude??0),properties:{scenario:i}}));
     const sectorRoutes=s?{...s.runout_geojson,features:s.runout_geojson.features.map(f=>({...f,geometry:localGeometry(f.geometry,s.location.longitude)}))}:EMPTY;
-    (m.getSource('runout') as GeoJSONSource).setData(routes?{type:'FeatureCollection',features:routes}:sectorRoutes);
+    (m.getSource('runout') as GeoJSONSource).setData(model==='nasa_lhasa_2'?EMPTY:routes?{type:'FeatureCollection',features:routes}:sectorRoutes);
     const corridor=selectedRoute?.corridor_h3_indices;
-    (m.getSource('corridor') as GeoJSONSource).setData(corridor?{...data,features:data.features.filter(f=>corridor.includes(f.properties.h3_index))}:s?.runout_corridor_geojson??EMPTY);
+    (m.getSource('corridor') as GeoJSONSource).setData(model==='nasa_lhasa_2'?EMPTY:corridor?{...data,features:data.features.filter(f=>corridor.includes(f.properties.h3_index))}:s?.runout_corridor_geojson??EMPTY);
     m.setPaintProperty('hexagons','fill-extrusion-color',colorFor(active,nasaLayer));
     // Height follows the active layer too; a NASA view must not retain Terra-score heights.
     const normalizer=active==='slope'?60:active==='fs_mid'||active==='pore_pressure'?3:1;
-    m.setPaintProperty('hexagons','fill-extrusion-height',['+',12,['*',180,['min',1,['max',0,['/',valueFor(),normalizer]]]]]);
+    m.setPaintProperty('hexagons','fill-extrusion-height',nasaLayer?8:['+',12,['*',180,['min',1,['max',0,['/',valueFor(),normalizer]]]]]);
   }
 
   useEffect(()=>{
@@ -209,6 +214,6 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
     <div ref={host} className="map-canvas" style={{position:'absolute',inset:0}}/>
     <div className="world-map-tools"><button onClick={()=>map.current?.easeTo({pitch:55,bearing:0})} aria-label="Reset map orientation" title="Reset map orientation"><Compass size={17}/></button>{scan&&<button onClick={fitCurrent} aria-label="Fit scan to map" title="Fit scan to map"><Maximize size={17}/></button>}</div>
     {error&&<div className="map-notice" role="status"><AlertTriangle size={14}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss map notice">×</button></div>}
-    {scan&&<div className="world-map-legend"><span>{layer==='probability'?modelLabel(scan,predictionModel):legend.label}</span><div style={{height:4,background:nasaLayer&&allReference?referenceGradient:legend.gradient}}/><div className="legend-extents"><span>{legend.left}</span><span>{legend.right}</span></div>{nasaLayer&&reference&&!allReference&&<><small>Reference index · unvalidated</small><div style={{height:4,background:referenceGradient}}/></>}<small>{nasaLayer&&allReference?'Unvalidated reference index. ':''}Gray: data unavailable{layer==='nisar_radar'?'. Coherence is not a deformation rate.':''}</small></div>}
+    {scan&&<div className="world-map-legend"><span>{layer==='probability'?modelLabel(scan,predictionModel):legend.label}</span><div style={{height:4,background:nasaLayer&&allReference?referenceGradient:legend.gradient}}/><div className="legend-extents"><span>{legend.left}</span><span>{legend.right}</span></div>{nasaLayer&&<small>{scan.nasa_lhasa?.active_product==='tomorrow'?'Tomorrow':'Today'} · {nasaResolution(scan)}{!scan.nasa_lhasa?.native_pixels_geojson_by_product?.[scan.nasa_lhasa?.active_product??'today']?' · H3 display grid':''}</small>}{predictionModel==='nasa_lhasa_2'&&!nasaLayer&&<small>Terra terrain / physical context</small>}{nasaLayer&&reference&&!allReference&&<><small>Reference index · unvalidated</small><div style={{height:4,background:referenceGradient}}/></>}<small>{nasaLayer&&allReference?'Unvalidated reference index. ':''}Gray: data unavailable{layer==='nisar_radar'?'. Coherence is not a deformation rate.':''}</small></div>}
   </section>;
 }

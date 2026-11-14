@@ -101,7 +101,8 @@ class AutonomousAPI(unittest.IsolatedAsyncioTestCase):
                 'history':[{'role':'user','content':'What is the column?'},{'role':'assistant','content':'Inspect the current evidence.'}], 'autonomous':True})
         self.assertEqual(response.status_code,200,response.text);result=response.json()
         self.assertEqual(result['scenario_id'],now['scenario_id']);self.assertEqual(result['briefing_guard'],'VERIFIED_TEMPLATE')
-        self.assertEqual(result['model_error'],'ConnectError');self.assertTrue(result['bound_claims'])
+        self.assertIsNone(result['model_error']);self.assertTrue(result['bound_claims'])
+        self.assertEqual(result['fallback_reason'],'PERSONAL_API_KEY_REQUIRED')
         self.assertNotIn('apply_scenario',[a['type'] for a in result['ui_action']['actions']])
         self.assertTrue(all(a['h3_index']=='893969a6a5bffff' for a in result['ui_action']['actions']))
 

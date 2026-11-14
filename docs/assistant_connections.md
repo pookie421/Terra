@@ -1,48 +1,42 @@
-# Assistant connections and API keys
+# Assistant models and personal API keys
 
-People using a shared deployment do **not** need personal API keys. The deployment owner configures credentials once on the backend. Public weather, terrain and NASA LHASA requests do not require visitors to supply a key. Earthdata authentication is needed for supported authenticated NISAR data access; local subsets can also be used.
+Open **Assistant → AI Model & API Key**, or **Options → AI Model & API Key**. Choose a provider, enter its model ID, paste your API key, and save. The model ID is editable so you can use a supported model available in your own account.
 
-The **Options → Connections** view reports deployment configuration. It does not expose keys, edit global secrets, or claim a provider is healthy merely because configuration exists. It links here for the installation owner.
+| Provider | Connection |
+|---|---|
+| OpenAI | OpenAI chat completions |
+| Google Gemini | Gemini's OpenAI-compatible endpoint |
+| Anthropic Claude | Anthropic Messages API |
+| Groq | Groq's OpenAI-compatible endpoint |
+| OpenRouter | OpenRouter chat completions; use its model identifiers |
+| Custom endpoint | A public HTTPS OpenAI-compatible base URL, including supported hosted Qwen services |
 
-## Configure an assistant
+The selected provider must support structured JSON responses with the requested model. Provider/model availability, quotas and usage charges belong to your account. A saved key means configuration is present; a successful verified reply establishes that the selected service responded.
 
-From the repository root, run:
+## Personal keys only
 
-```bash
-python scripts/configure_assistant.py
-```
+Generated assistant prose uses the key supplied with that request. Public chat endpoints do not fall back to an operator's paid key, local Ollama service or default server model. No shared AI subscription or GPU server is required.
 
-For the current hosted-assistant approach, choose a hosted compatible API. Local Ollama remains an option for existing installations. The helper prompts for the endpoint, model and a hidden API key, validates the configuration and saves it to the ignored `.env`. It preserves the Earthdata token and other provider settings. It makes no billable provider call.
+The masked key is kept in this tab's browser session storage and sent over HTTPS to this deployment's backend for the selected provider request. It is excluded from response bodies, validation errors, URLs, exports and application logs, and is not saved to a server file. **Clear key** removes it from the active settings. Provider/model preferences are independent of the landslide prediction selector.
 
-Restart the backend with the environment file:
+Without a key, **deterministic mode** still explains verified telemetry and executes supported map commands. It is visibly marked as a verified template. No paid language-model request is made.
 
-```bash
-python -m uvicorn backend.api.main:app --env-file .env --host 127.0.0.1 --port 8000
-```
+## What the assistant receives
 
-Hosted configuration uses these server-side variables:
+The selected provider receives your message, bounded conversation history and the active analysis evidence: scan/state/cell identifiers, the selected prediction model, applicable NASA daily product, source summaries, conditional physical results and forecast/runout context. Your API key is an authentication header to the provider, not prompt content.
 
-```dotenv
-TERRA_LLM_PROVIDER=openai_compatible
-TERRA_LLM_BASE_URL=https://YOUR_PROVIDER_ENDPOINT/v1
-TERRA_LLM_MODEL=YOUR_JSON_CAPABLE_MODEL
-TERRA_LLM_API_KEY=YOUR_PROVIDER_KEY
-```
+The server checks numeric bindings, state identity and the user's permitted action plan before rendering generated prose or map commands. Short public agent steps describe evidence and intended actions; they are not private model deliberation. A model change, cell change, forecast change or NASA product change cancels stale replies/actions.
 
-Use the base URL and model identifier from your provider console. Do not append `/chat/completions`. Qwen's current endpoints can depend on workspace and region; use an API key for the same region. [Alibaba compatible API guide](https://www.alibabacloud.com/help/en/model-studio/compatibility-of-openai-with-dashscope). [OpenRouter](https://openrouter.ai/developers) also offers a compatible endpoint for multiple model families.
+**VERIFIED_LLM_PROSE** identifies generated prose that passed those checks. **VERIFIED_TEMPLATE** identifies the deterministic path. Provider failures and rejected prose remain distinct; neither verification label validates the geophysical model itself.
 
-Select a model supporting bounded, non-streaming JSON output. On Alibaba Qwen endpoints the client disables thinking mode for this protocol; thinking-only models need a different protocol and are not supported here. OpenRouter requests require endpoint support for the supplied parameters. JSON syntax alone does not establish evidence correctness: the server still verifies numeric claims and authorized map actions. [Qwen structured-output guidance](https://help.aliyun.com/en/model-studio/qwen-structured-output).
+## Custom endpoints
 
-Local inference remains available with `TERRA_LLM_PROVIDER=ollama`. Leave `TERRA_LLM_MODEL` empty to discover the existing custom Qwen/Qwen2.5 service, or set an installed local model explicitly. Existing `TERRA_QWEN_URL` and the trained-adapter endpoint discovery continue to work. The previous Windows/QLoRA plan is [archived](legacy/windows_5070ti.md); its code remains available for research, but local GPU training is not a website prerequisite.
+Enter the provider's public HTTPS base URL, without appending chat/completions. Private addresses, local network endpoints, embedded credentials, query-string secrets and redirects are rejected by the public backend. DNS resolution is checked and the connection is pinned to the verified address while preserving TLS hostname verification.
 
-## What the hosted model does
+For Qwen, use a compatible hosted endpoint and a JSON-capable model from the same region as your API key, or select a Qwen model through OpenRouter. Existing local/CLI research transports remain separate from the public website's personal-key policy. The retired [Windows training workflow](legacy/local_llm_training.md) is not a website requirement.
 
-The assistant receives the selected scan's bounded physical column, source summaries, conversation context and authorized display plan. It explains that evidence and may propose only the actions authorized by the user's request. The physical solver, rainfall/terrain classifiers, NASA comparison and NISAR processing remain on the backend.
+## Prediction models and satellite access
 
-A hosted API avoids the prerequisite of GPU fine-tuning for chat. It introduces usage charges, network latency, quotas and external processing of the selected evidence and messages. Evaluate verified answer quality and action completion on held-out prompts before choosing a model or deciding that fine-tuning adds value. No claim of improved landslide prediction follows from changing the chat model.
+**Terra In House Model**, **NASA LHASA** and **Rainfall baseline** select landslide analyses; they do not select the assistant provider. NASA's official Today/Tomorrow products retain their native support and do not acquire Terra's 72-hour forecast capability.
 
-Provider failures use the existing verified template or withheld-prose outcome. `VERIFIED_LLM_PROSE` means the returned prose passed the project's evidence checks; it does not certify global predictive skill. Keys are not sent to the browser, stored in browser storage, included in URLs, or returned through `/api/v1/connections`. Protect a public deployment with authentication, request limits and a spending budget before offering shared paid chat access.
-
-## Three primary prediction choices
-
-The main interface offers **Terra In House Model**, **NASA LHASA**, and **Rainfall baseline**. Physics-only and weather/terrain results remain in advanced diagnostics. These are landslide prediction choices, independent of the assistant's language-model provider. The existing benchmark still favors rainfall-only on aggregate; simplifying the interface does not remove that result.
+Public weather, terrain and LHASA services do not need visitors' AI keys. Authenticated measured NISAR extraction uses a separately configured server-side Earthdata token. The radar panel shows whether extraction is processing, measured pixels are available, authentication is needed or the area has no valid product pixels. A discovered granule alone is not a radar measurement. See [NASA and radar methods](nasa_radar_comparison.md).

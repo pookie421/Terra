@@ -31,9 +31,9 @@ Do not set `VITE_API_URL` for this single-origin image. Do not copy a local `.en
 
 ## Optional sources and assistant
 
-For hosted prose, add the server-side `TERRA_LLM_PROVIDER`, `TERRA_LLM_BASE_URL`, `TERRA_LLM_MODEL` and `TERRA_LLM_API_KEY` variables through Railway's secret settings. Use [assistant setup](assistant_connections.md) for compatible providers. Leaving the assistant unconfigured preserves verified templates and deterministic app commands. No model download or local GPU service is required.
+Generated assistant prose uses each visitor's personal API key, configured in **AI Model & API Key** and supplied per request. Do not add a shared paid LLM key to the website's server settings: public chat ignores server assistant credentials. Verified templates and deterministic map commands work without a key. See [assistant setup](assistant_connections.md). No model download or GPU service is required.
 
-Authenticated Earthdata access uses `EARTHDATA_TOKEN`. Existing measured NISAR subsets are external files: upload approved subsets separately and configure their manifest paths. A token or a Git clone alone does not provide measured global NISAR rasters. Never put credentials in frontend build variables or source control.
+Authenticated Earthdata access uses the protected server variable `EARTHDATA_TOKEN`. Supported NISAR products can be extracted automatically through NASA Harmony as bounded spatial/variable subsets. Processing may outlive the scan; the radar panel can recheck the same job without reacquiring other environmental feeds. Actual acquisition coverage, product variables, authorization and valid pixels still determine measured availability. Approved external local subsets and explicit manifests remain supported. Never put credentials or provider rasters in frontend build variables or source control.
 
 ## Verify the actual deployed service
 
@@ -49,7 +49,7 @@ After readiness passes, a bounded live coordinate check can establish that the c
 
 Use one worker and one replica. Scan/forecast states remain in process memory, with a shared 24-state capacity. Restarts, redeployments and eviction can invalidate browser scan IDs; rescan the location to recover. A volume preserves terrain files, not active scan states. The cache quota coordinates one process only.
 
-Admission limits bound simultaneous work; they are not per-user quotas, authentication or a paid-chat spending cap. Keep anonymous traffic modest, watch upstream quotas and resource use, and add user quotas before offering a shared funded model at scale. Durable state and a job layer are required before horizontal scaling or a promise that user sessions survive deployments.
+Admission limits bound simultaneous work; they are not per-user quotas or authentication. Visitors fund their own generated AI calls. Watch environmental-provider quotas and resource use; NISAR extraction uses the deployment's Earthdata access. Durable state is required before horizontal scaling or a promise that user sessions survive deployments. Harmony job labels allow lookup of provider work after a process restart, while active map scan IDs still expire.
 
 The website exposes experimental conditional hazard estimates and source provenance. Hosting does not establish operational warning readiness or LHASA-equivalent predictive skill.
 

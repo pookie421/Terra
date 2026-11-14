@@ -59,6 +59,34 @@ class LhasaNativeSampling(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['mode'], 'MIXED_LIVE_AND_REFERENCE')
         self.assertEqual(result['product_version'], 'NOT_DECLARED_BY_SERVICE')
         self.assertIsNone(result['product_valid_time_utc'])
+        self.assertFalse(result['capabilities']['supports_72h_forecast'])
+        self.assertFalse(result['capabilities']['supports_100m_predictions'])
+        self.assertEqual(result['capabilities']['forecast_horizons_hours'], [])
+        pixels = result['native_pixels_geojson_by_product']['today']['features']
+        self.assertEqual(len(pixels), 1)  # Shared official pixel, not two H3 predictions.
+        self.assertEqual(pixels[0]['properties']['value'], 0.)
+        self.assertEqual(pixels[0]['properties']['source_resolution_arcsec'], [30., 30.])
+        self.assertEqual(result['by_h3']['a']['coarse_pixel_id_by_product']['today'],
+                         result['by_h3']['a']['coarse_pixel_id'])
+
+    async def test_each_product_keeps_its_own_native_grid_geometry(self):
+        async def handler(request):
+            if not request.url.path.endswith('getSamples'):
+                size = 1/60 if 'Tomorrow' in request.url.path else 1/120
+                return httpx.Response(200, json={'extent': {'xmin': -180., 'ymax': 90.,
+                    'spatialReference': {'wkid': 4326}}, 'pixelSizeX': size, 'pixelSizeY': size})
+            x, y = json.loads(request.url.params['geometry'])['points'][0]
+            return httpx.Response(200, json={'samples': [{'location': {'x': x, 'y': y},
+                'value': '3' if 'Susceptibility' in request.url.path else '.25'}]})
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            result = await fetch_lhasa(client, [cell()])
+        row = result['cells'][0]
+        self.assertNotEqual(row['coarse_pixel_id_by_product']['today'], row['coarse_pixel_id_by_product']['tomorrow'])
+        pixels = result['native_pixels_geojson_by_product']
+        self.assertEqual(pixels['today']['features'][0]['properties']['source_resolution_arcsec'], [30., 30.])
+        self.assertEqual(pixels['tomorrow']['features'][0]['properties']['source_resolution_arcsec'], [60., 60.])
+        ring = pixels['tomorrow']['features'][0]['geometry']['coordinates'][0]
+        self.assertAlmostEqual(ring[1][0] - ring[0][0], 1/60)
 
     async def test_out_of_domain_keeps_explicit_reference_and_no_nasa_probability(self):
         async def handler(request):
@@ -102,6 +130,8 @@ class NisarMetadata(unittest.IsolatedAsyncioTestCase):
         async def handler(request):
             calls.append(request)
             self.assertNotIn('authorization', request.headers)
+            if request.url.host == 'harmony.earthdata.nasa.gov':
+                return httpx.Response(200, json={'conceptId': 'C123-ASF', 'summary': {}, 'variables': []})
             if request.url.path.endswith('.umm_json'):
                 return httpx.Response(200, json={'items': [{'meta': {'concept-id': 'G123-ASF'},
                     'umm': {'CollectionReference': {'ShortName': 'NISAR_L2_GUNW_PROVISIONAL_V1'},
@@ -121,7 +151,8 @@ class NisarMetadata(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result['by_h3']['a']['nisar_los_velocity_mm_yr'])
         self.assertNotIn('must-not-be-exposed', json.dumps(result))
         self.assertNotIn('private=', json.dumps(result))
-        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(calls), 3)  # Public CMR/UMM plus collection capability check.
+        self.assertEqual(result['measurement_access']['status'], 'SUBSET_UNAVAILABLE')
 
     async def test_dateline_search_deduplicates_granules_and_preserves_total_hits(self):
         async def handler(request):

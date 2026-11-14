@@ -502,6 +502,10 @@ class GlobalScanService:
             while len(self._scan_states)>24:self._scan_states.popitem(last=False)
         return response
 
+    async def refresh_radar_state(self,scan_id,scenario_id):
+        from .radar_refresh import refresh_radar_scan
+        return await refresh_radar_scan(self,scan_id,scenario_id)
+
     async def apply_scenario(self,scan_id,scenario_id,changes):
         state=self.get_scan_state(scan_id,scenario_id)
         if state['response'].get('forecast_view',{}).get('hour',0)>0:

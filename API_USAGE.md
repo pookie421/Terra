@@ -94,6 +94,9 @@ The model receives one selected physical column, its full covariance/sensitiviti
   "scenario_id": "displayed-state-id",
   "selected_h3_index": "cell-in-this-scan",
   "active_prediction_model": "terra_physics_ml",
+  "provider": "openai",
+  "model": "gpt-4o-mini",
+  "nasa_product": "today",
   "autonomous": true,
   "history": [
     {"role": "user", "content": "What controls the mechanical margin?"},
@@ -104,6 +107,10 @@ The model receives one selected physical column, its full covariance/sensitiviti
 
 Submit to `POST /api/v1/chat` (`/api/chat` and `/api/v1/agent/chat` remain aliases). History is bounded to twelve messages. The server validates the selected cell and active model and supplies current column/envelope, mathematical features, forecast/state identity, conditional corridor and provider provenance. In autonomous mode, chat cannot invent forcing changes.
 
+Send the personal credential in **`X-LLM-API-Key`**. A body `api_key` is accepted for compatible clients; the header takes precedence. Providers are `openai`, `gemini`, `anthropic`, `openrouter`, `groq` and `custom_openai`. The custom provider also requires `base_url`, a public HTTPS base URL without query parameters, embedded credentials or redirects. Public chat uses request credentials only: no server-key or local-model fallback. With no key, verified deterministic templates and navigation remain active. Credentials are excluded from serialization, validation errors and application logs. The response's `model_provenance` identifies provider/model, request credential scope and verified-response versus unchecked availability.
+
+For NASA, `nasa_product` selects the official relative `today` or `tomorrow` product independently of Terra's hourly forecast. Its selected score and action ranking use that product's official values; reference indices are not substituted. Product selection is part of the browser's conversation identity and stale-response guard.
+
 An initial navigation request can omit scan/state/cell IDs. For example, `{"message":"Take me to 11.548, 76.134, switch to NASA LHASA and then back to TERRA-SHIELD, and inspect the steepest cliff","autonomous":true}` returns a validated UI plan. The browser performs the scan once, waits for its returned grid, and resolves later cell selectors against that new state. A plan does not assert that source acquisition or inspection already succeeded.
 
 `ui_action.actions` supports ordered chains of these commands:
@@ -113,7 +120,7 @@ An initial navigation request can omit scan/state/cell IDs. For example, `{"mess
 | `scan_coordinates` | `latitude`, `longitude`, optional `label` |
 | `search_location` | `query` |
 | `select_prediction_model` | `model`: one of the five IDs above |
-| `set_time_horizon` | `horizon`: `now`, `t_24h`, `t_48h`, `t_72h`, `peak_72h` |
+| `set_time_horizon` | Terra: `now`, `t_24h`, `t_48h`, `t_72h`, `peak_72h`; NASA: `nasa_today`, `nasa_tomorrow` |
 | `set_map_layer` | `layer`: `probability`, `fs_mid`, `lhasa_2`, `nisar_radar`, `slope`, `pore_pressure` |
 | `fly_to_cell` | `h3_index` or symbolic `target`; optional `pitch`, `bearing`, `zoom` |
 | `inspect_cell` | `h3_index` or symbolic `target` |
@@ -121,9 +128,15 @@ An initial navigation request can omit scan/state/cell IDs. For example, `{"mess
 
 Symbolic targets are `steepest`, `riskiest`, `selected`, `lowest_fs` and `flattest`. Fixed H3 IDs must belong to the bound state. Actions carry originating nullable `scan_id`/`scenario_id` and `state_scope`; post-scan actions use `chain` scope. The executor validates the origin, runs each command in order, reports completion/failure and cancels stale work after a user state change. UI action horizon names map to the shorter forecast route keys above.
 
-The response includes `clean_markdown`, `briefing_guard`, active IDs, `bound_claims`, `numeric_audit_passed`, `thought_steps` and `ui_action.actions`. Each public step has `step`, `phase` and `reasoning` fields containing short intent, evidence or action summaries. They are not private model deliberation or proof that an action ran. Execution results are recorded separately by the browser. Qwen returns structured prose with numeric JSON-pointer bindings; the server verifies/render these values. Valid output is `VERIFIED_LLM_PROSE`. When the local model service cannot be reached, `VERIFIED_TEMPLATE` is an explicit deterministic fallback with service-error metadata. A responding service without compatible weights is `MODEL_UNAVAILABLE`; invalid generated prose is withheld after retry. Templates and model prose are visibly distinct.
+The response includes `clean_markdown`, `briefing_guard`, active IDs, `bound_claims`, `numeric_audit_passed`, `thought_steps` and `ui_action.actions`. Each public step has `step`, `phase` and `reasoning` fields containing short intent, evidence or action summaries. They are not private model deliberation or proof that an action ran. Execution results are recorded separately by the browser. The selected provider returns structured prose with numeric JSON-pointer bindings, verified and rendered by the server. Valid output is `VERIFIED_LLM_PROSE`; no-key/provider-unavailable responses retain `VERIFIED_TEMPLATE`, while invalid generated prose is withheld after retry. Templates and model prose are visibly distinct.
 
-The frontend retains conversation messages with state/model identity, displays numeric citations, and rejects stale responses/actions after a coordinate, horizon, selected-cell or model change. The current hosted-assistant approach uses operator-configured `TERRA_LLM_PROVIDER=openai_compatible`, `TERRA_LLM_BASE_URL`, `TERRA_LLM_MODEL` and `TERRA_LLM_API_KEY`; it sends the same bounded evidence through `/chat/completions` and applies the same prose/action guards. Follow [assistant connections](docs/assistant_connections.md) for configuration. Configuration is not a successful live provider test, and mocked protocol checks do not establish a provider/model's answer quality.
+The frontend retains conversation messages with state/model/product identity, displays numeric citations, and rejects stale responses/actions after a coordinate, horizon, selected-cell, provider or model change. **AI Model & API Key** keeps personal settings in browser session storage. Follow [assistant connections](docs/assistant_connections.md). Configuration is not a successful live provider test, and mocked protocol checks do not establish a provider/model's answer quality. Legacy direct Python/CLI assistant transports are separate; their environment credentials do not fund public chat.
+
+## Refresh measured radar evidence
+
+`POST /api/v1/scans/{scan_id}/radar/refresh` accepts `{"scenario_id":"current-condition-state-id"}`. It rechecks NISAR processing and retrieves supported ready subsets, reuses the retained weather/terrain/other sources, and returns a newly identified full scan. The previous scan remains immutable. The browser replaces its base scan and invalidates stale conversation/actions. This route shares the bounded analysis admission budget.
+
+`nisar.measurement_access` reports authentication, processing jobs, retry timing, measured availability and no-valid-pixel/coverage states. Discovery metadata and processing jobs are not measurements. Native masks and acquisition dates remain attached to returned measured pixels. Refreshing radar does not claim that the other providers were refreshed or that the approved classifier was retrained with SAR features.
 
 For existing local installations, the default local model service is `http://localhost:11434`. The adapter server can choose loopback 8001 when 11434 is occupied and writes `artifacts/qwen_copilot_endpoint.json` for dynamic discovery. An explicit constructor URL or `TERRA_QWEN_URL` overrides that discovery. Only safe loopback endpoint metadata is accepted. The [archived RTX 5070 Ti guide](docs/legacy/windows_5070ti.md) preserves training, restart commands and optional GGUF/Ollama export; local GPU training is not required for the website. Both the historical trained context and direct-server context are capped at 8192 tokens, with up to 1536 completion tokens reserved for the structured reply; overflow is rejected without truncation. Actual Windows/CUDA/QLoRA execution remains a separate, unverified target-machine requirement.
 

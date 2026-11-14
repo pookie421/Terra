@@ -3,7 +3,7 @@
 CMR discovery is public. Product data need Earthdata credentials or local files.
 GUNW coherence is dimensionless; a repeat-pair phase is not an annual velocity.
 GCOV HV/HH power ratio is an uncalibrated radar index, not soil water content.
-Source: https://nisar-docs.asf.alaska.edu/earthaccess/ and /data-products/.
+Source: https://nisar-docs.asf.alaska.edu/earthaccess/ and /products-overview/.
 
 TERRA_NISAR_MANIFEST (or local_manifest=path/dict) describes optional subsets:
   {"version":"nisar_subset_manifest_v1", "assets":[
@@ -31,10 +31,11 @@ import os
 from pathlib import Path
 from statistics import median
 import time
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from .nasa_lhasa import _cells, _finite
 from .natural_events import _point_in_ring
+from .nisar_harmony import allowed_result_url, measured_subsets
 
 CMR = 'https://cmr.earthdata.nasa.gov/search/granules.json'
 CMR_UMM = 'https://cmr.earthdata.nasa.gov/search/granules.umm_json'
@@ -261,7 +262,8 @@ def _sample_raster(source, asset, points):
             if value is not None:
                 values[point['h3_index']] = value
         support = {'crs': str(dataset.crs), 'pixel_size_native_units': list(dataset.res),
-                   'interpolation': 'nearest source pixel', 'raster_width': dataset.width, 'raster_height': dataset.height}
+                   'interpolation': 'nearest source pixel', 'raster_width': dataset.width, 'raster_height': dataset.height,
+                   'transform_native': list(dataset.transform), 'bounds_native': list(dataset.bounds)}
     return observable, values, support
 
 
@@ -320,22 +322,55 @@ async def _read_asset(client, asset, root, points, token, timeout_s):
     _validate_asset(asset)
     url = asset.get('url')
     if url:
-        if not token or not _allowed_data_host(url):
+        harmony = asset.get('metadata_origin') == 'NASA_HARMONY_OFFICIAL_CMR_VARIABLE_SUBSET'
+        if not token or not (_allowed_data_host(url) or harmony and allowed_result_url(url)):
             raise ValueError('Authenticated raster reading requires token and an allowlisted NASA/ASF HTTPS host')
-        content = bytearray()
-        async with client.stream('GET', url, headers={'Authorization': 'Bearer ' + token}, timeout=timeout_s, follow_redirects=False) as response:
-            response.raise_for_status()
-            size = response.headers.get('content-length')
-            if size and int(size) > MAX_REMOTE_BYTES:
-                raise ValueError('Remote subset exceeds 16 MiB; provide a local windowed subset')
-            async for part in response.aiter_bytes():
-                content.extend(part)
-                if len(content) > MAX_REMOTE_BYTES:
-                    raise ValueError('Remote subset exceeds 16 MiB; provide a local windowed subset')
+        async def download(target, limit):
+            for _ in range(4):
+                if not (_allowed_data_host(target) or harmony and allowed_result_url(target)):
+                    raise ValueError('Untrusted NISAR raster result host')
+                if urlsplit(target).hostname == 'urs.earthdata.nasa.gov':
+                    raise PermissionError('Earthdata authorization is required for the raster')
+                content = bytearray()
+                # Harmony's service-results endpoint can redirect to a signed
+                # CloudFront/S3 URL. Re-evaluate every host and drop the token.
+                headers = {'Authorization': 'Bearer ' + token} if _allowed_data_host(target) else {}
+                async with client.stream('GET', target, headers=headers, timeout=timeout_s, follow_redirects=False) as response:
+                    if response.status_code in (301, 302, 303, 307, 308):
+                        location = response.headers.get('location')
+                        if not location:
+                            raise ValueError('Raster redirect has no destination')
+                        target = urljoin(target, location)
+                        continue
+                    response.raise_for_status()
+                    if 'text/html' in response.headers.get('content-type', '').lower():
+                        raise PermissionError('Authentication HTML is not a NISAR raster')
+                    size = response.headers.get('content-length')
+                    if size and int(size) > limit:
+                        raise ValueError('Remote subset exceeds 16 MiB; provide a local windowed subset')
+                    async for part in response.aiter_bytes():
+                        content.extend(part)
+                        if len(content) > limit:
+                            raise ValueError('Remote subset exceeds 16 MiB; provide a local windowed subset')
+                return bytes(content)
+            raise ValueError('Too many raster redirects')
+        content = await download(url, MAX_REMOTE_BYTES)
+        denominator_url = asset.get('denominator_url')
+        denominator = await download(denominator_url, MAX_REMOTE_BYTES - len(content)) if denominator_url else None
         from rasterio.io import MemoryFile
         def sample():
-            with MemoryFile(bytes(content)) as memory:
-                return _sample_raster(memory.name, asset, points)
+            with MemoryFile(content) as memory:
+                result = _sample_raster(memory.name, asset, points)
+            if denominator is None:
+                return result
+            with MemoryFile(denominator) as memory:
+                denominator_result = _sample_raster(memory.name, asset, points)
+            for key in ('crs', 'transform_native', 'raster_width', 'raster_height'):
+                if result[2][key] != denominator_result[2][key]:
+                    raise ValueError('GCOV power channels do not share the same native pixel grid')
+            ratios = {identity: value / denominator_result[1][identity] for identity, value in result[1].items()
+                if identity in denominator_result[1] and denominator_result[1][identity] > 0}
+            return result[0], ratios, dict(result[2], derivation='HVHV / HHHH from the same granule and native pixel; native mask union')
         result = await asyncio.to_thread(sample)
         digest, verification = hashlib.sha256(content).hexdigest(), 'ACTUAL_DOWNLOADED_SUBSET_BYTES'
         source = _url(url)
@@ -364,6 +399,14 @@ async def _read_asset(client, asset, root, points, token, timeout_s):
         'sha256': digest, 'hash_verification': verification,
         'sample_values_sha256': hashlib.sha256(json.dumps(values, sort_keys=True, allow_nan=False).encode()).hexdigest(),
         'support': support, 'interpretation': 'UNCALIBRATED_HV_HH_RADAR_RATIO_NOT_SOIL_WATER' if observable == 'polarimetric_ratio' else 'RETRIEVED_RADAR_OBSERVABLE'}
+    for key in ('collection_concept_id', 'collection_short_name', 'granule_concept_id', 'product_maturity',
+            'product_version', 'variable_concept_ids', 'source_dataset_paths', 'harmony_job_id', 'quality_scope'):
+        if asset.get(key) is not None:
+            provenance[key] = asset[key]
+    if url and asset.get('denominator_url'):
+        provenance['denominator_source'] = _url(asset['denominator_url'])
+        provenance['denominator_sha256'] = hashlib.sha256(denominator).hexdigest()
+        provenance['derivation'] = 'HVHV / HHHH linear power; same granule and native pixel; HH>0 and HV>=0'
     return observable, values, provenance
 
 
@@ -386,9 +429,9 @@ async def fetch_nisar(client, latitude, longitude, *, cells=None, bbox=None, tim
     errors, granules, hits = [], [], []
     metadata_live = False
 
-    async def query(rectangle):
-        params = [('short_name[]', name) for name in COLLECTIONS]
-        params += [('bounding_box', ','.join(map(str, rectangle))), ('page_size', str(MAX_GRANULES)), ('sort_key[]', '-start_date')]
+    async def query(rectangle, collections=COLLECTIONS, page_size=MAX_GRANULES):
+        params = [('short_name[]', name) for name in collections]
+        params += [('bounding_box', ','.join(map(str, rectangle))), ('page_size', str(page_size)), ('sort_key[]', '-start_date')]
         response = await client.get(CMR, params=params, timeout=timeout_s)
         response.raise_for_status()
         payload = response.json()
@@ -413,6 +456,25 @@ async def fetch_nisar(client, latitude, longitude, *, cells=None, bbox=None, tim
                     continue
                 unique[item['cmr_concept_id'] or item['granule_id']] = item
         granules = sorted(unique.values(), key=lambda g: g.get('time_start') or '', reverse=True)[:MAX_GRANULES]
+        # GCOV has more recent acquisitions than repeat-pair GUNW. A combined
+        # newest-12 search can otherwise hide every available interferogram.
+        # Reserve a bounded GUNW discovery query when the first page is GCOV-only.
+        if token and granules and not any('GUNW' in str(g['granule_id']) for g in granules) and metadata_deadline - time.monotonic() > .1:
+            try:
+                extra = await asyncio.wait_for(asyncio.gather(*(query(rectangle,
+                    tuple(name for name in COLLECTIONS if 'GUNW' in name), MAX_GRANULES // 2)
+                    for rectangle in rectangles)), timeout=max(.001, metadata_deadline - time.monotonic()))
+                for entries, _ in extra:
+                    for entry in entries:
+                        item = parse_granule(entry)
+                        if item['cmr_concept_id'] and item['granule_id']:
+                            unique[item['cmr_concept_id']] = item
+                ordered = sorted(unique.values(), key=lambda g: g.get('time_start') or '', reverse=True)
+                gunw = [g for g in ordered if 'GUNW' in str(g['granule_id'])][:MAX_GRANULES // 2]
+                others = [g for g in ordered if 'GUNW' not in str(g['granule_id'])][:MAX_GRANULES - len(gunw)]
+                granules = sorted(gunw + others, key=lambda g: g.get('time_start') or '', reverse=True)
+            except Exception:
+                errors.append('GUNW_DISCOVERY_UNAVAILABLE')
         # Feed JSON often omits orbital direction. UMM supplies it when present.
         if granules and metadata_deadline - time.monotonic() > .1 and any(not g['orbit_direction'] for g in granules):
             params = [('concept_id[]', g['cmr_concept_id']) for g in granules if g['cmr_concept_id']]
@@ -473,26 +535,62 @@ async def fetch_nisar(client, latitude, longitude, *, cells=None, bbox=None, tim
             'measurement_provenance': {}, 'radar_constraint_status': 'NO_MEASURED_RADAR_CONSTRAINT',
             'strength_relation_status': 'NO_CALIBRATED_STRENGTH_RELATION'}
     measured_assets = []
-    for asset in assets:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            errors.append('RASTER_READ_AGGREGATE_TIMEOUT')
-            break
+    async def sample_assets(descriptors):
+        for asset in descriptors:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                errors.append('RASTER_READ_AGGREGATE_TIMEOUT')
+                break
+            try:
+                observable, values, provenance = await asyncio.wait_for(
+                    _read_asset(client, asset, root, points, token, remaining), timeout=remaining)
+                provenance['granule_identity_in_cmr_results'] = any(
+                    g['granule_id'] == provenance.get('granule_id') for g in granules)
+                if values:
+                    measured_assets.append(provenance)
+                for identity, value in values.items():
+                    by_h3[identity][FIELDS[observable]] = value
+                    by_h3[identity]['measurement_provenance'][observable] = provenance
+                    by_h3[identity]['radar_constraint_status'] = 'MEASURED_RADAR_CONTEXT'
+                    by_h3[identity]['nisar_latest_acquisition_utc'] = _latest([
+                        by_h3[identity]['nisar_latest_acquisition_utc'], provenance.get('acquisition_utc'), provenance.get('time_end')])
+            except Exception as exc:
+                errors.append('RASTER_' + type(exc).__name__.upper() + (': ' + str(exc) if isinstance(exc, ValueError) else ''))
+    await sample_assets(assets)
+    missing_observables = [observable for observable in ('coherence', 'polarimetric_ratio')
+        if not any(row[FIELDS[observable]] is not None for row in by_h3.values())]
+    automatic_assets, measurement_access = [], {'method': 'LOCAL_OR_AUTHENTICATED_RASTER_SUBSET',
+        'authentication_configured': bool(token), 'status': 'SUBSET_UNAVAILABLE' if token else 'AUTH_REQUIRED',
+        'retry_after_seconds': None, 'jobs': [], 'message': 'The deployment needs Earthdata access to retrieve measured NISAR subsets.'
+            if not token else 'Radar acquisition did not complete within this request budget.'}
+    if missing_observables and deadline - time.monotonic() > .02:
+        eligible_granules = [g for g in granules if any(
+            _covers(g, p['latitude'], p['longitude']) is not False for p in points)]
         try:
-            observable, values, provenance = await asyncio.wait_for(
-                _read_asset(client, asset, root, points, token, remaining), timeout=remaining)
-            provenance['granule_identity_in_cmr_results'] = any(
-                g['granule_id'] == provenance.get('granule_id') for g in granules)
-            if values:
-                measured_assets.append(provenance)
-            for identity, value in values.items():
-                by_h3[identity][FIELDS[observable]] = value
-                by_h3[identity]['measurement_provenance'][observable] = provenance
-                by_h3[identity]['radar_constraint_status'] = 'MEASURED_RADAR_CONTEXT'
-                by_h3[identity]['nisar_latest_acquisition_utc'] = _latest([
-                    by_h3[identity]['nisar_latest_acquisition_utc'], provenance.get('acquisition_utc'), provenance.get('time_end')])
+            automatic_assets, measurement_access = await asyncio.wait_for(measured_subsets(
+                client, eligible_granules, rectangles, token=token, deadline=max(time.monotonic(), deadline - .05),
+                observables=missing_observables), timeout=max(.001, deadline - time.monotonic()))
+            if not metadata_live and measurement_access['status'] == 'NO_PRODUCT_COVERAGE':
+                measurement_access.update(status='SUBSET_UNAVAILABLE',
+                    message='The product catalogue was unavailable; absent coverage has not been established.')
+            raster_errors_before = len(errors)
+            await sample_assets(automatic_assets)
+            if len(errors) > raster_errors_before:
+                measurement_access['sample_error_codes'] = errors[raster_errors_before:]
         except Exception as exc:
-            errors.append('RASTER_' + type(exc).__name__.upper() + (': ' + str(exc) if isinstance(exc, ValueError) else ''))
+            measurement_access.update(status='SUBSET_UNAVAILABLE',
+                message='The bounded raster request did not finish; no radar values were inferred.')
+            errors.append('HARMONY_' + type(exc).__name__.upper())
+    if measured_assets:
+        measurement_access.update(status='MEASURED_AVAILABLE',
+            message='Valid NISAR pixels were sampled. Acquisition age, native masks and observable provenance remain explicit.')
+    elif automatic_assets:
+        if measurement_access.get('sample_error_codes'):
+            measurement_access.update(status='SUBSET_UNAVAILABLE',
+                message='NASA prepared the subsets, but raster access or decoding failed. No radar values were inferred.')
+        else:
+            measurement_access.update(status='NO_VALID_PIXELS',
+                message='NASA returned rasters, but this scan has no valid sampled pixels. Native missing values were retained.')
     observed = {}
     for observable, field in FIELDS.items():
         values = sorted(row[field] for row in by_h3.values() if row[field] is not None)
@@ -512,6 +610,7 @@ async def fetch_nisar(client, latitude, longitude, *, cells=None, bbox=None, tim
         'cells': list(by_h3.values()), 'by_h3': by_h3, 'observables': observed,
         'observable_aggregation': 'Median valid sampled H3 value; see per-cell measurements for source support',
         'measured_assets': measured_assets, 'manifest_sha256': manifest_sha,
+        'measurement_access': measurement_access,
         'strength_calibration_by_h3': {key: value for key, value in (manifest.get('strength_calibration_by_h3') or {}).items() if key in by_h3},
         'radar_band': 'L', 'wavelength_m_approx': .24, 's_band_status': 'NOT_ASSUMED_FROM_L_SAR_METADATA',
         'deformation_prior': {'mean_strain': 0., 'status': 'NEUTRAL_REFERENCE_UNCONSTRAINED_WHEN_UNMEASURED',

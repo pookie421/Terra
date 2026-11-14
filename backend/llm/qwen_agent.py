@@ -212,11 +212,13 @@ class TerraShieldQwenAgent:
         history: Optional[List[Dict[str,str]]] = None,
         autonomous: bool = False,
         active_prediction_model: str = 'terra_physics_ml',
+        request_assistant=None,
+        nasa_product: str = 'today',
     ) -> Dict[str, Any]:
         if (scan_id is None)!=(scenario_id is None):raise ValueError('scan_id and scenario_id must be supplied together')
         if scan_id is not None:
             from .state_copilot import chat_active
-            return await chat_active(self,message,scan_id,scenario_id,sliders or {},agency_mode,selected_h3_index,history,autonomous,active_prediction_model)
+            return await chat_active(self,message,scan_id,scenario_id,sliders or {},agency_mode,selected_h3_index,history,autonomous,active_prediction_model,request_assistant,nasa_product)
         if autonomous:
             from .app_actions import MODELS, plan_actions, validate_actions
             from .state_copilot import planning_reply
@@ -231,7 +233,7 @@ class TerraShieldQwenAgent:
         parsed=parse_scenario_request(message,current_query,sliders)
         scan=await self._run_scan(self._scan_arguments(parsed),agency_mode)
         from .state_copilot import chat_active
-        return await chat_active(self,message,scan['scan_id'],scan['scenario_id'],{},agency_mode,selected_h3_index,history,autonomous,active_prediction_model)
+        return await chat_active(self,message,scan['scan_id'],scan['scenario_id'],{},agency_mode,selected_h3_index,history,autonomous,active_prediction_model,request_assistant,nasa_product)
     async def _available_model(self) -> Tuple[Optional[str], int]:
         self._availability_error=None
         from .model_client import assistant_config, AssistantConfigurationError

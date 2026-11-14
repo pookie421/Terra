@@ -73,7 +73,8 @@ class AdmissionMiddleware:
         elif ((path == '/api/v1/scan' and method in ('GET', 'POST'))
               or (path.startswith('/api/v1/replays/') and method == 'GET')
               or (path.startswith('/api/v1/scans/') and '/forecast/' in path and method == 'GET')
-              or (path.startswith('/api/v1/scans/') and '/scenarios/' in path and method == 'POST')):
+              or (path.startswith('/api/v1/scans/') and '/scenarios/' in path and method == 'POST')
+              or (path.startswith('/api/v1/scans/') and path.endswith('/radar/refresh') and method == 'POST')):
             budget = self.analyses
         if budget is None:
             return await self.app(scope, receive, send)

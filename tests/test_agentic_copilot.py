@@ -62,6 +62,7 @@ class OrderedPlans(unittest.TestCase):
 
     def test_semantic_cells_resolve_against_bound_evidence_without_selecting_a_label(self):
         scan=scan_fixture()
+        scan['nasa_lhasa']={'cells':[{'h3_index':RISK,'official_score':.07}]}
         self.assertEqual(plan_actions('Inspect the steepest cliff',scan,FLAT)[-1]['h3_index'],CLIFF)
         self.assertEqual(plan_actions('Compare our in-house Physics+ML model with NASA LHASA on the riskiest cell here',scan,FLAT)[-1]['h3_index'],RISK)
         actions=plan_actions('Compare the steepest cliff with the valley floor',scan,FLAT)
@@ -76,7 +77,7 @@ class OrderedPlans(unittest.TestCase):
 
     def test_riskiest_selector_uses_the_selected_prediction_model(self):
         scan=scan_fixture()
-        scan['cell_registry'][CLIFF]['prediction_scores']['nasa_lhasa_2']=.99
+        scan['nasa_lhasa']={'cells':[{'h3_index':CLIFF,'official_score':.07}]}
         scan['active_prediction_model']='nasa_lhasa_2'
         self.assertEqual(plan_actions('Inspect the riskiest cell',scan,FLAT)[-1]['h3_index'],CLIFF)
 

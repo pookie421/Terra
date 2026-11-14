@@ -20,6 +20,7 @@ export interface Cell {
   prediction_scores?:Partial<Record<PredictionModel,number|null>>;
   lhasa_probability?:number|null;lhasa_reference_score?:number|null;lhasa_susceptibility?:number|null;
   official_score?:number|null;reference_score?:number|null;active_score?:number|null;provenance?:string;
+  probability?:number|null;tomorrow_probability?:number|null;susceptibility_class?:number|null;coarse_pixel_id?:string;coarse_pixel_id_by_product?:Partial<Record<NasaProduct|'susceptibility',string>>;score_kind?:string;
   nisar_coherence?:number|null;nisar_los_velocity_mm_yr?:number|null;nisar_polarimetric_moisture_index?:number|null;
   nisar_granule_count?:number|null;nisar_latest_acquisition_utc?:string|null;nisar_mode?:string;
   nisar_measurement_provenance?:Record<string,unknown>|null;
@@ -45,13 +46,17 @@ export interface Scan {
   nasa_lhasa?:NasaLhasa;nisar?:NisarContext;
   prediction_models?:Partial<Record<PredictionModel,PredictionModelInfo>>|PredictionModelInfo[];
   prediction_scores?:Record<string,Partial<Record<PredictionModel,number|null>>>;
+  spatial_support?:{dem_nominal_pixel_size_m?:number;dem_native_support_varies?:boolean;h3_resolution?:number;h3_mean_cell_area_m2?:number};
 }
 export interface PredictionModelInfo {id?:PredictionModel;label?:string;status?:string;scope?:string;native_resolution_m?:number;product_version?:string;[key:string]:unknown}
-export interface NasaLhasa {status?:string;mode?:string;provenance?:string;label?:string;product_version?:string;native_resolution_m?:number;valid_time_utc?:string;scope?:string;reason?:string;cells?:Array<Partial<Cell>&{h3_index:string}>;[key:string]:unknown}
+export type NasaProduct='today'|'tomorrow';
+export interface NasaLhasa {status?:string;mode?:string;provenance?:string;label?:string;product_version?:string;native_resolution_m?:number;native_resolution_m_approx?:number;native_resolution_arcsec?:number;native_support?:string;product_valid_time_utc?:string|null;valid_time_utc?:string;scope?:string;reason?:string;availability?:Partial<Record<NasaProduct|'susceptibility',boolean>>;coverage?:{cells?:number;live_today_cells?:number;reference_cells?:number};active_product?:NasaProduct;native_pixels_geojson_by_product?:Partial<Record<NasaProduct|'susceptibility',FeatureCollection<Geometry,{native_pixel_id:string;product:string;value:number;source_resolution_arcsec?:number[];source?:string}>>>;cells?:Array<Partial<Cell>&{h3_index:string}>;[key:string]:unknown}
 export interface NisarGranule {granule_id?:string;collection_concept_id?:string;time_start?:string;time_end?:string;orbit_direction?:string;browse_url?:string;opendap_url?:string;[key:string]:unknown}
-export interface NisarContext {status?:string;mode?:string;scope?:string;reason?:string;granule_count?:number;latest_acquisition_utc?:string;granules?:NisarGranule[];cells?:Array<Partial<Cell>&{h3_index:string}>;[key:string]:unknown}
+export interface NisarMeasurementAccess {status?:'AUTH_REQUIRED'|'SUBSET_PENDING'|'MEASURED_AVAILABLE'|'NO_PRODUCT_COVERAGE'|'NO_VALID_PIXELS'|'SUBSET_UNAVAILABLE';authentication_configured?:boolean;method?:string;retry_after_seconds?:number|null;jobs?:Array<{job_id?:string;product_type?:string;status?:string;provider_status?:string;collection_short_name?:string;granule_id?:string;acquisition_utc?:string}>;message?:string}
+export interface NisarContext {status?:string;mode?:string;scope?:string;reason?:string;granule_count?:number;latest_acquisition_utc?:string;granules?:NisarGranule[];cells?:Array<Partial<Cell>&{h3_index:string}>;measurement_access?:NisarMeasurementAccess;[key:string]:unknown}
 export type CellTarget='steepest'|'riskiest'|'selected'|'lowest_fs'|'flattest';
-export type AgentHorizon='now'|'t_24h'|'t_48h'|'t_72h'|'peak_72h';
+export type AgentHorizon='now'|'t_24h'|'t_48h'|'t_72h'|'peak_72h'|'nasa_today'|'nasa_tomorrow';
+export type WorkspaceHorizon=HorizonKey|'nasa_today'|'nasa_tomorrow';
 interface ActionBase {scan_id?:string|null;scenario_id?:string|null;state_scope?:'bound'|'chain'}
 export type Action=ActionBase&(
   {type:'scan_coordinates';latitude:number;longitude:number;label?:string}|
@@ -66,7 +71,7 @@ export type Action=ActionBase&(
 export interface ThoughtStep {step:number;phase:string;reasoning:string}
 export interface ActionOutcome {step:number;type:string;status:'completed'|'failed';summary:string;scan_id?:string;scenario_id?:string}
 export interface BoundClaim {name:string;path:string;value:number}
-export interface ChatReply {scan_id:string|null;scenario_id:string|null;active_prediction_model?:PredictionModel;clean_markdown:string;briefing_guard:string;bound_claims?:BoundClaim[];model_error?:string;ui_action?:{actions:Action[]};updated_scan_data?:Scan;thought_steps?:ThoughtStep[]}
+export interface ChatReply {scan_id:string|null;scenario_id:string|null;active_prediction_model?:PredictionModel;nasa_product?:NasaProduct;clean_markdown:string;briefing_guard:string;bound_claims?:BoundClaim[];model_error?:string;ui_action?:{actions:Action[]};updated_scan_data?:Scan;thought_steps?:ThoughtStep[];assistant_provider?:string;model_name?:string;assistant_mode?:'byok'|'deterministic';model_provenance?:Record<string,unknown>}
 export interface Health {status?:string;engine?:string;model_ready?:boolean;model_version?:string;[key:string]:unknown}
 export interface Connections {
   scope:'deployment';

@@ -9,7 +9,7 @@ import math
 import re
 
 MODELS = ('terra_physics_ml', 'nasa_lhasa_2', 'physics_only', 'weather_terrain_ml', 'rainfall_only')
-HORIZONS = ('now', 't_24h', 't_48h', 't_72h', 'peak_72h')
+HORIZONS = ('now', 't_24h', 't_48h', 't_72h', 'peak_72h', 'nasa_today', 'nasa_tomorrow')
 LAYERS = ('probability', 'fs_mid', 'lhasa_2', 'nisar_radar', 'slope', 'pore_pressure')
 TARGETS = ('steepest', 'riskiest', 'selected', 'lowest_fs', 'flattest')
 ACTION_TYPES = ('scan_coordinates', 'search_location', 'select_prediction_model', 'set_time_horizon',
@@ -45,7 +45,9 @@ def cell_registry(scan):
         cid = selected['h3_index']; cells[cid] = {**cells.get(cid, {}), **selected}
     for record in (scan.get('nasa_lhasa') or {}).get('cells',[]):
         cid=record.get('h3_index')
-        if cid in cells:cells[cid]['lhasa_probability']=record.get('official_score')
+        if cid in cells:
+            cells[cid]['lhasa_probability']=(record.get('tomorrow_probability') if scan.get('nasa_product')=='tomorrow' else
+                                            record.get('official_score',record.get('probability')))
     return cells
 
 
@@ -70,6 +72,7 @@ def resolve_target(target, scan, selected=None, active_prediction_model='terra_p
             # Official probabilities and unvalidated proxy indices are separate
             # cohorts. A high fallback index must not outrank a NASA probability.
             return sorted(official,key=lambda item:(-item[1],item[0]))[0][0]
+        raise ValueError('The selected NASA daily product has no official cell scores to rank')
     field = 'fs_mid' if target == 'lowest_fs' else 'score' if target == 'riskiest' else 'slope_deg'
     def value(c):
         if field=='score' and active_prediction_model!='terra_physics_ml':
@@ -129,6 +132,12 @@ def validate_actions(actions, scan=None, scan_id=None, scenario_id=None, selecte
             allowed = {field}
             if raw.get(field) not in enum:
                 raise ValueError('Invalid ' + field)
+            if kind == 'set_time_horizon':
+                nasa_horizon=raw[field] in ('nasa_today','nasa_tomorrow')
+                if active_model=='nasa_lhasa_2' and not nasa_horizon:
+                    raise ValueError('NASA supports the relative Today and Tomorrow products, not exact hourly or 72-hour forecasts')
+                if active_model!='nasa_lhasa_2' and nasa_horizon:
+                    raise ValueError('NASA daily products require the NASA comparison model')
             out[field] = raw[field]
             if kind == 'select_prediction_model':active_model=raw[field]
             if kind == 'set_time_horizon':
@@ -198,11 +207,16 @@ def plan_actions(message, scan=None, selected=None):
             prefix = text[max(0, match.start()-70):match.start()]
             if re.search(r'\b(?:switch|select|use|back to|change to|compare)\b', prefix) or 'compare' in text:
                 events.append((match.start(), {'type': 'select_prediction_model', 'model': model}))
-    for match in re.finditer(r'\bpeak(?:[ -]*(?:over|of|next))?(?:\s*72\s*(?:h|hours?))?\b|(?:\bt\s*\+?\s*|\+)?\b(24|48|72)\s*(?:h(?:ours?)?|hours?)\b|\b(?:now|tomorrow)\b', message, re.I):
+    for match in re.finditer(r'\bpeak(?:[ -]*(?:over|of|next))?(?:\s*72\s*(?:h|hours?))?\b|(?:\bt\s*\+?\s*|\+)?\b(24|48|72)\s*(?:h(?:ours?)?|hours?)\b|\b(?:now|today|tomorrow)\b', message, re.I):
         value = match.group().lower()
-        if value == 'now' and not re.search(r'\b(?:show|switch|back to|return to|set|view)\b', text[max(0, match.start()-35):match.start()]):
+        if value in ('now','today') and not re.search(r'\b(?:show|switch|back to|return to|set|view)\b', text[max(0, match.start()-35):match.start()]):
             continue
-        horizon = 'peak_72h' if value.startswith('peak') else 't_24h' if value == 'tomorrow' else 'now' if value == 'now' else 't_'+match.group(1)+'h'
+        horizon = 'peak_72h' if value.startswith('peak') else 't_24h' if value == 'tomorrow' else 'now' if value in ('now','today') else 't_'+match.group(1)+'h'
+        active_model=(scan or {}).get('active_prediction_model','terra_physics_ml')
+        for _,action in sorted((event for event in events if event[0] <= match.start()),key=lambda event:event[0]):
+            if action['type']=='select_prediction_model':active_model=action['model']
+        if active_model=='nasa_lhasa_2' and value in ('now','today','tomorrow'):
+            horizon='nasa_today' if value in ('now','today') else 'nasa_tomorrow'
         events.append((match.start(), {'type': 'set_time_horizon', 'horizon': horizon}))
     layer_patterns = ((r'\b(?:nisar(?:\s+(?:l-sar|radar))?|radar)(?:\s+layer)?\b','nisar_radar'), (r'\b(?:pore[- ]pressure|pressure head)(?:\s+layer)?\b','pore_pressure'),
                       (r'\b(?:factor[- ]of[- ]safety|fs_mid|fs)(?:\s+layer)?\b','fs_mid'), (r'\bslope(?:\s+layer)?\b','slope'),

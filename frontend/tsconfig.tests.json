@@ -9,5 +9,5 @@
     "outDir": ".test-build",
     "rootDir": "src"
   },
-  "include": ["src/types.ts", "src/modelPresentation.ts", "src/actionExecutor.ts"]
+  "include": ["src/types.ts", "src/modelPresentation.ts", "src/actionExecutor.ts", "src/assistantSettings.ts"]
 }

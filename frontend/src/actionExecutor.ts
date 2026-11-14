@@ -1,14 +1,14 @@
-import {cellIn,MAP_LAYERS,PREDICTION_MODELS,type Action,type ActionOutcome,type Cell,type CellTarget,type ChatReply,type HorizonKey,type MapLayer,type PredictionModel,type Scan} from './types.js';
+import {cellIn,MAP_LAYERS,PREDICTION_MODELS,type Action,type ActionOutcome,type Cell,type CellTarget,type ChatReply,type WorkspaceHorizon,type MapLayer,type PredictionModel,type Scan} from './types.js';
 import {scanCells,criticalCell,MODEL_LABELS,LAYER_LABELS} from './modelPresentation.js';
 
 const TARGETS:CellTarget[]=['steepest','riskiest','selected','lowest_fs','flattest'];
-const HORIZON_KEYS={now:'now',t_24h:'t24',t_48h:'t48',t_72h:'t72',peak_72h:'peak'} as const;
+const HORIZON_KEYS={now:'now',t_24h:'t24',t_48h:'t48',t_72h:'t72',peak_72h:'peak',nasa_today:'nasa_today',nasa_tomorrow:'nasa_tomorrow'} as const;
 export interface ActionHandlers {
   scan:()=>Scan|null;selected:()=>string;model:()=>PredictionModel;isCurrent:()=>boolean;
   scanCoordinates:(latitude:number,longitude:number,label?:string)=>Promise<void>;
   searchLocation:(query:string)=>Promise<void>;
   selectModel:(model:PredictionModel)=>void|Promise<void>;
-  setHorizon:(horizon:HorizonKey)=>Promise<void>;
+  setHorizon:(horizon:WorkspaceHorizon)=>Promise<void>;
   setLayer:(layer:MapLayer)=>void|Promise<void>;
   flyTo:(cell:Cell,camera:{pitch?:number;bearing?:number;zoom?:number})=>void;
   inspect:(cell:Cell)=>void;
@@ -46,9 +46,9 @@ function completed(action:Action):string {
     case 'search_location':return `Searched and scanned ${action.query}.`;
     case 'select_prediction_model':return 'Prediction model: '+MODEL_LABELS[action.model]+'.';
     case 'set_map_layer':return 'Map layer: '+LAYER_LABELS[action.layer]+'.';
-    case 'set_time_horizon':return 'Forecast view: '+({now:'Now',t_24h:'+24 hours',t_48h:'+48 hours',t_72h:'+72 hours',peak_72h:'72-hour peak'}[action.horizon])+'.';
+    case 'set_time_horizon':return 'Time product: '+({now:'Now',t_24h:'+24 hours',t_48h:'+48 hours',t_72h:'+72 hours',peak_72h:'72-hour peak',nasa_today:'NASA Today',nasa_tomorrow:'NASA Tomorrow'}[action.horizon])+'.';
     case 'fly_to_cell':return 'Focused the map on the requested cell.';
-    case 'inspect_cell':return 'Opened the requested physical column and runout.';
+    case 'inspect_cell':return 'Opened the requested cell details.';
     case 'compare_cells':return 'Pinned the requested cells for comparison.';
   }
 }

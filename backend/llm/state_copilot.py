@@ -2,6 +2,7 @@
 import json,math,re
 import httpx
 from .model_client import chat_json_content, connection_summary, AssistantServiceError, AssistantConfigurationError
+from .byok_client import request_chat_json_content
 from .app_actions import (H3_TOKEN, MODELS, SCHEMA_VERSION, action_envelope, cell_registry,
                           plan_actions, public_steps, validate_actions)
 
@@ -35,7 +36,23 @@ def provider_context(scan):
             {k:radar[k] for k in (*common,'granule_count','query_hit_count','latest_acquisition_utc','measurement_status') if k in radar})
 
 
-def context(scan, active_prediction_model='terra_physics_ml'):
+def nasa_cell_context(scan, cell, product):
+    """The NASA workspace binds only to its selected official daily product."""
+    cell = dict(cell)
+    source = next((row for row in (scan.get('nasa_lhasa') or {}).get('cells', [])
+                   if row.get('h3_index') == cell.get('h3_index')), {})
+    field = 'tomorrow_probability' if product == 'tomorrow' else 'official_score'
+    value = source.get(field, source.get('probability') if product == 'today' else None)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1:
+        value = None
+    cell['lhasa_probability'] = value
+    cell['nasa_product'] = product
+    cell['lhasa_provenance'] = 'NASA_LHASA_LIVE_RASTER' if value is not None else 'NASA_PRODUCT_UNAVAILABLE'
+    cell['prediction_scores'] = {**(cell.get('prediction_scores') or {}), 'nasa_lhasa_2': value}
+    return cell
+
+
+def context(scan, active_prediction_model='terra_physics_ml', nasa_product='today'):
     p=scan.get('physics_informed_assessment',{});cell=p.get('hotspot') or scan.get('physical_assessment',{}).get('hotspot') or {}
     same=next((r for r in scan.get('physical_assessment',{}).get('cells',[]) if r['h3_index']==cell.get('h3_index')),{})
     location={k:scan['location'].get(k) for k in ('query','display_name','latitude','longitude','agency_mode')}
@@ -46,11 +63,15 @@ def context(scan, active_prediction_model='terra_physics_ml'):
     for status in provenance.values():
         if status.get('error'):status['error']=str(status['error'])[:140]
     forecast={k:v for k,v in (scan.get('forecast_inputs') or {}).items() if k in ('status','rain_24h_mm','rain_prior_6d_mm','soil_moisture_0_7cm_mean_m3m3','cutoff_utc','product','moisture_support')}
+    nasa['selected_product']=nasa_product
+    nasa['selected_product_time_note']='NASA daily service product; exact issue/valid time is undeclared unless source metadata provides it'
+    selected_cell=compact_cell({**same,**cell})
+    if active_prediction_model=='nasa_lhasa_2':selected_cell=nasa_cell_context(scan,selected_cell,nasa_product)
     return {'scan_id':scan['scan_id'],'scenario_id':scan['scenario_id'],'location':location,
         'scenario':scan['scenario'],'forecast_view':scan.get('forecast_view'),
-        'live_inputs':scan.get('live_inputs'),'forecast_inputs':forecast or None,'selected_cell':compact_cell({**same,**cell}),'summary':summary,
+        'live_inputs':scan.get('live_inputs'),'forecast_inputs':forecast or None,'selected_cell':selected_cell,'summary':summary,
         'runout_corridor':compact_runout(scan.get('runout_assessment')),'source_provenance':provenance,
-        'active_prediction_model':active_prediction_model,
+        'active_prediction_model':active_prediction_model,'nasa_product':nasa_product,
         'prediction_models':[{k:v for k,v in row.items() if k in ('id','label','available','mode','product_version','peak_scope')}
             for row in (scan.get('prediction_models') or [])],
         'nasa_lhasa':nasa,'nisar':radar,
@@ -102,10 +123,13 @@ def template(e):
           "Inspect the source provenance and automatic provider-forced forecast horizons at the same cell before interpreting changes.")
     selected_model=e.get('active_prediction_model','terra_physics_ml')
     if selected_model=='nasa_lhasa_2':
-        mode=(e.get('nasa_lhasa') or {}).get('mode')
         official=c.get('lhasa_probability')
-        basis='the live NASA service' if isinstance(official,(int,float)) and not isinstance(official,bool) else 'a coarse reference proxy' if mode=='LHASA_REFERENCE_EMULATION' or c.get('lhasa_provenance')=='LHASA_REFERENCE_EMULATION' else 'an explicitly disclosed source state'
-        text+=f"\n\nThe selected NASA comparison score is {f((c.get('prediction_scores') or {}).get(selected_model))}, from {basis}. Its native spatial support differs from the terrain mechanics grid."
+        product=e.get('nasa_product','today').title()
+        if isinstance(official,(int,float)) and not isinstance(official,bool):
+            nasa_text=f"The selected official NASA {product} score is {f(official)}. Its native spatial support differs from the terrain mechanics grid; the service's exact issue and valid time are undeclared."
+        else:
+            nasa_text=f"The official NASA {product} score is unavailable for this cell. A Terra reference index is not substituted as NASA output."
+        text=nasa_text+"\n\nThe following physical column, runout and automatic weather-forced forecast belong to Terra's separate conditional analysis, not NASA LHASA.\n\n"+text
     radar=[c.get(k) for k in ('nisar_coherence','nisar_los_velocity_mm_yr','nisar_polarimetric_moisture_index')]
     if not any(v is not None for v in radar):
         text+=' No measured radar field is included for this cell; discovery metadata does not establish displacement rate, moisture or strength.'
@@ -127,10 +151,13 @@ def planning_reply(message, actions, scan_id=None, scenario_id=None, scan=None):
         'updated_scan_data':scan,'tool_calls':[]}
 
 
-async def chat_active(agent,message,scan_id,scenario_id,sliders,agency_mode,selected_h3_index=None,history=None,autonomous=False,active_prediction_model='terra_physics_ml'):
+async def chat_active(agent,message,scan_id,scenario_id,sliders,agency_mode,selected_h3_index=None,history=None,autonomous=False,active_prediction_model='terra_physics_ml',request_assistant=None,nasa_product='today'):
     from .qwen_agent import parse_scenario_request
     state=agent.scan_service.get_scan_state(scan_id,scenario_id);scan=state['response']
     if active_prediction_model not in MODELS:raise ValueError('Unknown active prediction model')
+    if nasa_product not in ('today','tomorrow'):raise ValueError('Unknown NASA daily product')
+    if active_prediction_model=='nasa_lhasa_2' and ((scan.get('forecast_view') or {}).get('hour') or 0)>0:
+        raise ValueError('Return to the original NOW scan before using a NASA daily product; Terra hourly forecasts are separate')
     if autonomous and sliders:raise ValueError('Autonomous chat cannot apply manual forcing')
     history=history or []
     if len(history)>12 or any(not isinstance(r,dict) or r.get('role') not in ('user','assistant') or not isinstance(r.get('content'),str) or len(r['content'])>4000 for r in history):
@@ -149,25 +176,28 @@ async def chat_active(agent,message,scan_id,scenario_id,sliders,agency_mode,sele
     if changes:
         scan=await agent.scan_service.apply_scenario(scan_id,scenario_id,changes)
         actions.append({'type':'apply_scenario','changes':changes,'scan_id':scan['scan_id'],'scenario_id':scan['scenario_id']})
-    e=context(scan,active_prediction_model);selected=e['selected_cell'].get('h3_index')
+    e=context(scan,active_prediction_model,nasa_product);selected=e['selected_cell'].get('h3_index')
     requested=H3_TOKEN.search(message)
     selected=requested.group().lower() if requested else selected_h3_index or selected
     if selected:
         inspected=agent.scan_service.inspect_hexagon(selected,scan['scan_id'],scan['scenario_id'])
         e['selected_cell']=compact_cell({**inspected,**(inspected.get('physics_informed_assessment') or {})})
+        if active_prediction_model=='nasa_lhasa_2':e['selected_cell']=nasa_cell_context(scan,e['selected_cell'],nasa_product)
         e['runout_corridor']=compact_runout(agent.scan_service.trace_runout(selected,scan['scan_id'],scan['scenario_id']))
-    planner_scan={**scan,'active_prediction_model':active_prediction_model}
+    planner_scan={**scan,'active_prediction_model':active_prediction_model,'nasa_product':nasa_product}
     planned=plan_actions(message,planner_scan,selected)
     if any(a['type'] in ('scan_coordinates','search_location','set_time_horizon') for a in planned):
         return planning_reply(message,planned,scan['scan_id'],scan['scenario_id'],scan)
     for action in planned:
         if action['type']=='select_prediction_model':e['active_prediction_model']=action['model']
+    if e['active_prediction_model']=='nasa_lhasa_2':e['selected_cell']=nasa_cell_context(scan,e['selected_cell'],nasa_product)
     planned_selection=next((a.get('primary_h3') if a['type']=='compare_cells' else a.get('h3_index')
         for a in reversed(planned) if a['type'] in ('inspect_cell','fly_to_cell','compare_cells')),None)
     if planned_selection and planned_selection!=selected:
         selected=planned_selection
         inspected=agent.scan_service.inspect_hexagon(selected,scan['scan_id'],scan['scenario_id'])
         e['selected_cell']=compact_cell({**inspected,**(inspected.get('physics_informed_assessment') or {})})
+        if e['active_prediction_model']=='nasa_lhasa_2':e['selected_cell']=nasa_cell_context(scan,e['selected_cell'],nasa_product)
         e['runout_corridor']=compact_runout(agent.scan_service.trace_runout(selected,scan['scan_id'],scan['scenario_id']))
     actions.extend(planned)
     public=public_steps(actions,True)
@@ -176,9 +206,17 @@ async def chat_active(agent,message,scan_id,scenario_id,sliders,agency_mode,sele
             'omitted_oldest':supplied_history_count-len(history),'policy':'Most recent whole messages within a 2400-byte history budget; current evidence is preserved'},
         'thought_steps':public,'thought_steps_scope':'Public action and evidence summaries; not private model reasoning',
         'action_guard':'VALIDATED_USER_INTENT_PLAN','ui_action':action_envelope(actions,scan['scan_id'],scan['scenario_id'])}
-    model,tier=await agent._available_model();claims=[]
-    service_error=getattr(agent,'_availability_error',None)
-    if model is None and not service_error:
+    if request_assistant is None:
+        # Retained programmatic/CLI compatibility; public API calls always supply
+        # an explicit personal-key config, even in deterministic mode.
+        model,tier=await agent._available_model()
+        service_error=getattr(agent,'_availability_error',None)
+    else:
+        model=request_assistant.model if request_assistant.configured else None
+        tier=0 if model else None
+        service_error=None
+    claims=[]
+    if request_assistant is None and model is None and not service_error:
         return {'scan_id':scan['scan_id'],'scenario_id':scan['scenario_id'],
             'clean_markdown':'The local service is responding but no compatible Qwen model is installed. Load the custom terra-shield-qwen model or Qwen2.5 in Ollama; the structured analysis remains available.',
             'numeric_audit_passed':False,'briefing_guard':'MODEL_UNAVAILABLE','bound_claims':[],
@@ -197,10 +235,13 @@ async def chat_active(agent,message,scan_id,scenario_id,sliders,agency_mode,sele
         e['authorized_action_plan']=planned
         messages=[{'role':'system','content':system},*history,{'role':'user','content':message+'\nACTIVE_EVIDENCE\n'+json.dumps(e,allow_nan=False,separators=(',',':'))}]
         text=None;error=None
-        async with httpx.AsyncClient(timeout=45.) as client:
+        async with httpx.AsyncClient(timeout=45.,trust_env=False) as client:
             for attempt in range(2):
                 try:
-                    candidate=await chat_json_content(client,model,messages,lambda:agent.ollama_url)
+                    candidate=(await request_chat_json_content(client,request_assistant,messages) if request_assistant is not None else
+                               await chat_json_content(client,model,messages,lambda:agent.ollama_url))
+                    if request_assistant is not None and request_assistant.api_key in candidate:
+                        raise ValueError('Credential reflection is forbidden')
                     payload=json.loads(candidate);verified_text,verified_claims=verify_and_render(payload,e)
                     if 'ui_action' in payload:
                         candidate_actions=payload['ui_action']
@@ -231,5 +272,6 @@ async def chat_active(agent,message,scan_id,scenario_id,sliders,agency_mode,sele
         claims.extend({'name':k,'path':'/selected_cell/prediction_scores/'+k,'value':v} for k,v in (e['selected_cell'].get('prediction_scores') or {}).items() if isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v))
     return {'scan_id':scan['scan_id'],'scenario_id':scan['scenario_id'],'clean_markdown':text,'numeric_audit_passed':True,
         'briefing_guard':guard,'bound_claims':claims,'model_error':service_error,
-        'fallback_reason':('LOCAL_MODEL_SERVICE_UNAVAILABLE' if connection_summary()['provider']=='ollama' else 'ASSISTANT_SERVICE_UNAVAILABLE') if service_error else None,'model_name':model,'model_tier':tier,
+        'fallback_reason':('ASSISTANT_SERVICE_UNAVAILABLE' if request_assistant is not None else
+            'LOCAL_MODEL_SERVICE_UNAVAILABLE' if connection_summary()['provider']=='ollama' else 'ASSISTANT_SERVICE_UNAVAILABLE') if service_error else None,'model_name':model,'model_tier':tier,
         'updated_scan_data':scan,'tool_calls':[{'tool_name':'inspect_active_scan','arguments':{'scan_id':scan['scan_id'],'scenario_id':scan['scenario_id']}}],**shared}

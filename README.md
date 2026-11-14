@@ -27,7 +27,7 @@ An interactive portal for landslide visualization and prediction: explore terrai
 3. **Compare the models.** Switch between the in-house approach and NASA's landslide products while keeping the same area in view.
 4. **Look closer.** Select a hexagon to inspect slope, factor-of-safety ranges, water-pressure estimates and potential runout. Explore the automatic **72-hour forecast** and open **Sources** for the evidence behind the result.
 
-The assistant can help navigate, inspect cells and control the map using the selected analysis. Its numeric statements are checked against that analysis, and verified templates keep commands available without an AI key.
+The assistant can help navigate, inspect cells and control the map using the selected analysis. Add your own provider and model in **AI Model & API Key** for generated explanations; numeric statements are checked against the analysis. Verified templates keep map commands available without a key.
 
 ## Two models, one workspace
 

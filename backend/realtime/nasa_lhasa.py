@@ -76,6 +76,29 @@ def _proxy(rows, weather):
                                            (1 - math.exp(-antecedent / 100.))) / 2
 
 
+def _native_pixels(name, metadata, samples):
+    """Display the provider's geographic pixels, not apparent H3 detail."""
+    if not metadata:
+        return {'type': 'FeatureCollection', 'features': []}
+    extent = metadata.get('extent') or {}
+    west = _finite(extent.get('xmin')); north = _finite(extent.get('ymax'))
+    dx = abs(_finite(metadata.get('pixelSizeX')) or ARC_DEGREES)
+    dy = abs(_finite(metadata.get('pixelSizeY')) or ARC_DEGREES)
+    west = -180. if west is None else west
+    north = 90. if north is None else north
+    features = []
+    for identity, sample in sorted(samples.items()):
+        col, row = map(int, identity.split(':'))
+        left, top = west + col * dx, north - row * dy
+        right, bottom = left + dx, top - dy
+        features.append({'type': 'Feature', 'id': name + ':' + identity,
+            'properties': {'native_pixel_id': identity, 'product': name, 'value': sample['value'],
+                'source_resolution_arcsec': [dx * 3600, dy * 3600], 'source': 'NASA_IMAGESERVER'},
+            'geometry': {'type': 'Polygon', 'coordinates': [[[left, bottom], [right, bottom],
+                [right, top], [left, top], [left, bottom]]]}})
+    return {'type': 'FeatureCollection', 'features': features}
+
+
 async def fetch_lhasa(client, cells, *, latitude=None, longitude=None, weather=None,
                       timeout_s=3.5, cache=None):
     """Sample three products under one wall-clock budget, not per-H3 requests.
@@ -177,7 +200,7 @@ async def fetch_lhasa(client, cells, *, latitude=None, longitude=None, weather=N
         proxy = _proxy(coarse[_pixel(row['latitude'], row['longitude'])[0]], weather) if probability is None else None
         result.update(probability=probability, tomorrow_probability=tomorrow,
             susceptibility_class=source['susceptibility']['value'] if source['susceptibility'] else None,
-            coarse_pixel_id=keys['today'], reference_proxy_score=proxy,
+            coarse_pixel_id=keys['today'], coarse_pixel_id_by_product=keys, reference_proxy_score=proxy,
             provenance='LIVE_NASA_IMAGESERVER' if probability is not None else 'LHASA_REFERENCE_EMULATION',
             score_kind='NASA_SERVICE_RELATIVE_PROBABILITY' if probability is not None else 'UNVALIDATED_REFERENCE_INDEX',
             in_hazard_domain=-60 <= row['latitude'] <= 60, source_samples=source)
@@ -194,6 +217,17 @@ async def fetch_lhasa(client, cells, *, latitude=None, longitude=None, weather=N
         'native_resolution_arcsec_by_product': {name: [abs(meta['pixelSizeX']) * 3600, abs(meta['pixelSizeY']) * 3600]
                                                 for name, meta in metadata.items()},
         'native_support': '30-arcsecond geographic pixels; east-west metric width varies with latitude',
+        'capabilities': {'time_products': ['today', 'tomorrow'],
+            'available_time_products': [name for name in ('today', 'tomorrow') if available[name]],
+            'forecast_horizons_hours': [], 'supports_72h_forecast': False,
+            'supports_100m_predictions': False, 'native_resolution_arcsec': 30,
+            'native_resolution_m_north_south_approx': math.pi * 6371008.8 / 180 / 120,
+            'native_resolution_m_east_west_approx': math.pi * 6371008.8 / 180 / 120 *
+                math.cos(math.radians(float(latitude if latitude is not None else (rows[0]['latitude'] if rows else 0.)))),
+            'time_interpretation': 'Relative Today/Tomorrow products; not exact T+24h or a 72-hour trajectory',
+            'physical_columns_source': 'TERRA_REFERENCE_CONTEXT_NOT_NASA_OUTPUT'},
+        'native_pixels_geojson_by_product': {name: _native_pixels(name, metadata.get(name), sampled.get(name) or {})
+            for name in SERVICES},
         'sampling': 'nearest-neighbor source-pixel-center multipoint samples, reused across H3 cells',
         'fetched_at_utc': started, 'product_valid_time_utc': None,
         'valid_time_note': 'Today/tomorrow service names are relative products; acquisition/issue time is unknown unless source metadata declares it',
