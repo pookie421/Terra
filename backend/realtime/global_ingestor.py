@@ -267,7 +267,10 @@ class GlobalIngestor:
         imagery, radar, nasa = await asyncio.gather(
             satellite_result(),
             self._capture('nisar', 'NASA-ISRO NISAR / ASF DAAC', fetch_nisar(client, latitude, longitude,
-                cells=radar_cells, bbox=(west, south, east, north), timeout_s=3.5, cache=self.cache)),
+                # Catalogue + job lookup + authenticated raster transfers need
+                # more than the lightweight NASA map-service budget. Keep this
+                # below _capture's overall deadline; unfinished jobs stay explicit.
+                cells=radar_cells, bbox=(west, south, east, north), timeout_s=12.0, cache=self.cache)),
             self._capture('nasa_lhasa', 'NASA LHASA Earthdata GIS', fetch_lhasa(client, radar_cells,
                 latitude=latitude, longitude=longitude, weather=weather, timeout_s=3.5, cache=self.cache)))
         satellite_cells, statuses['satellite'] = imagery

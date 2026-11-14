@@ -48,6 +48,25 @@ test('a named location chain works before the first scan',async()=>{
   await executeActions(reply(null,[{type:'search_location',query:'Unnamed valley'},{type:'inspect_cell',target:'riskiest'}]),handlers);
   assert.deepEqual(current.calls,[['search','Unnamed valley'],['inspect','steep']]);
 });
+
+test('task progress follows actual dispatch and stops queued tasks after failure',async()=>{
+  const original=scan(),{handlers}=workspace(original),events=[];
+  handlers.start=(step,action)=>events.push(['start',step,action.type]);
+  handlers.setLayer=()=>{events.push(['dispatch']);};
+  handlers.setHorizon=async()=>{events.push(['dispatch-failed']);throw new Error('No forecast');};
+  handlers.outcome=outcome=>events.push([outcome.status,outcome.step]);
+  await executeActions(reply(original,[{type:'set_map_layer',layer:'slope'},{type:'set_time_horizon',horizon:'t_72h'},{type:'inspect_cell',target:'steepest'}]),handlers);
+  assert.deepEqual(events,[['start',1,'set_map_layer'],['dispatch'],['completed',1],['start',2,'set_time_horizon'],['dispatch-failed'],['failed',2]]);
+});
+
+test('invalid and superseded plans never show a task as running',async()=>{
+  const original=scan(),{current,handlers}=workspace(original),started=[];
+  handlers.start=step=>started.push(step);
+  await assert.rejects(executeActions(reply(original,[{type:'set_map_layer',layer:'invented'}]),handlers),/Unknown map layer/);
+  current.alive=false;
+  await assert.rejects(executeActions(reply(original,[{type:'set_map_layer',layer:'slope'}]),handlers),error=>error.name==='AbortError');
+  assert.deepEqual(started,[]);
+});
 test('NASA daily-product actions retain their own IDs rather than masquerading as 24-hour forecasts',async()=>{
   const original=scan(),{current,handlers}=workspace(original);
   handlers.setHorizon=async value=>{current.calls.push(['daily',value]);};

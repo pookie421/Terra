@@ -28,12 +28,56 @@ def compact_runout(runout):
     return result
 
 
-def provider_context(scan):
+def radar_sample_context(scan, selected_cell=None):
+    """Compact sampled-cell coverage, without putting the terrain grid in a prompt."""
+    radar=scan.get('nisar') or {};indexed={}
+    fields={'coherence':'nisar_coherence','los_velocity':'nisar_los_velocity_mm_yr',
+            'polarimetric_ratio':'nisar_polarimetric_moisture_index','los_displacement':'nisar_los_displacement_mm'}
+    def merge(row):
+        if isinstance(row,dict) and isinstance(row.get('h3_index'),str) and row['h3_index']:
+            key=row['h3_index'];indexed[key]={**indexed.get(key,{}),**row}
+    for name in ('h3_geojson','terrain_geojson'):
+        for feature in (scan.get(name) or {}).get('features',[]):merge(feature.get('properties'))
+    for name in ('physical_assessment','physics_informed_assessment'):
+        for row in (scan.get(name) or {}).get('cells',[]):merge(row)
+    terrain_ids=set(indexed)
+    for row in [*(radar.get('cells') or []),*(radar.get('by_h3') or {}).values()]:
+        if not terrain_ids or row.get('h3_index') in terrain_ids:merge(row)
+    def observables(row):
+        available=[]
+        for observable,field in fields.items():
+            value=row.get(field)
+            if isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(value):continue
+            if observable=='coherence' and not 0<=value<=1:continue
+            if observable=='polarimetric_ratio' and value<0:continue
+            available.append(observable)
+        return available
+    counts={name:0 for name in fields};measured=0
+    for row in indexed.values():
+        available=observables(row)
+        if available:measured+=1
+        for name in available:counts[name]+=1
+    selected=selected_cell or {};selected_id=selected.get('h3_index')
+    selected_row=indexed.get(selected_id,selected);selected_observables=observables(selected_row)
+    return {
+        'sample_coverage':{'total_cells':len(indexed) if indexed else None,'measured_cells':measured if indexed else None,
+            'by_observable':counts,'scope':'Valid samples at scanned H3 centroids; not raster footprint area or native pixel counts'},
+        'selected_cell':{'h3_index':selected_id,'measured':bool(selected_observables) if selected_id else None,
+            'observables':selected_observables,'scope':'This selected terrain cell only; missing values do not describe the whole scan'},
+        'model_integration':{'measured_context_available':bool(measured),'sar_trained_weights_available':False,
+            'scope':'Measured radar is included as source context; the current classifier has not been refitted with SAR features. '
+                    'Only a separately documented site calibration may constrain physical inputs; no generic radar-to-strength conversion is applied'}}
+
+
+def provider_context(scan, selected_cell=None):
     nasa=scan.get('nasa_lhasa') or {};radar=scan.get('nisar') or {}
     common=('mode','provider','product_version','native_resolution_arcsec','native_resolution_m',
             'native_resolution_m_approx','valid_time_utc','scope','reason')
-    return ({k:nasa[k] for k in common if k in nasa},
-            {k:radar[k] for k in (*common,'granule_count','query_hit_count','latest_acquisition_utc','measurement_status') if k in radar})
+    compact_radar={k:radar[k] for k in (*common,'granule_count','query_hit_count','latest_acquisition_utc','measurement_status') if k in radar}
+    compact_radar.update(radar_sample_context(scan,selected_cell))
+    access=radar.get('measurement_access') or {}
+    compact_radar['measurement_access']={k:access[k] for k in ('status','method','authentication_configured','retry_after_seconds') if k in access}
+    return ({k:nasa[k] for k in common if k in nasa},compact_radar)
 
 
 def nasa_cell_context(scan, cell, product):
@@ -57,7 +101,7 @@ def context(scan, active_prediction_model='terra_physics_ml', nasa_product='toda
     same=next((r for r in scan.get('physical_assessment',{}).get('cells',[]) if r['h3_index']==cell.get('h3_index')),{})
     location={k:scan['location'].get(k) for k in ('query','display_name','latitude','longitude','agency_mode')}
     summary={k:scan['summary'].get(k) for k in ('physics_informed_score','fs_interval','fosm_variance','hazard_summary','physics_status')}
-    nasa,radar=provider_context(scan)
+    nasa,radar=provider_context(scan,{**same,**cell})
     provenance={name:{k:v for k,v in status.items() if k in ('available','mode','error')}
                 for name,status in scan['source_status'].items()}
     for status in provenance.values():
@@ -130,11 +174,16 @@ def template(e):
         else:
             nasa_text=f"The official NASA {product} score is unavailable for this cell. A Terra reference index is not substituted as NASA output."
         text=nasa_text+"\n\nThe following physical column, runout and automatic weather-forced forecast belong to Terra's separate conditional analysis, not NASA LHASA.\n\n"+text
-    radar=[c.get(k) for k in ('nisar_coherence','nisar_los_velocity_mm_yr','nisar_polarimetric_moisture_index')]
-    if not any(v is not None for v in radar):
-        text+=' No measured radar field is included for this cell; discovery metadata does not establish displacement rate, moisture or strength.'
+    radar=e.get('nisar') or {};coverage=radar.get('sample_coverage') or {};selected=radar.get('selected_cell') or {}
+    if selected.get('measured'):
+        text+=' NISAR supplies measured radar observables for this selected cell, with acquisition and native-raster support retained.'
+    elif coverage.get('measured_cells'):
+        text+=' This selected cell has no valid NISAR sample; other cells in this scan do have measured radar observations.'
+    elif (radar.get('measurement_access') or {}).get('status')=='SUBSET_PENDING':
+        text+=" NASA is preparing NISAR subsets for this scan; no radar value is inferred while processing is pending."
     else:
-        text+=' Available radar fields retain acquisition, unit and quality context; their relationship to strength is not assumed calibrated.'
+        text+=' No valid NISAR measurement was returned for this scan. Discovery metadata does not establish displacement rate, moisture or strength.'
+    text+=' Radar observations provide source context; the current classifier has not been refitted with SAR features, and no generic radar-to-strength conversion is applied.'
     return text
 
 
@@ -199,6 +248,7 @@ async def chat_active(agent,message,scan_id,scenario_id,sliders,agency_mode,sele
         e['selected_cell']=compact_cell({**inspected,**(inspected.get('physics_informed_assessment') or {})})
         if e['active_prediction_model']=='nasa_lhasa_2':e['selected_cell']=nasa_cell_context(scan,e['selected_cell'],nasa_product)
         e['runout_corridor']=compact_runout(agent.scan_service.trace_runout(selected,scan['scan_id'],scan['scenario_id']))
+    e['nisar']=provider_context(scan,e['selected_cell'])[1]
     actions.extend(planned)
     public=public_steps(actions,True)
     shared={'origin_scan_id':origin_scan_id,'origin_scenario_id':origin_scenario_id,

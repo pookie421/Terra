@@ -18,6 +18,8 @@ Nominal 30 m DEM inputs do not make every analysis quantity a 30 m observation. 
 
 ## NISAR discovery and measured subsets
 
+Initial live scans give NISAR a bounded 12-second catalogue/job/raster budget, separately from the lightweight NASA map-service budget. A radar-only refresh allows up to 15 seconds and reuses existing NASA jobs without reacquiring weather or terrain. A completed processing job is not yet a measured sample: download timeouts, decoding errors and native masks remain explicit. The interface separates valid sampled-cell coverage across the scan from missing values at the selected cell.
+
 `backend/realtime/nisar_processor.py` queries public NASA CMR for intersecting GUNW/GCOV validated, provisional and beta collections. Records retain collection/granule identity, acquisition times, orbit information, product maturity and available browse/data links. The latest returned set is bounded; its count is not the total mission acquisition count. Discovery is not an assurance of recent or measured deformation. See the [ASF collection and access guide](https://nisar-docs.asf.alaska.edu/earthaccess/).
 
 Without a readable raster, `METADATA_LIVE` exposes real discovery records and null measurement fields. The complete broad reference FS/FOSM column stays available. Missing radar does not justify a made-up strain variance, a tighter envelope or an arbitrary widening coefficient.

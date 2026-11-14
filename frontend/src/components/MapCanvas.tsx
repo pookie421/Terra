@@ -39,6 +39,24 @@ const LAYER_META:Record<MapLayer,{label:string;left:string;right:string;gradient
 };
 
 function longitude(value:number):number{return ((value+180)%360+360)%360-180;}
+function workspacePadding(container:HTMLElement){
+  const bounds=container.getBoundingClientRect();
+  const root=container.closest('.command-center');
+  const visibleBounds=(selector:string)=>{
+    const element=root?.querySelector<HTMLElement>(selector);
+    if(!element||getComputedStyle(element).display==='none'||getComputedStyle(element).visibility==='hidden')return null;
+    const rect=element.getBoundingClientRect();
+    return rect.width&&rect.height?rect:null;
+  };
+  const header=visibleBounds('.command-bar'),title=visibleBounds('.sector-context');
+  const navigation=visibleBounds('.mobile-panel-switch'),dock=visibleBounds('.workspace-dock');
+  const top=Math.min(bounds.height*.35,Math.max(24,(header?.bottom??bounds.top)-bounds.top+20,(title?.bottom??bounds.top)-bounds.top+20));
+  const bottom=Math.min(bounds.height*.25,navigation?bounds.bottom-navigation.top+12:32);
+  // A narrow-screen sheet leaves no useful map rectangle beside it. Keep the
+  // camera ready for the Map tab instead of fitting into a sliver behind it.
+  const right=dock&&dock.width<bounds.width*.65?bounds.right-dock.left+20:24;
+  return {top:Math.round(top),bottom:Math.round(bottom),left:24,right:Math.round(right)};
+}
 function valueFor():ExpressionSpecification {return ['coalesce',['get','map_value'],-1];}
 function colorFor(layer:MapLayer,nasa=false):ExpressionSpecification {
   const value=valueFor();
@@ -103,15 +121,13 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
     const m=map.current,s=current.current.scan;if(!m||!s)return;
     const anchor=s.location.longitude;
     const positions=s.h3_geojson.features.flatMap(f=>coordinates(f.geometry));
-    if(!positions.length){m.flyTo({center:[s.location.longitude,s.location.latitude],zoom:12,pitch:55});return;}
+    if(!positions.length){m.flyTo({center:[s.location.longitude,s.location.latitude],zoom:12,pitch:55,padding:workspacePadding(m.getContainer())});return;}
     const bounds=new maplibregl.LngLatBounds();
     for(const [lon,lat] of positions){
       // Keep a dateline-crossing scan local instead of fitting almost the whole world.
       bounds.extend([anchor+longitude(lon-anchor),lat]);
     }
-    const width=m.getContainer().clientWidth;
-    const desktop=width>1150;
-    m.fitBounds(bounds,{padding:desktop?{top:150,bottom:80,left:360,right:400}:{top:150,bottom:110,left:40,right:40},maxZoom:14.6,pitch:55,bearing:-18,duration:1400,essential:false});
+    m.fitBounds(bounds,{padding:workspacePadding(m.getContainer()),absolutePadding:true,maxZoom:14.6,pitch:55,bearing:-18,duration:1400,essential:false});
     markTarget(s.location.latitude,s.location.longitude);
   }
   function updateLayers(){
@@ -164,13 +180,14 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
     };
     let m:maplibregl.Map;
     try{
-      m=new maplibregl.Map({container:host.current,style,center:[0,20],zoom:1.6,pitch:55,bearing:0,maxPitch:80,attributionControl:{compact:true},canvasContextAttributes:{antialias:true}});
+      m=new maplibregl.Map({container:host.current,style,center:[0,20],zoom:1.6,pitch:55,bearing:0,maxPitch:80,attributionControl:false,canvasContextAttributes:{antialias:true}});
     }catch{
       setError('WebGL could not start. Live analysis remains available through coordinate search.');return;
     }
     map.current=m;
     m.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'bottom-right');
     m.addControl(new maplibregl.ScaleControl({unit:'metric'}),'bottom-left');
+    m.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-left');
     m.on('load',()=>{setReady(true);setError('');updateLayers();if(current.current.scan)fitCurrent();});
     m.on('click',event=>{
       if(!Number.isFinite(event.lngLat.lat)||!Number.isFinite(event.lngLat.lng))return;
@@ -188,14 +205,30 @@ export default function MapCanvas({scan,selected,onSelect,onScanCoordinate,handl
       if(/worker/i.test(message))setError('The map worker could not load. Reload this page; live API diagnostics remain available.');
       else if(/fetch|network|tile|http/i.test(message))setError('Satellite or terrain tiles failed to load. Check connectivity; available analytical layers remain visible.');
     });
-    const observer=new ResizeObserver(()=>m.resize());observer.observe(host.current);
+    let paddingFrame=0,paddingPending=false;
+    const syncPadding=()=>{
+      cancelAnimationFrame(paddingFrame);
+      paddingFrame=requestAnimationFrame(()=>{
+        if(map.current!==m)return;
+        // Opening a pane must not cancel an agent's in-progress fly-to action.
+        if(m.isMoving()){paddingPending=true;return;}
+        const padding=workspacePadding(m.getContainer()),active=m.getPadding();
+        if(Object.entries(padding).some(([side,value])=>active[side as keyof typeof padding]!==value))m.setPadding(padding);
+      });
+    };
+    m.on('moveend',()=>{if(paddingPending){paddingPending=false;syncPadding();}});
+    const observer=new ResizeObserver(()=>{m.resize();syncPadding();});observer.observe(host.current);
+    const root=host.current.closest('.command-center');
+    const layoutObserver=new MutationObserver(syncPadding);
+    if(root)layoutObserver.observe(root,{attributes:true,attributeFilter:['class'],childList:true});
+    syncPadding();
     handle.current={
-      flyTo:(cell,camera)=>{m.flyTo({center:[cell.longitude,cell.latitude],zoom:camera?.zoom??15.2,pitch:camera?.pitch??55,bearing:camera?.bearing??m.getBearing(),duration:1300,essential:false});},
-      flyToCoordinates:(latitude,lon)=>{markTarget(latitude,longitude(lon));m.flyTo({center:[longitude(lon),latitude],zoom:12,pitch:55,duration:1000,essential:false});},
-      scanCenter:()=>{const center=m.getCenter();scanAt(center.lat,center.lng);},
+      flyTo:(cell,camera)=>{requestAnimationFrame(()=>{if(map.current===m)m.flyTo({center:[cell.longitude,cell.latitude],zoom:camera?.zoom??15.2,pitch:camera?.pitch??55,bearing:camera?.bearing??m.getBearing(),padding:workspacePadding(m.getContainer()),duration:1300,essential:false});});},
+      flyToCoordinates:(latitude,lon)=>{markTarget(latitude,longitude(lon));requestAnimationFrame(()=>{if(map.current===m)m.flyTo({center:[longitude(lon),latitude],zoom:12,pitch:55,padding:workspacePadding(m.getContainer()),duration:1000,essential:false});});},
+      scanCenter:()=>{const viewport=m.getContainer(),padding=workspacePadding(viewport);const center=m.unproject([(padding.left+viewport.clientWidth-padding.right)/2,(padding.top+viewport.clientHeight-padding.bottom)/2]);scanAt(center.lat,center.lng);},
       fitScan:fitCurrent,
     };
-    return()=>{observer.disconnect();reticle.current?.remove();reticle.current=null;m.remove();map.current=null;handle.current=null;};
+    return()=>{cancelAnimationFrame(paddingFrame);observer.disconnect();layoutObserver.disconnect();reticle.current?.remove();reticle.current=null;m.remove();map.current=null;handle.current=null;};
     // Map is constructed once. Current callbacks/data are held in refs so a
     // completed scan or horizon switch cannot destroy the live world canvas.
     // eslint-disable-next-line react-hooks/exhaustive-deps

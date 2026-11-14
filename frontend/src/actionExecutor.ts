@@ -13,6 +13,7 @@ export interface ActionHandlers {
   flyTo:(cell:Cell,camera:{pitch?:number;bearing?:number;zoom?:number})=>void;
   inspect:(cell:Cell)=>void;
   compare:(primary:Cell,secondary:Cell)=>void;
+  start?:(step:number,action:Action)=>void;
   outcome?:(outcome:ActionOutcome)=>void;
 }
 function fail(message:string):never{throw new Error(message);}
@@ -48,7 +49,7 @@ function completed(action:Action):string {
     case 'set_map_layer':return 'Map layer: '+LAYER_LABELS[action.layer]+'.';
     case 'set_time_horizon':return 'Time product: '+({now:'Now',t_24h:'+24 hours',t_48h:'+48 hours',t_72h:'+72 hours',peak_72h:'72-hour peak',nasa_today:'NASA Today',nasa_tomorrow:'NASA Tomorrow'}[action.horizon])+'.';
     case 'fly_to_cell':return 'Focused the map on the requested cell.';
-    case 'inspect_cell':return 'Opened the requested cell details.';
+    case 'inspect_cell':return 'Selected the requested cell for inspection.';
     case 'compare_cells':return 'Pinned the requested cells for comparison.';
   }
 }
@@ -78,6 +79,7 @@ export async function executeActions(reply:Pick<ChatReply,'scan_id'|'scenario_id
     current();
     try{
       if(locationChanged&&action.state_scope!=='chain')fail('A post-scan action must be bound to the new action-chain state.');
+      handlers.start?.(index+1,action);
       switch(action.type){
         case 'scan_coordinates':await handlers.scanCoordinates(action.latitude,action.longitude,action.label);locationChanged=true;break;
         case 'search_location':await handlers.searchLocation(action.query);locationChanged=true;break;

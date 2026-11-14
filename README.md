@@ -27,7 +27,7 @@ An interactive portal for landslide visualization and prediction: explore terrai
 3. **Compare the models.** Switch between the in-house approach and NASA's landslide products while keeping the same area in view.
 4. **Look closer.** Select a hexagon to inspect slope, factor-of-safety ranges, water-pressure estimates and potential runout. Explore the automatic **72-hour forecast** and open **Sources** for the evidence behind the result.
 
-The assistant can help navigate, inspect cells and control the map using the selected analysis. Add your own provider and model in **AI Model & API Key** for generated explanations; numeric statements are checked against the analysis. Verified templates keep map commands available without a key.
+Use the **Overview**, **Inspect** and **Assistant** tabs to keep the map clear while you work. The assistant can navigate, inspect cells and carry out a sequence of map tasks, showing progress and results. Add your own provider and model in **Options → AI Model & API Key** for generated explanations; numeric statements are checked against the analysis. Verified templates keep map commands available without a key.
 
 ## Two models, one workspace
 
@@ -46,7 +46,7 @@ A rainfall baseline and additional physics/weather–terrain diagnostics support
 | **Automatic current & forecast states** | Explore current conditions and provider-driven projections at 24, 48 and 72 hours. |
 | **Physical columns & uncertainty** | Inspect the low, central and high factor-of-safety estimates and their reference assumptions. |
 | **Potential runout corridors** | Explore conditional downstream paths and mapped exposure if release occurs. |
-| **Source transparency** | Inspect weather, soil, seismic, river, NASA and optional NISAR context with availability and provenance. |
+| **Source transparency** | Inspect weather, soil, seismic, river and NASA products. NISAR shows measured radar samples where available, acquisition dates and selected-cell coverage separately. |
 
 The physical engine and the small pretrained ML model are included in this repository and run on CPU. [Engine details and model card →](artifacts/MODEL_CARD.md)
 
